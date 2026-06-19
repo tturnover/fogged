@@ -37,7 +37,7 @@ public class Config {
 
     public static final ModConfigSpec.ConfigValue<String> FOAM_COLOR = BUILDER
             .comment("Foam base colour as hex RGBA (RRGGBBAA). Alpha scales how strongly the foam shows.")
-            .define("foamColor", "FFFFFFFF");
+            .define("foamColor", "70947aFF");
 
     public static final ModConfigSpec.DoubleValue FOAM_WIDTH = BUILDER
             .comment("How far (in blocks) the white foam reaches from where the plane meets blocks and",
