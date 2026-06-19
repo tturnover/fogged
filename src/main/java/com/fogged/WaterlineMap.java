@@ -1,5 +1,6 @@
 package com.fogged;
 
+import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
@@ -8,7 +9,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
@@ -43,7 +44,7 @@ public final class WaterlineMap {
     private static final boolean SABLE = ModList.get().isLoaded("sable");
 
     // Foam particles sprinkled on the ring each tick, within this radius of the camera.
-    private static final int PARTICLES_PER_TICK = 4;
+    private static final int PARTICLES_PER_TICK = 24;
     private static final int PARTICLE_RADIUS_BLOCKS = 14;
 
     private static DynamicTexture texture;
@@ -284,6 +285,9 @@ public final class WaterlineMap {
         if (foamBandCells <= 0.0F) {
             return;
         }
+        // Dust particle tinted with the foam colour.
+        float[] pc = Config.foamColor();
+        DustParticleOptions dust = new DustParticleOptions(new Vector3f(pc[0], pc[1], pc[2]), 1.0F);
         RandomSource rnd = level.getRandom();
         double camCellX = (camPos.x - originX) * C;
         double camCellZ = (camPos.z - originZ) * C;
@@ -298,7 +302,7 @@ public final class WaterlineMap {
             if (s > 0.2F && s <= foamBandCells) { // on the ring, not inside land or open water
                 double wx = originX + (x + rnd.nextDouble()) / C;
                 double wz = originZ + (z + rnd.nextDouble()) / C;
-                level.addParticle(ParticleTypes.SPLASH, wx, surfaceY + 0.05, wz, 0.0, 0.0, 0.0);
+                level.addParticle(dust, wx, surfaceY + 0.05, wz, 0.0, 0.0, 0.0);
             }
         }
     }
