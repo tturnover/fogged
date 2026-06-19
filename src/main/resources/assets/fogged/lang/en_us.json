@@ -1,0 +1,14 @@
+{
+  "fogged.configuration.title": "Fogged Configs",
+  "fogged.configuration.section.fogged.common.toml": "Fogged Configs",
+  "fogged.configuration.section.fogged.common.toml.title": "Fogged Configs",
+  "fogged.configuration.breathHeight": "Breathing Boundary Height",
+  "fogged.configuration.airLossPerTick": "Air Loss Per Tick",
+  "fogged.configuration.fogDistance": "Under-Plane Fog Distance",
+  "fogged.configuration.renderPlane": "Render Separation Plane",
+  "fogged.configuration.planeRed": "Plane Colour Red",
+  "fogged.configuration.planeGreen": "Plane Colour Green",
+  "fogged.configuration.planeBlue": "Plane Colour Blue",
+  "fogged.configuration.planeAlpha": "Plane Opacity",
+  "fogged.configuration.foamWidth": "Foam Width"
+}
