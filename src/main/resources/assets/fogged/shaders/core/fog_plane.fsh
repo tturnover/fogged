@@ -26,13 +26,44 @@ in vec3 relPos;
 
 out vec4 fragColor;
 
+const float TAU = 6.2831853;
+
+// --- shader-side value noise, evaluated in world space so it never tiles/repeats like a texture ---
+float h21(vec2 p) {
+    p = floor(p);
+    float n = p.x * 127.1 + p.y * 311.7;
+    return fract(sin(n) * 43758.5453);
+}
+float vnoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = h21(i);
+    float b = h21(i + vec2(1.0, 0.0));
+    float c = h21(i + vec2(0.0, 1.0));
+    float d = h21(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+// Fractal noise: stack octaves, rotating each one so blobs are organic, not axis-aligned squares.
+float fbm(vec2 p) {
+    const mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+        v += amp * vnoise(p);
+        p = rot * p * 2.0;
+        amp *= 0.5;
+    }
+    return v / 0.9375; // normalise (0.5+0.25+0.125+0.0625) back to ~[0,1]
+}
+
 // Must match WaterTexture: TILE_BLOCKS blocks span SIZE texels (16 texels per block).
 const float WATER_TILE_BLOCKS = 4.0;
 const float WATER_TILE_TEXELS = 64.0;
 
-// Foam pixelation: 16 pixels per block (matches vanilla block textures) and the number of discrete
-// gradient bands the foam is quantised into.
-const float FOAM_PIXELS_PER_BLOCK = 16.0;
+// Foam & spot pixelation: 4 pixels per block -> each pixel is a quarter of a block. Both the foam
+// edge and the surface spots snap to this same grid so their pixels are identical in size and aligned.
+const float FOAM_PIXELS_PER_BLOCK = 4.0;
 const float FOAM_STEPS = 4.0;
 
 void main() {
@@ -50,24 +81,32 @@ void main() {
         edge = 1.0 - clamp(waterDist / FoamWidth, 0.0, 1.0);
     }
 
-    // --- world-aligned, pixelated water sampled NEAREST from the procedural tile ---
-    // UVs come from world XZ so texels line up with blocks (16 texels/block).
-    vec2 wuv = worldXZ / WATER_TILE_BLOCKS;
-
-    // Water shimmer (R): two layers scrolling in whole-texel steps so the pixels stay grid-snapped.
-    vec2 scrollA = vec2(floor(GameTime * 12000.0), 0.0) / WATER_TILE_TEXELS;
-    vec2 scrollB = vec2(0.0, floor(GameTime * 7000.0)) / WATER_TILE_TEXELS;
-    float lumRaw = mix(texture(Sampler1, wuv + scrollA).r,
-                       texture(Sampler1, wuv + scrollB + vec2(24.0, 40.0) / WATER_TILE_TEXELS).r, 0.5);
-    float lum = smoothstep(0.35, 0.65, lumRaw); // push to clear light/dark bands
+    // --- stationary, non-repeating spots that fade in and out in place ---
+    // Big low-frequency blobs from world-space value noise (no texture, so no tiling/repeat),
+    // snapped to the foam pixel grid for chunky pixels.
+    const float SPOT_CELL_BLOCKS = 3.0;    // blob feature size in blocks
+    const float SPOT_MORPH_SPEED = 500.0;  // how fast the whole blob layout reshuffles
+    // Snap on the SAME grid as the foam (16 px/block) so the spot pixels line up 1:1 with foam pixels.
+    vec2 sworld = floor(worldXZ * FOAM_PIXELS_PER_BLOCK) / FOAM_PIXELS_PER_BLOCK;
+    vec2 cell = sworld / SPOT_CELL_BLOCKS;
+    // Spatial blob field morphs in place over time (blend two offset noise layers, no translation),
+    // so the overall noise keeps changing instead of being a fixed pattern.
+    float morph = 0.5 + 0.5 * sin(GameTime * SPOT_MORPH_SPEED);
+    float s  = mix(fbm(cell), fbm(cell + vec2(31.0, 47.0)), morph);
+    // Overlay the spots with the SAME colour steps as the edge foam: quantise into FOAM_STEPS bands
+    // (0.25/0.5/0.75/1.0) and scale by FoamColor.a, so a spot pixel is indistinguishable from a foam pixel.
+    float t = smoothstep(0.45, 0.70, s);
+    // Map the noise onto the two lowest foam steps only (0.25/0.50) -- never the 0.75 or 1.0 bands.
+    float lum = t <= 0.0 ? 0.0 : (t < 0.5 ? 0.25 : 0.5);
+    lum *= FoamColor.a; // same foam strength the edge foam uses
 
     if (FoamDebug > 0.5) {
         // R = foam edge factor, B = animated water shading.
         fragColor = vec4(edge, 0.0, lum, 1.0);
     } else {
-        // Base surface: plane colour shaded by the animated water pattern. Kept noticeably darker
-        // than the plane/sky/fog colour so the water reads as a solid surface even over sky / voids.
-        vec3 baseColor = color.rgb * (0.40 + 0.45 * lum);
+        // Dark water base that BOTH the edge foam and the surface spots blend up from, so identical
+        // band values produce identical colours (the spots are just foam that isn't next to an edge).
+        vec3 water = color.rgb * 0.40;
 
         // Foam: a gradient of the distance-to-waterline, strongest right at the object's edge and
         // fading out across FoamWidth. No noise texture, so it follows the contour of every block /
@@ -76,10 +115,12 @@ void main() {
         foam = ceil(foam * FOAM_STEPS) / FOAM_STEPS;   // stair-step the gradient into chunky bands
         foam *= FoamColor.a;                           // foam strength from the configured alpha
 
-        // Blend the configured foam colour over the base water near the waterline.
+        // One blend of the configured foam colour over the water, driven by whichever is stronger
+        // here -- the edge foam or the surface spot -- so foam and spots are exactly the same colour.
+        float f = max(foam, lum);
         vec4 outColor = color;
-        outColor.rgb = mix(baseColor, FoamColor.rgb, foam);
-        outColor.a = max(color.a, foam);
+        outColor.rgb = mix(water, FoamColor.rgb, f);
+        outColor.a = max(color.a, f);
 
         // Apply the world fog so the plane blends into the same fog you see beneath it (plane-coloured
         // and dense while below the boundary). Distance is per-fragment from camera-relative position.

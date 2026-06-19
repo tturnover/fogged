@@ -1,75 +1,54 @@
 package com.fogged;
 
-import java.util.Map;
-import java.util.WeakHashMap;
-
 import net.minecraft.core.Holder;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.effect.MobEffectUtil;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.neoforged.neoforge.event.entity.living.LivingBreatheEvent;
 
-// Drains the air bar (and drowns) players whose eyes are below the configured breathing boundary,
-// mimicking the vanilla "underwater" behaviour even when there is no water.
+// Makes players whose eyes are below the configured breathing boundary breathe as if underwater
+// (air bar drains, then drowning) even when there is no water.
+//
+// We do this through NeoForge's LivingBreatheEvent rather than by editing the air bar directly: that
+// is the same pipeline vanilla and diving-gear mods (e.g. Create's backtank) hook into. By forcing
+// canBreathe=false here, the drowning behaviour kicks in AND any gear that supplies air -- which only
+// acts when the pipeline reports "can't breathe" -- gets a chance to refill the bar. We run at HIGH
+// priority so that gear (listening at the default priority) runs after us and can override the result.
 @EventBusSubscriber(modid = Fogged.MODID)
 public class BreathHandler {
 
-    // The air value we last enforced per player. Vanilla regenerates air during the entity tick
-    // (which runs *before* this Post handler) whenever the player is not in water, so we use this
-    // to ignore that regen and keep the air strictly decreasing while below the boundary.
-    private static final Map<Player, Integer> ENFORCED_AIR = new WeakHashMap<>();
-
-    @SubscribeEvent
-    static void onPlayerTick(PlayerTickEvent.Post event) {
-        Player player = event.getEntity();
-        if (player.level().isClientSide) {
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    static void onBreathe(LivingBreatheEvent event) {
+        if (!(event.getEntity() instanceof Player player)) {
             return;
         }
 
-        boolean breathable = player.isCreative()
+        // Leave the event untouched whenever the player should be breathing normally or vanilla already
+        // handles it -- only force the underwater pipeline for a player standing in dry air below the
+        // boundary. Touching any of these would wrongly drown a creative/spectator player, cancel a
+        // water-breathing potion, or change how real-water drowning behaves.
+        boolean handledElsewhere = player.isCreative()
                 || player.isSpectator()
                 || player.canBreatheUnderwater()
                 || MobEffectUtil.hasWaterBreathing(player)
-                // already submerged -> let vanilla drowning take over
                 || player.isEyeInFluid(FluidTags.WATER)
-                // eyes above the visible surface -> normal air
                 || player.getEyeY() >= Config.BREATH_HEIGHT.get() + Config.PLANE_SURFACE_OFFSET;
-
-        if (breathable) {
-            ENFORCED_AIR.remove(player);
+        if (handledElsewhere) {
             return;
         }
 
-        int last = ENFORCED_AIR.getOrDefault(player, player.getAirSupply());
-        // Ignore any air vanilla added this tick by clamping to our last enforced value.
-        int base = Math.min(player.getAirSupply(), last);
-
-        // Mirror vanilla LivingEntity#decreaseAirSupply: Respiration gives a level/(level+1) chance
-        // to skip the loss this tick, so the air bar drains exactly as it would underwater.
-        int air;
-        if (skipLossFromRespiration(player)) {
-            air = base;
-        } else {
-            air = base - Config.AIR_LOSS_PER_TICK.getAsInt();
-        }
-
-        if (air <= -20) {
-            air = 0;
-            player.setAirSupply(0);
-            spawnDrownParticles(player);
-            player.hurt(player.damageSources().drown(), 2.0F);
-        } else {
-            player.setAirSupply(air);
-        }
-        ENFORCED_AIR.put(player, air);
+        // Below the dry boundary: drown as if underwater. NeoForge handles the air-bar decrement,
+        // drowning damage and bubble particles from here. Respiration gives the vanilla chance to skip
+        // the loss this tick; otherwise we drain at the configured rate.
+        event.setCanBreathe(false);
+        event.setConsumeAirAmount(skipLossFromRespiration(player) ? 0 : Config.AIR_LOSS_PER_TICK.getAsInt());
     }
 
     private static boolean skipLossFromRespiration(Player player) {
@@ -78,14 +57,5 @@ public class BreathHandler {
                 .getOrThrow(Enchantments.RESPIRATION);
         int level = EnchantmentHelper.getEnchantmentLevel(respiration, player);
         return level > 0 && player.getRandom().nextInt(level + 1) > 0;
-    }
-
-    // Vanilla spawns 8 bubble particles each time the air bar bottoms out and deals drown damage.
-    private static void spawnDrownParticles(Player player) {
-        if (player.level() instanceof ServerLevel level) {
-            level.sendParticles(ParticleTypes.BUBBLE,
-                    player.getX(), player.getEyeY() - 0.3, player.getZ(),
-                    8, 0.25, 0.25, 0.25, 0.0);
-        }
     }
 }
