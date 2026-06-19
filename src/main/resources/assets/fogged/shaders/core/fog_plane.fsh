@@ -23,13 +23,20 @@ out vec4 fragColor;
 const float WATER_TILE_BLOCKS = 4.0;
 const float WATER_TILE_TEXELS = 64.0;
 
+// Foam pixelation: 16 pixels per block (matches vanilla block textures) and the number of discrete
+// gradient bands the foam is quantised into.
+const float FOAM_PIXELS_PER_BLOCK = 16.0;
+const float FOAM_STEPS = 4.0;
+
 void main() {
     vec4 color = vertexColor * ColorModulator;
 
     // --- foam edge: sample the world-space waterline map for the distance to the nearest block /
     //     entity crossing the surface, then ring it within FoamWidth. Purely world-space, so it never
     //     cuts off or flickers with view angle, and the foam sits on the water around objects. ---
-    vec2 luv = (worldXZ - WaterlineOrigin) / WaterlineSize;
+    // Snap the lookup to a 16-px-per-block grid so the foam is pixelated and lines up with blocks.
+    vec2 pworld = floor(worldXZ * FOAM_PIXELS_PER_BLOCK) / FOAM_PIXELS_PER_BLOCK;
+    vec2 luv = (pworld - WaterlineOrigin) / WaterlineSize;
     float edge = 0.0;
     if (FoamWidth > 0.0 && luv.x >= 0.0 && luv.x <= 1.0 && luv.y >= 0.0 && luv.y <= 1.0) {
         float waterDist = texture(Sampler0, luv).r * WaterlineMaxDist;
@@ -47,9 +54,6 @@ void main() {
                        texture(Sampler1, wuv + scrollB + vec2(24.0, 40.0) / WATER_TILE_TEXELS).r, 0.5);
     float lum = smoothstep(0.35, 0.65, lumRaw); // push to clear light/dark bands
 
-    // Foam mask (G): static & world-locked so shoreline foam pixels sit still on the block grid.
-    float texNoise = texture(Sampler1, wuv).g;
-
     if (FoamDebug > 0.5) {
         // R = foam edge factor, B = animated water shading.
         fragColor = vec4(edge, 0.0, lum, 1.0);
@@ -58,17 +62,18 @@ void main() {
 
     // Base surface: plane colour shaded by the animated water pattern. Kept noticeably darker than
     // the plane/sky/fog colour so the water reads as a solid surface even over open sky or voids.
-    color.rgb *= (0.40 + 0.45 * lum);
+    vec3 baseColor = color.rgb * (0.40 + 0.45 * lum);
 
-    // Foam: per-texel white noise gated by the dilated edge. Cap the edge below 1 so the threshold
-    // never reaches 0 -- that keeps even the contact line broken into individual block-grid pixels
-    // (dense near the waterline, sparse further out) instead of a solid white blob.
-    float foam = step(1.0 - edge * 0.85, texNoise);
+    // Foam: a gradient of the distance-to-waterline, strongest right at the object's edge and fading
+    // out across FoamWidth. No noise texture, so it follows the contour of every block/entity --
+    // concentric bands that wrap around objects. Quantised into FOAM_STEPS discrete, visible bands.
+    float foam = edge * edge * (3.0 - 2.0 * edge); // smoothstep-shaped ramp of the edge factor
+    foam = ceil(foam * FOAM_STEPS) / FOAM_STEPS;   // stair-step the gradient into chunky bands
 
-    // Foam on top of the base water.
+    // Gradient from the plane/water colour (outer) to near-white foam (at the waterline).
+    vec3 foamColor = mix(color.rgb, vec3(1.0), 0.85);
     vec4 outColor = color;
-    vec3 foamColor = mix(vec3(1.0), color.rgb, 0.15); // white with a faint plane-colour tint
-    outColor.rgb = mix(outColor.rgb, foamColor, foam);
+    outColor.rgb = mix(baseColor, foamColor, foam);
     outColor.a = max(color.a, foam);
 
     // Fade only the far EDGE of the quad to transparent (true 3D distance), so the surface stays

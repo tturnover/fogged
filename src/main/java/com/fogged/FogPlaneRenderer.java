@@ -46,8 +46,10 @@ public class FogPlaneRenderer {
         // Camera-relative so the pose matrix maps straight to clip space.
         float relY = (float) (surfaceY - cam.y);
 
-        // Keep the world-space waterline foam map up to date around the camera.
-        WaterlineMap.update(mc.level, cam, Mth.floor(surfaceY));
+        // Keep the world-space waterline foam map up to date around the camera. Its radius follows the
+        // simulation distance, since foam only makes sense where blocks/entities are actually ticking.
+        int mapBlocks = mc.options.simulationDistance().get() * 16;
+        WaterlineMap.update(mc.level, cam, Mth.floor(surfaceY), mapBlocks);
 
         float r = Config.PLANE_RED.getAsInt() / 255.0F;
         float g = Config.PLANE_GREEN.getAsInt() / 255.0F;
@@ -77,7 +79,7 @@ public class FogPlaneRenderer {
             shader.safeGetUniform("FoamDebug").set(Config.FOAM_DEBUG.getAsBoolean() ? 1.0F : 0.0F);
             // Where the waterline map sits in the world, and how its stored distance is scaled.
             shader.safeGetUniform("WaterlineOrigin").set(WaterlineMap.originX(), WaterlineMap.originZ());
-            shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.SIZE);
+            shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
             shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
             // Fade only the quad's far rim (3D distance) so the surface stays solid everywhere you
             // look and just the outer edge hides itself against the horizon.

@@ -1,6 +1,8 @@
 package com.fogged;
 
 import net.minecraft.client.Camera;
+import net.minecraft.client.CloudStatus;
+import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.material.FogType;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -25,13 +27,33 @@ public class FogModifier {
 
     @SubscribeEvent
     static void onComputeFogColor(ViewportEvent.ComputeFogColor event) {
-        if (!belowBoundary(event.getCamera())) {
+        boolean below = belowBoundary(event.getCamera());
+        // Clouds sit far above the boundary and shine bright through the plane's faded rim; hide them
+        // while submerged so the surface reads as an opaque ceiling, then restore the player's choice.
+        manageClouds(below);
+        if (!below) {
             return;
         }
         // Match the fog to the separation plane's colour so passing under it feels continuous.
         event.setRed(Config.PLANE_RED.getAsInt() / 255.0F);
         event.setGreen(Config.PLANE_GREEN.getAsInt() / 255.0F);
         event.setBlue(Config.PLANE_BLUE.getAsInt() / 255.0F);
+    }
+
+    // Clouds option we temporarily forced OFF (null = we are not currently overriding it).
+    private static CloudStatus savedClouds = null;
+
+    private static void manageClouds(boolean below) {
+        var clouds = Minecraft.getInstance().options.cloudStatus();
+        if (below) {
+            if (savedClouds == null && clouds.get() != CloudStatus.OFF) {
+                savedClouds = clouds.get();
+                clouds.set(CloudStatus.OFF);
+            }
+        } else if (savedClouds != null) {
+            clouds.set(savedClouds);
+            savedClouds = null;
+        }
     }
 
     // True when the camera should get our thick fog: below the boundary and not in a real fluid
