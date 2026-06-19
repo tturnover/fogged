@@ -15,7 +15,7 @@ public class Config {
     public static final ModConfigSpec.DoubleValue BREATH_HEIGHT = BUILDER
             .comment("World Y height of the breathing boundary. When the player's eyes are below this height",
                     "they breathe as if underwater: air supply drains and they begin to drown.")
-            .defineInRange("breathHeight", 62.0, -64.0, 320.0);
+            .defineInRange("breathHeight", 100.0, -64.0, 320.0);
 
     public static final ModConfigSpec.IntValue AIR_LOSS_PER_TICK = BUILDER
             .comment("Air lost per tick (out of 300) while below the breathing boundary. Higher = drown faster.")
@@ -30,27 +30,24 @@ public class Config {
             .comment("Whether to render the semi-transparent separation plane at the breathing boundary.")
             .define("renderPlane", true);
 
-    public static final ModConfigSpec.IntValue PLANE_RED = BUILDER
-            .comment("Separation plane colour: red component (0-255).")
-            .defineInRange("planeRed", 64, 0, 255);
+    public static final ModConfigSpec.ConfigValue<String> PLANE_COLOR = BUILDER
+            .comment("Separation plane colour as hex RGBA (RRGGBBAA). Alpha 0 = invisible, FF = opaque.",
+                    "Keep alpha high so the plane reads as the same dense fog you see beneath it.")
+            .define("planeColor", "406440FF");
 
-    public static final ModConfigSpec.IntValue PLANE_GREEN = BUILDER
-            .comment("Separation plane colour: green component (0-255).")
-            .defineInRange("planeGreen", 128, 0, 255);
-
-    public static final ModConfigSpec.IntValue PLANE_BLUE = BUILDER
-            .comment("Separation plane colour: blue component (0-255).")
-            .defineInRange("planeBlue", 255, 0, 255);
-
-    public static final ModConfigSpec.IntValue PLANE_ALPHA = BUILDER
-            .comment("Separation plane opacity (0 = invisible, 255 = opaque). Keep high so the plane",
-                    "reads as the same dense fog you see beneath it; lower it to see through the plane.")
-            .defineInRange("planeAlpha", 255, 0, 255);
+    public static final ModConfigSpec.ConfigValue<String> FOAM_COLOR = BUILDER
+            .comment("Foam base colour as hex RGBA (RRGGBBAA). Alpha scales how strongly the foam shows.")
+            .define("foamColor", "FFFFFFFF");
 
     public static final ModConfigSpec.DoubleValue FOAM_WIDTH = BUILDER
             .comment("How far (in blocks) the white foam reaches from where the plane meets blocks and",
                     "entities. 0 disables the foam; larger = wider foam band around every edge.")
-            .defineInRange("foamWidth", 1.25, 0.0, 8.0);
+            .defineInRange("foamWidth", 2.25, 0.0, 8.0);
+
+    public static final ModConfigSpec.BooleanValue SABLE_FOAM = BUILDER
+            .comment("If the Sable physics mod is installed, also generate foam around its sub-levels",
+                    "(ships / contraptions) where they cross the boundary. No effect without Sable.")
+            .define("sableFoam", true);
 
     public static final ModConfigSpec.BooleanValue FOAM_DEBUG = BUILDER
             .comment("Debug: render the plane as raw foam data instead of the normal look.",
@@ -59,4 +56,41 @@ public class Config {
             .define("foamDebug", false);
 
     static final ModConfigSpec SPEC = BUILDER.build();
+
+    // --- hex RGBA helpers ---
+
+    public static float[] planeColor() {
+        return parseRgba(PLANE_COLOR.get());
+    }
+
+    public static float[] foamColor() {
+        return parseRgba(FOAM_COLOR.get());
+    }
+
+    // Parses "RRGGBB" or "RRGGBBAA" (with an optional leading '#') into float[]{r, g, b, a} in 0..1.
+    // Falls back to opaque white on malformed input so a typo never crashes rendering.
+    private static float[] parseRgba(String s) {
+        s = s.trim();
+        if (s.startsWith("#")) {
+            s = s.substring(1);
+        }
+        try {
+            long v = Long.parseLong(s, 16);
+            if (s.length() <= 6) { // RGB only -> fully opaque
+                int rgb = (int) v;
+                return new float[] {
+                        ((rgb >> 16) & 0xFF) / 255.0F,
+                        ((rgb >> 8) & 0xFF) / 255.0F,
+                        (rgb & 0xFF) / 255.0F,
+                        1.0F };
+            }
+            return new float[] {
+                    ((v >> 24) & 0xFF) / 255.0F,
+                    ((v >> 16) & 0xFF) / 255.0F,
+                    ((v >> 8) & 0xFF) / 255.0F,
+                    (v & 0xFF) / 255.0F };
+        } catch (NumberFormatException e) {
+            return new float[] { 1.0F, 1.0F, 1.0F, 1.0F };
+        }
+    }
 }

@@ -47,14 +47,15 @@ public class FogPlaneRenderer {
         float relY = (float) (surfaceY - cam.y);
 
         // Keep the world-space waterline foam map up to date around the camera. Its radius follows the
-        // simulation distance, since foam only makes sense where blocks/entities are actually ticking.
-        int mapBlocks = mc.options.simulationDistance().get() * 16;
+        // render distance so the foam/light covers the part of the plane that is actually visible.
+        int mapBlocks = mc.options.getEffectiveRenderDistance() * 16;
         WaterlineMap.update(mc.level, cam, Mth.floor(surfaceY), mapBlocks);
 
-        float r = Config.PLANE_RED.getAsInt() / 255.0F;
-        float g = Config.PLANE_GREEN.getAsInt() / 255.0F;
-        float b = Config.PLANE_BLUE.getAsInt() / 255.0F;
-        float a = Config.PLANE_ALPHA.getAsInt() / 255.0F;
+        float[] plane = Config.planeColor();
+        float r = plane[0];
+        float g = plane[1];
+        float b = plane[2];
+        float a = plane[3];
 
         float s = mc.options.getEffectiveRenderDistance() * 16.0F + 32.0F;
 
@@ -77,6 +78,8 @@ public class FogPlaneRenderer {
             shader.safeGetUniform("WorldOffset").set((float) cam.x, (float) cam.y, (float) cam.z);
             shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
             shader.safeGetUniform("FoamDebug").set(Config.FOAM_DEBUG.getAsBoolean() ? 1.0F : 0.0F);
+            float[] foam = Config.foamColor();
+            shader.safeGetUniform("FoamColor").set(foam[0], foam[1], foam[2], foam[3]);
             // Where the waterline map sits in the world, and how its stored distance is scaled.
             shader.safeGetUniform("WaterlineOrigin").set(WaterlineMap.originX(), WaterlineMap.originZ());
             shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());

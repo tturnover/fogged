@@ -1,9 +1,16 @@
 #version 150
 
+#moj_import <fog.glsl>
+
 uniform sampler2D Sampler0; // world-space waterline distance map (R = distance to nearest waterline)
 uniform sampler2D Sampler1; // procedural, seamlessly-tiling water/foam texture (R=water, G=foam)
 
 uniform vec4 ColorModulator;
+uniform vec4 FoamColor;     // foam base colour (rgb) and strength (a)
+uniform float FogStart;
+uniform float FogEnd;
+uniform vec4 FogColor;
+uniform int FogShape;
 uniform float GameTime;
 uniform float FoamWidth;
 uniform float FoamDebug;
@@ -57,29 +64,33 @@ void main() {
     if (FoamDebug > 0.5) {
         // R = foam edge factor, B = animated water shading.
         fragColor = vec4(edge, 0.0, lum, 1.0);
-        return;
+    } else {
+        // Base surface: plane colour shaded by the animated water pattern. Kept noticeably darker
+        // than the plane/sky/fog colour so the water reads as a solid surface even over sky / voids.
+        vec3 baseColor = color.rgb * (0.40 + 0.45 * lum);
+
+        // Foam: a gradient of the distance-to-waterline, strongest right at the object's edge and
+        // fading out across FoamWidth. No noise texture, so it follows the contour of every block /
+        // entity -- concentric bands that wrap around objects. Quantised into FOAM_STEPS bands.
+        float foam = edge * edge * (3.0 - 2.0 * edge); // smoothstep-shaped ramp of the edge factor
+        foam = ceil(foam * FOAM_STEPS) / FOAM_STEPS;   // stair-step the gradient into chunky bands
+        foam *= FoamColor.a;                           // foam strength from the configured alpha
+
+        // Blend the configured foam colour over the base water near the waterline.
+        vec4 outColor = color;
+        outColor.rgb = mix(baseColor, FoamColor.rgb, foam);
+        outColor.a = max(color.a, foam);
+
+        // Apply the world fog so the plane blends into the same fog you see beneath it (plane-coloured
+        // and dense while below the boundary). Distance is per-fragment from camera-relative position.
+        float fogDist = fog_distance(relPos, FogShape);
+        outColor = linear_fog(outColor, fogDist, FogStart, FogEnd, FogColor);
+
+        // Fade only the far EDGE of the quad to transparent (true 3D distance), so the surface stays
+        // solid everywhere you actually look -- even from far below it -- and only the rim hides itself.
+        float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, length(relPos));
+        outColor.a *= fade;
+
+        fragColor = outColor;
     }
-
-    // Base surface: plane colour shaded by the animated water pattern. Kept noticeably darker than
-    // the plane/sky/fog colour so the water reads as a solid surface even over open sky or voids.
-    vec3 baseColor = color.rgb * (0.40 + 0.45 * lum);
-
-    // Foam: a gradient of the distance-to-waterline, strongest right at the object's edge and fading
-    // out across FoamWidth. No noise texture, so it follows the contour of every block/entity --
-    // concentric bands that wrap around objects. Quantised into FOAM_STEPS discrete, visible bands.
-    float foam = edge * edge * (3.0 - 2.0 * edge); // smoothstep-shaped ramp of the edge factor
-    foam = ceil(foam * FOAM_STEPS) / FOAM_STEPS;   // stair-step the gradient into chunky bands
-
-    // Gradient from the plane/water colour (outer) to near-white foam (at the waterline).
-    vec3 foamColor = mix(color.rgb, vec3(1.0), 0.85);
-    vec4 outColor = color;
-    outColor.rgb = mix(baseColor, foamColor, foam);
-    outColor.a = max(color.a, foam);
-
-    // Fade only the far EDGE of the quad to transparent (true 3D distance), so the surface stays
-    // solid everywhere you actually look -- even from far below it -- and only the rim hides itself.
-    float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, length(relPos));
-    outColor.a *= fade;
-
-    fragColor = outColor;
 }

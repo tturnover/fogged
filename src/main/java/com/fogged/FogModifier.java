@@ -35,9 +35,10 @@ public class FogModifier {
             return;
         }
         // Match the fog to the separation plane's colour so passing under it feels continuous.
-        event.setRed(Config.PLANE_RED.getAsInt() / 255.0F);
-        event.setGreen(Config.PLANE_GREEN.getAsInt() / 255.0F);
-        event.setBlue(Config.PLANE_BLUE.getAsInt() / 255.0F);
+        float[] c = Config.planeColor();
+        event.setRed(c[0]);
+        event.setGreen(c[1]);
+        event.setBlue(c[2]);
     }
 
     // Clouds option we temporarily forced OFF (null = we are not currently overriding it).
