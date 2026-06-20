@@ -41,6 +41,12 @@ public class Config {
                     "breathing boundary. Lower = denser fog / shorter view, like being underwater.")
             .defineInRange("fogDistance", 24, 4, 256);
 
+    public static final ModConfigSpec.BooleanValue FLIP_FOG = BUILDER
+            .comment("Flip the murk fog to the other side of the plane. Default (false) fogs BELOW the",
+                    "boundary (underwater-style); true fogs ABOVE it instead. Affects the fog only, not",
+                    "the breathing boundary.")
+            .define("flipFog", false);
+
     public static final ModConfigSpec.BooleanValue RENDER_PLANE = BUILDER
             .comment("Whether to render the semi-transparent separation plane at the breathing boundary.")
             .define("renderPlane", true);

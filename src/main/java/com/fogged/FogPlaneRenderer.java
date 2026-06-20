@@ -50,9 +50,9 @@ public class FogPlaneRenderer {
         double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
         // Camera-relative so the pose matrix maps straight to clip space.
         float relY = (float) (surfaceY - cam.y);
-        // Below the boundary the camera is in the thick murk fog; the plane (and its foam) must be
-        // obscured once it is out of that fog's reach.
-        boolean below = cam.y < surfaceY;
+        // On the fogged side of the boundary the camera is in the thick murk fog; the plane (and its
+        // foam) must be obscured once it is out of that fog's reach. flipFog swaps which side that is.
+        boolean below = (cam.y < surfaceY) != Config.FLIP_FOG.getAsBoolean();
 
         // Keep the world-space waterline foam map up to date around the camera. Its radius follows the
         // render distance so the foam/light covers the part of the plane that is actually visible.

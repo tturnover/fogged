@@ -56,13 +56,14 @@ public class FogModifier {
         }
     }
 
-    // True when the camera should get our thick fog: anywhere below the boundary. This now also wins
-    // while submerged in real water, so the plane's fog overrides vanilla's water fog there.
+    // True when the camera should get our thick fog: the fogged side of the boundary. Normally that is
+    // below it (also winning while submerged in real water); flipFog moves the fog to the side above.
     private static boolean belowBoundary(Camera cam) {
         var level = Minecraft.getInstance().level;
         if (level == null) {
             return false;
         }
-        return cam.getPosition().y < Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET;
+        boolean below = cam.getPosition().y < Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET;
+        return below != Config.FLIP_FOG.getAsBoolean();
     }
 }
