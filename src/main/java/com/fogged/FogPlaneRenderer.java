@@ -43,7 +43,7 @@ public class FogPlaneRenderer {
         }
 
         Vec3 cam = event.getCamera().getPosition();
-        double surfaceY = Config.BREATH_HEIGHT.get() + Config.PLANE_SURFACE_OFFSET;
+        double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
         // Camera-relative so the pose matrix maps straight to clip space.
         float relY = (float) (surfaceY - cam.y);
 

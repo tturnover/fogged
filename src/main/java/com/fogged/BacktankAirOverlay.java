@@ -117,7 +117,7 @@ public final class BacktankAirOverlay {
         return player != null
                 && !player.isCreative()
                 && player.getEyeInFluidType().isAir()
-                && player.getEyeY() < Config.BREATH_HEIGHT.get() + Config.PLANE_SURFACE_OFFSET;
+                && player.getEyeY() < Config.breathHeight(player.level()) + Config.PLANE_SURFACE_OFFSET;
     }
 
     // The backtank icon to draw: the first worn item that still has air.

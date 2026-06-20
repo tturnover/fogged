@@ -1,5 +1,11 @@
 package com.fogged;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.electronwill.nightconfig.core.UnmodifiableConfig;
+
+import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 // Mod config. Demonstrates how to use Neo's config APIs.
@@ -13,10 +19,18 @@ public class Config {
 
     // ---- Underwater-breathing boundary config ----
 
-    public static final ModConfigSpec.DoubleValue BREATH_HEIGHT = BUILDER
-            .comment("World Y height of the breathing boundary. When the player's eyes are below this height",
-                    "they breathe as if underwater: air supply drains and they begin to drown.")
-            .defineInRange("breathHeight", 100.0, -64.0, 320.0);
+    public static final ModConfigSpec.ConfigValue<UnmodifiableConfig> PLANE_HEIGHT_SCHEDULE = BUILDER
+            .comment("Breathing-boundary height over time, as a day -> height table. The boundary is the Y",
+                    "below which the player breathes as if underwater. Height is linearly interpolated",
+                    "between listed days; before the first day it holds the first height, after the last",
+                    "day it holds the last. Day is the world day count (dayTime / 24000).",
+                    "TOML table syntax, e.g.   planeHeightSchedule = { \"0\" = -30, \"10\" = 40, \"80\" = 100 }")
+            .define("planeHeightSchedule", Config::defaultSchedule, Config::isValidSchedule);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends Double>> OVERDAY_OFFSET = BUILDER
+            .comment("Daily height offset added on top of the scheduled height, as [minNoon, maxMidnight].",
+                    "It eases from the noon minimum to the midnight maximum and back over the day.")
+            .defineList("overdayOffset", List.of(0.0, 4.0), () -> 0.0, o -> o instanceof Number);
 
     public static final ModConfigSpec.IntValue AIR_LOSS_PER_TICK = BUILDER
             .comment("Air lost per tick (out of 300) while below the breathing boundary. Higher = drown faster.")
@@ -57,6 +71,115 @@ public class Config {
             .define("foamDebug", false);
 
     static final ModConfigSpec SPEC = BUILDER.build();
+
+    // --- dynamic breathing-boundary height ---
+
+    private static final int TICKS_PER_DAY = 24000;
+    private static final int NOON_TICK = 6000; // dayTime 0 = sunrise (06:00), so noon is 6000 ticks in
+
+    // Boundary Y at the world's current time: scheduled height for the day plus the time-of-day offset.
+    public static double breathHeight(Level level) {
+        long dayTime = level.getDayTime();
+        double day = (double) dayTime / TICKS_PER_DAY;
+        int timeOfDay = (int) Math.floorMod(dayTime, TICKS_PER_DAY);
+        return scheduledHeight(day) + overdayOffset(timeOfDay);
+    }
+
+    // Linear interpolation of the day -> height schedule, clamped flat outside the listed range.
+    private static double scheduledHeight(double day) {
+        ensureSchedule();
+        double[] days = schedDays;
+        double[] heights = schedHeights;
+        if (days.length == 0) {
+            return 0.0;
+        }
+        if (day <= days[0]) {
+            return heights[0];
+        }
+        int last = days.length - 1;
+        if (day >= days[last]) {
+            return heights[last];
+        }
+        for (int i = 0; i < last; i++) {
+            if (day <= days[i + 1]) {
+                double t = (day - days[i]) / (days[i + 1] - days[i]);
+                return heights[i] + t * (heights[i + 1] - heights[i]);
+            }
+        }
+        return heights[last];
+    }
+
+    // Offset eased from the noon minimum to the midnight maximum and back over one day.
+    private static double overdayOffset(int timeOfDay) {
+        List<? extends Double> o = OVERDAY_OFFSET.get();
+        double min = o.size() > 0 ? o.get(0) : 0.0;
+        double max = o.size() > 1 ? o.get(1) : min;
+        // f = 0 at noon (6000), 1 at midnight (18000); smooth cosine in between.
+        double f = (1.0 - Math.cos(2.0 * Math.PI * (timeOfDay - NOON_TICK) / TICKS_PER_DAY)) / 2.0;
+        return min + (max - min) * f;
+    }
+
+    // Default day -> height table, written as an inline TOML table on first run.
+    private static UnmodifiableConfig defaultSchedule() {
+        com.electronwill.nightconfig.core.Config c = com.electronwill.nightconfig.core.Config.inMemory();
+        c.set("0", -30);
+        c.set("10", 40);
+        c.set("80", 100);
+        return c;
+    }
+
+    private static boolean isValidSchedule(Object o) {
+        if (!(o instanceof UnmodifiableConfig cfg)) {
+            return false;
+        }
+        for (UnmodifiableConfig.Entry e : cfg.entrySet()) {
+            if (parseEntry(e.getKey(), e.getValue()) == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Parsed schedule, sorted ascending by day. Re-parsed when the underlying config table changes.
+    private static UnmodifiableConfig cachedRaw;
+    private static double[] schedDays = new double[0];
+    private static double[] schedHeights = new double[0];
+
+    private static void ensureSchedule() {
+        UnmodifiableConfig raw = PLANE_HEIGHT_SCHEDULE.get();
+        if (raw == cachedRaw) {
+            return;
+        }
+        cachedRaw = raw;
+        List<double[]> entries = new ArrayList<>();
+        for (UnmodifiableConfig.Entry e : raw.entrySet()) {
+            double[] parsed = parseEntry(e.getKey(), e.getValue());
+            if (parsed != null) {
+                entries.add(parsed);
+            }
+        }
+        entries.sort((a, b) -> Double.compare(a[0], b[0]));
+        schedDays = new double[entries.size()];
+        schedHeights = new double[entries.size()];
+        for (int i = 0; i < entries.size(); i++) {
+            schedDays[i] = entries.get(i)[0];
+            schedHeights[i] = entries.get(i)[1];
+        }
+    }
+
+    // Parses one "day -> height" table entry into {day, height}, or null if malformed. Day comes from
+    // the key string, height may be stored as a number or a quoted string.
+    private static double[] parseEntry(String key, Object value) {
+        try {
+            double day = Double.parseDouble(key.trim());
+            double height = value instanceof Number n
+                    ? n.doubleValue()
+                    : Double.parseDouble(String.valueOf(value).trim());
+            return new double[] { day, height };
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
 
     // --- hex RGBA helpers ---
 

@@ -39,7 +39,7 @@ public class BreathHandler {
                 || player.canBreatheUnderwater()
                 || MobEffectUtil.hasWaterBreathing(player)
                 || player.isEyeInFluid(FluidTags.WATER)
-                || player.getEyeY() >= Config.BREATH_HEIGHT.get() + Config.PLANE_SURFACE_OFFSET;
+                || player.getEyeY() >= Config.breathHeight(player.level()) + Config.PLANE_SURFACE_OFFSET;
         if (handledElsewhere) {
             return;
         }

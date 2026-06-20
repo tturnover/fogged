@@ -277,7 +277,7 @@ public final class WaterlineMap {
     // Sprinkle a few foam particles onto the ring near the camera each tick, for a bit of life.
     private static void emitFoamParticles(Level level, Vec3 camPos, int boundaryY) {
         // Match the rendered plane height exactly (boundaryY is its floored block row, not the surface).
-        double surfaceY = Config.BREATH_HEIGHT.get() + Config.PLANE_SURFACE_OFFSET;
+        double surfaceY = Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET;
         if (Math.abs(camPos.y - surfaceY) > 32.0) {
             return; // only when the camera is near the surface
         }
