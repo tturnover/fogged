@@ -22,20 +22,21 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 // Renders a large, flat, water-like quad at the breathing boundary height, centred on the camera so
 // it reads as an "infinite" separation surface. Foam comes from a world-space waterline map (see
 // WaterlineMap); the surface pattern comes from a procedural tile (see WaterTexture).
+//
+// It is drawn BEFORE the translucent (water) pass so real water blends OVER it -- i.e. you see the
+// plane THROUGH the water -- and so opaque terrain still occludes it via the normal depth test.
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public class FogPlaneRenderer {
 
     @SubscribeEvent
     static void onRenderLevelStage(RenderLevelStageEvent event) {
-        // Render after particles so particles below the surface are covered by the plane instead of
-        // showing through it.
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
+        // Draw just before translucent terrain/water, so water renders on top of (through to) the plane.
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
             return;
         }
         if (!Config.RENDER_PLANE.getAsBoolean()) {
             return;
         }
-
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) {
             return;
@@ -63,9 +64,10 @@ public class FogPlaneRenderer {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthMask(false); // translucent: don't write depth
-        RenderSystem.disableCull();    // visible from both above and below
+        RenderSystem.enableDepthTest(); // occluded by opaque terrain/objects in front of it
+        RenderSystem.depthMask(true);   // write depth so water BELOW the plane is hidden; water ABOVE
+                                        // it is nearer, passes the depth test, and still blends on top
+        RenderSystem.disableCull();     // visible from both above and below
 
         // Sampler0 = world-space waterline distance map (foam), Sampler1 = procedural water tile.
         RenderSystem.setShaderTexture(0, WaterlineMap.textureId());
@@ -92,6 +94,20 @@ public class FogPlaneRenderer {
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
         }
 
+        // While below the surface, force the plane's fog to our boundary fog instead of whatever the
+        // scene is using. Vanilla's dense, short water fog would otherwise blend the plane away, making
+        // it invisible when the camera is submerged (FogModifier leaves real-fluid fog to vanilla).
+        boolean below = cam.y < surfaceY;
+        float savedFogStart = RenderSystem.getShaderFogStart();
+        float savedFogEnd = RenderSystem.getShaderFogEnd();
+        float[] savedFogColor = RenderSystem.getShaderFogColor();
+        if (below) {
+            float far = Config.FOG_DISTANCE.getAsInt();
+            RenderSystem.setShaderFogStart(far * 0.25F);
+            RenderSystem.setShaderFogEnd(far);
+            RenderSystem.setShaderFogColor(r, g, b, 1.0F); // plane colour, like the fog beneath it
+        }
+
         Tesselator tess = Tesselator.getInstance();
         BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         bb.addVertex(mat, -s, relY, -s).setColor(r, g, b, a);
@@ -99,6 +115,12 @@ public class FogPlaneRenderer {
         bb.addVertex(mat, s, relY, s).setColor(r, g, b, a);
         bb.addVertex(mat, s, relY, -s).setColor(r, g, b, a);
         BufferUploader.drawWithShader(bb.buildOrThrow());
+
+        if (below) {
+            RenderSystem.setShaderFogStart(savedFogStart);
+            RenderSystem.setShaderFogEnd(savedFogEnd);
+            RenderSystem.setShaderFogColor(savedFogColor[0], savedFogColor[1], savedFogColor[2], savedFogColor[3]);
+        }
 
         RenderSystem.depthMask(true);
         RenderSystem.enableCull();

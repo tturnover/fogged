@@ -35,7 +35,7 @@ public final class WaterlineMap {
     public static final float MAX_DIST = 8.0F;       // distances are clamped/stored up to this many blocks
     public static final int CELLS_PER_BLOCK = 4;     // sub-block grid resolution (crisp foam contour)
     private static final int RECOMPUTE_INTERVAL = 5;  // ticks between full target rebuilds (also on move)
-    private static final float EASE_CELLS_PER_TICK = 0.6F; // how fast shown[] chases target[] (foam ramp)
+    private static final float EASE_CELLS_PER_TICK = 0.25F; // how fast shown[] chases target[] (foam ramp)
     private static final int MIN_SIZE = 48;           // clamp the simulation-distance-driven block edge
     private static final int MAX_SIZE = 192;
     private static final float INF = 1.0e9F;
@@ -276,7 +276,8 @@ public final class WaterlineMap {
 
     // Sprinkle a few foam particles onto the ring near the camera each tick, for a bit of life.
     private static void emitFoamParticles(Level level, Vec3 camPos, int boundaryY) {
-        double surfaceY = boundaryY + Config.PLANE_SURFACE_OFFSET;
+        // Match the rendered plane height exactly (boundaryY is its floored block row, not the surface).
+        double surfaceY = Config.BREATH_HEIGHT.get() + Config.PLANE_SURFACE_OFFSET;
         if (Math.abs(camPos.y - surfaceY) > 32.0) {
             return; // only when the camera is near the surface
         }

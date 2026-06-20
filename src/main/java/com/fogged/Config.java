@@ -6,9 +6,10 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public class Config {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
-    // The visual plane sits a hair above the boundary so it doesn't z-fight with block faces on the
-    // boundary. Fog and the plane both use this offset so the fog starts exactly at the visible surface.
-    public static final double PLANE_SURFACE_OFFSET = 0.02;
+    // Vertical offset of the visible surface from the breathing boundary. Lowered 0.4 below the
+    // boundary; the plane, fog, foam and breathing checks all use this so they move together and the
+    // fog starts exactly at the visible surface.
+    public static final double PLANE_SURFACE_OFFSET = -0.38;
 
     // ---- Underwater-breathing boundary config ----
 

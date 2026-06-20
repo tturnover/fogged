@@ -72,9 +72,11 @@ void main() {
     // --- foam edge: sample the world-space waterline map for the distance to the nearest block /
     //     entity crossing the surface, then ring it within FoamWidth. Purely world-space, so it never
     //     cuts off or flickers with view angle, and the foam sits on the water around objects. ---
-    // Snap the lookup to a 16-px-per-block grid so the foam is pixelated and lines up with blocks.
+    // Snap the lookup to the foam pixel grid so the foam is pixelated and lines up with blocks. Sample
+    // at the texel CENTRE (+0.5 texel) so NEAREST never rounds to the neighbouring cell at a boundary,
+    // which would shift the whole foam ring by ~a cell in -X/-Z. (Foam grid == map cell grid.)
     vec2 pworld = floor(worldXZ * FOAM_PIXELS_PER_BLOCK) / FOAM_PIXELS_PER_BLOCK;
-    vec2 luv = (pworld - WaterlineOrigin) / WaterlineSize;
+    vec2 luv = (pworld - WaterlineOrigin) / WaterlineSize + 0.5 / (WaterlineSize * FOAM_PIXELS_PER_BLOCK);
     float edge = 0.0;
     if (FoamWidth > 0.0 && luv.x >= 0.0 && luv.x <= 1.0 && luv.y >= 0.0 && luv.y <= 1.0) {
         float waterDist = texture(Sampler0, luv).r * WaterlineMaxDist;
@@ -131,6 +133,12 @@ void main() {
         // solid everywhere you actually look -- even from far below it -- and only the rim hides itself.
         float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, length(relPos));
         outColor.a *= fade;
+
+        // The plane writes depth (to hide water below it), so discard the fully-faded rim -- otherwise
+        // it would write depth over the far horizon it is meant to reveal.
+        if (outColor.a <= 0.003) {
+            discard;
+        }
 
         fragColor = outColor;
     }
