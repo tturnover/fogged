@@ -38,21 +38,16 @@ public class FogPlaneRenderer {
             return;
         }
 
-        Vec3 cam = event.getCamera().getPosition();
-        double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
-        // Below the boundary (incl. submerged in real water) the plane is the murk ceiling overhead.
-        boolean below = cam.y < surfaceY;
-
-        // Above the boundary: draw AFTER translucent water so water above the plane sorts over it.
-        // Below it: draw BEFORE the translucent pass, so the real water surface overhead hasn't written
-        // depth yet and can't occlude the plane. Depth test stays on either way so terrain still hides it.
-        var wantStage = below
-                ? RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES
-                : RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS;
-        if (event.getStage() != wantStage) {
+        // Draw the plane BEFORE the translucent water pass and let it write depth, so it reads as a
+        // solid murk barrier: real water on the far side of the plane (deep water below it when looking
+        // down, the surface above it when submerged) is depth-culled and hidden, while near-side water
+        // still sorts over it. Terrain, drawn earlier, occludes the plane normally.
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
             return;
         }
 
+        Vec3 cam = event.getCamera().getPosition();
+        double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
         // Camera-relative so the pose matrix maps straight to clip space.
         float relY = (float) (surfaceY - cam.y);
 
@@ -74,8 +69,8 @@ public class FogPlaneRenderer {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.enableDepthTest(); // sorted against terrain (and, above the boundary, the water)
-        RenderSystem.depthMask(false);  // translucent overlay: test depth but don't write it
+        RenderSystem.enableDepthTest(); // terrain occludes the plane
+        RenderSystem.depthMask(true);   // opaque murk: write depth so far-side water is culled by it
         RenderSystem.disableCull();     // visible from both sides
 
         // Sampler0 = waterline distance map (foam), Sampler1 = procedural surface tile.

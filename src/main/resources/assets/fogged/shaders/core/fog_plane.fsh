@@ -77,8 +77,15 @@ void main() {
     vec2 luv = (pworld - WaterlineOrigin) / WaterlineSize + 0.5 / (WaterlineSize * FOAM_PIXELS_PER_BLOCK);
     float edge = 0.0;
     if (FoamWidth > 0.0 && luv.x >= 0.0 && luv.x <= 1.0 && luv.y >= 0.0 && luv.y <= 1.0) {
-        float waterDist = texture(Sampler0, luv).r * WaterlineMaxDist;
-        edge = 1.0 - clamp(waterDist / FoamWidth, 0.0, 1.0);
+        vec2 wl = texture(Sampler0, luv).rg; // R = dist to solid/entity, G = dist to plant
+        // Two independent foam rings combined by max. Each ring's strength scales BOTH its band width
+        // (config FoamWidth * strength) and its intensity, so a plant (0.5) reads half as wide and half
+        // as strong as a solid/entity (1.0). They form separately so neither overrides the other.
+        const float SOLID_STRENGTH = 1.0;
+        const float PLANT_STRENGTH = 0.5;
+        float solidEdge = SOLID_STRENGTH * (1.0 - clamp(wl.r * WaterlineMaxDist / (FoamWidth * SOLID_STRENGTH), 0.0, 1.0));
+        float plantEdge = PLANT_STRENGTH * (1.0 - clamp(wl.g * WaterlineMaxDist / (FoamWidth * PLANT_STRENGTH), 0.0, 1.0));
+        edge = max(solidEdge, plantEdge);
     }
 
     // Surface spots: low-frequency world-space noise blobs, on the same pixel grid as the foam, that
