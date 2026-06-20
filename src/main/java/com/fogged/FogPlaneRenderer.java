@@ -50,6 +50,9 @@ public class FogPlaneRenderer {
         double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
         // Camera-relative so the pose matrix maps straight to clip space.
         float relY = (float) (surfaceY - cam.y);
+        // Below the boundary the camera is in the thick murk fog; the plane (and its foam) must be
+        // obscured once it is out of that fog's reach.
+        boolean below = cam.y < surfaceY;
 
         // Keep the world-space waterline foam map up to date around the camera. Its radius follows the
         // render distance so the foam/light covers the part of the plane that is actually visible.
@@ -90,11 +93,13 @@ public class FogPlaneRenderer {
             shader.safeGetUniform("WaterlineOrigin").set(WaterlineMap.originX(), WaterlineMap.originZ());
             shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
             shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
-            // Fade the rim out at the render-distance fog wall so the plane never shows past where
-            // terrain fades to sky. Keyed to render distance in blocks, not the (larger) geometry edge.
-            float renderBlocks = mc.options.getEffectiveRenderDistance() * 16.0F;
-            shader.safeGetUniform("PlaneFadeStart").set(renderBlocks * 0.8F);
-            shader.safeGetUniform("PlaneFadeEnd").set(renderBlocks);
+            // Fade the rim out so the plane never shows past where the world fades away. Above the
+            // boundary that wall is the render distance; below it, the much closer murk fog distance,
+            // so the ceiling and its foam are obscured once out of the fog's reach.
+            float fogFar = Config.FOG_DISTANCE.getAsInt();
+            float fadeEnd = below ? fogFar : mc.options.getEffectiveRenderDistance() * 16.0F;
+            shader.safeGetUniform("PlaneFadeStart").set(fadeEnd * 0.8F);
+            shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
         } else {
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
         }
