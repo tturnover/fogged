@@ -69,12 +69,10 @@ const float FOAM_STEPS = 4.0;
 void main() {
     vec4 color = vertexColor * ColorModulator;
 
-    // --- foam edge: sample the world-space waterline map for the distance to the nearest block /
-    //     entity crossing the surface, then ring it within FoamWidth. Purely world-space, so it never
-    //     cuts off or flickers with view angle, and the foam sits on the water around objects. ---
-    // Snap the lookup to the foam pixel grid so the foam is pixelated and lines up with blocks. Sample
-    // at the texel CENTRE (+0.5 texel) so NEAREST never rounds to the neighbouring cell at a boundary,
-    // which would shift the whole foam ring by ~a cell in -X/-Z. (Foam grid == map cell grid.)
+    // Foam edge: world-space distance to the nearest surface-crossing block/entity, ringed within
+    // FoamWidth. World-space, so it never flickers with view angle. Snap to the foam pixel grid (so it
+    // pixelates and aligns with blocks) and sample at the texel centre (+0.5) so NEAREST doesn't bias
+    // the whole ring a cell in -X/-Z.
     vec2 pworld = floor(worldXZ * FOAM_PIXELS_PER_BLOCK) / FOAM_PIXELS_PER_BLOCK;
     vec2 luv = (pworld - WaterlineOrigin) / WaterlineSize + 0.5 / (WaterlineSize * FOAM_PIXELS_PER_BLOCK);
     float edge = 0.0;
@@ -83,68 +81,50 @@ void main() {
         edge = 1.0 - clamp(waterDist / FoamWidth, 0.0, 1.0);
     }
 
-    // --- stationary, non-repeating spots that fade in and out in place ---
-    // Big low-frequency blobs from world-space value noise (no texture, so no tiling/repeat),
-    // snapped to the foam pixel grid for chunky pixels.
+    // Surface spots: low-frequency world-space noise blobs, on the same pixel grid as the foam, that
+    // fade in/out in place (morph blends two offset noise layers over time, no translation).
     const float SPOT_CELL_BLOCKS = 3.0;    // blob feature size in blocks
-    const float SPOT_MORPH_SPEED = 500.0;  // how fast the whole blob layout reshuffles
-    // Snap on the SAME grid as the foam (16 px/block) so the spot pixels line up 1:1 with foam pixels.
+    const float SPOT_MORPH_SPEED = 500.0;  // how fast the layout reshuffles
     vec2 sworld = floor(worldXZ * FOAM_PIXELS_PER_BLOCK) / FOAM_PIXELS_PER_BLOCK;
     vec2 cell = sworld / SPOT_CELL_BLOCKS;
-    // Spatial blob field morphs in place over time (blend two offset noise layers, no translation),
-    // so the overall noise keeps changing instead of being a fixed pattern.
     float morph = 0.5 + 0.5 * sin(GameTime * SPOT_MORPH_SPEED);
     float s  = mix(fbm(cell), fbm(cell + vec2(31.0, 47.0)), morph);
-    // Overlay the spots with the SAME colour steps as the edge foam: quantise into FOAM_STEPS bands
-    // (0.25/0.5/0.75/1.0) and scale by FoamColor.a, so a spot pixel is indistinguishable from a foam pixel.
+    // Map onto the two lowest foam bands only (0.25/0.50) so a spot reads as foam not next to an edge.
     float t = smoothstep(0.45, 0.70, s);
-    // Map the noise onto the two lowest foam steps only (0.25/0.50) -- never the 0.75 or 1.0 bands.
     float lum = t <= 0.0 ? 0.0 : (t < 0.5 ? 0.25 : 0.5);
     lum *= FoamColor.a; // same foam strength the edge foam uses
 
     if (FoamDebug > 0.5) {
-        // R = foam edge factor, B = animated water shading.
-        fragColor = vec4(edge, 0.0, lum, 1.0);
+        fragColor = vec4(edge, 0.0, lum, 1.0); // R = foam edge factor, B = spot shading
     } else {
-        // Dark water base that BOTH the edge foam and the surface spots blend up from, so identical
-        // band values produce identical colours (the spots are just foam that isn't next to an edge).
-        vec3 water = color.rgb * 0.40;
+        // Base that the foam and spots blend up from. Kept near the full plane colour: the plane is
+        // opaque, so a heavily darkened base showed as a dark disc around the player (no fog there).
+        vec3 planarFog = color.rgb * 0.92;
 
-        // Foam: a gradient of the distance-to-waterline, strongest right at the object's edge and
-        // fading out across FoamWidth. No noise texture, so it follows the contour of every block /
-        // entity -- concentric bands that wrap around objects. Quantised into FOAM_STEPS bands.
-        float foam = edge * edge * (3.0 - 2.0 * edge); // smoothstep-shaped ramp of the edge factor
-        foam = ceil(foam * FOAM_STEPS) / FOAM_STEPS;   // stair-step the gradient into chunky bands
-        foam *= FoamColor.a;                           // foam strength from the configured alpha
-
-        // Strength of the foam here, edge or surface spot, whichever is stronger (same colour for both).
+        // Foam: distance-to-edge gradient, stair-stepped into FOAM_STEPS chunky bands. Follows the
+        // contour of every block/entity. f = whichever is stronger, the edge foam or the surface spot.
+        float foam = edge * edge * (3.0 - 2.0 * edge);
+        foam = ceil(foam * FOAM_STEPS) / FOAM_STEPS;
+        foam *= FoamColor.a;
         float f = max(foam, lum);
 
-        // Fog the WATER BASE only, then lay the foam on top, so the foam is never blended away by the
-        // fog -- it stays visible across the whole surface, near and far. Distance is per-fragment from
-        // the camera-relative position. The base blends into the same plane-coloured murk you see
-        // beneath the boundary.
+        // Fog the base only, then lay foam on top, so foam is never blended away by the fog.
         float fogDist = fog_distance(relPos, FogShape);
-        vec4 fogged = linear_fog(vec4(water, color.a), fogDist, FogStart, FogEnd, FogColor);
+        vec4 fogged = linear_fog(vec4(planarFog, color.a), fogDist, FogStart, FogEnd, FogColor);
 
         vec4 outColor = color;
         outColor.rgb = mix(fogged.rgb, FoamColor.rgb, f);
         outColor.a = max(fogged.a, f);
 
-        // The plane is semi-transparent so you can see it through water, but the opaque seabed BELOW it
-        // was drawn earlier and otherwise shows through clear. Where the fog is building, the fragment
-        // is already the plane colour, so raise its alpha by the fog amount: distant water/seabed is
-        // tinted to the plane colour while the near footprint right under you stays see-through.
+        // Raise alpha by the fog amount so distant geometry behind the plane tints to the plane colour
+        // (the fragment is already that colour there) while the near footprint keeps the config alpha.
         float fogA = clamp((fogDist - FogStart) / max(FogEnd - FogStart, 1e-4), 0.0, 1.0);
         outColor.a = max(outColor.a, fogA);
 
-        // Fade only the far EDGE of the quad to transparent (true 3D distance), so the surface stays
-        // solid everywhere you actually look -- even from far below it -- and only the rim hides itself.
+        // Fade only the far rim (3D distance) so the surface stays solid where you look and the outer
+        // edge reveals the real horizon; discard once fully faded.
         float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, length(relPos));
         outColor.a *= fade;
-
-        // The plane writes depth (to hide water below it), so discard the fully-faded rim -- otherwise
-        // it would write depth over the far horizon it is meant to reveal.
         if (outColor.a <= 0.003) {
             discard;
         }
