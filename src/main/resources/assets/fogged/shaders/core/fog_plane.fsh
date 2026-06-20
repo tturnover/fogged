@@ -117,17 +117,26 @@ void main() {
         foam = ceil(foam * FOAM_STEPS) / FOAM_STEPS;   // stair-step the gradient into chunky bands
         foam *= FoamColor.a;                           // foam strength from the configured alpha
 
-        // One blend of the configured foam colour over the water, driven by whichever is stronger
-        // here -- the edge foam or the surface spot -- so foam and spots are exactly the same colour.
+        // Strength of the foam here, edge or surface spot, whichever is stronger (same colour for both).
         float f = max(foam, lum);
-        vec4 outColor = color;
-        outColor.rgb = mix(water, FoamColor.rgb, f);
-        outColor.a = max(color.a, f);
 
-        // Apply the world fog so the plane blends into the same fog you see beneath it (plane-coloured
-        // and dense while below the boundary). Distance is per-fragment from camera-relative position.
+        // Fog the WATER BASE only, then lay the foam on top, so the foam is never blended away by the
+        // fog -- it stays visible across the whole surface, near and far. Distance is per-fragment from
+        // the camera-relative position. The base blends into the same plane-coloured murk you see
+        // beneath the boundary.
         float fogDist = fog_distance(relPos, FogShape);
-        outColor = linear_fog(outColor, fogDist, FogStart, FogEnd, FogColor);
+        vec4 fogged = linear_fog(vec4(water, color.a), fogDist, FogStart, FogEnd, FogColor);
+
+        vec4 outColor = color;
+        outColor.rgb = mix(fogged.rgb, FoamColor.rgb, f);
+        outColor.a = max(fogged.a, f);
+
+        // The plane is semi-transparent so you can see it through water, but the opaque seabed BELOW it
+        // was drawn earlier and otherwise shows through clear. Where the fog is building, the fragment
+        // is already the plane colour, so raise its alpha by the fog amount: distant water/seabed is
+        // tinted to the plane colour while the near footprint right under you stays see-through.
+        float fogA = clamp((fogDist - FogStart) / max(FogEnd - FogStart, 1e-4), 0.0, 1.0);
+        outColor.a = max(outColor.a, fogA);
 
         // Fade only the far EDGE of the quad to transparent (true 3D distance), so the surface stays
         // solid everywhere you actually look -- even from far below it -- and only the rim hides itself.

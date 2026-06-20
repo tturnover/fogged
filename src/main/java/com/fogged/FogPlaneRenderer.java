@@ -23,15 +23,19 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 // it reads as an "infinite" separation surface. Foam comes from a world-space waterline map (see
 // WaterlineMap); the surface pattern comes from a procedural tile (see WaterTexture).
 //
-// It is drawn BEFORE the translucent (water) pass so real water blends OVER it -- i.e. you see the
-// plane THROUGH the water -- and so opaque terrain still occludes it via the normal depth test.
+// It is drawn AFTER the translucent (water) pass and depth-tested against it: water above the plane
+// blends OVER it (you see the plane through the water), while water below the plane sits behind it and
+// is tinted by the plane like any other block below the boundary. Opaque terrain occludes it normally.
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public class FogPlaneRenderer {
 
     @SubscribeEvent
     static void onRenderLevelStage(RenderLevelStageEvent event) {
-        // Draw just before translucent terrain/water, so water renders on top of (through to) the plane.
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
+        // Draw AFTER translucent water. Vanilla water writes depth, so the depth test then sorts the
+        // plane against it per pixel: water ABOVE the plane is nearer and draws over it (you see the
+        // plane through the water), while water BELOW the plane is behind it -- the semi-transparent
+        // plane draws over and tints that water just like it tints a normal block below the boundary.
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             return;
         }
         if (!Config.RENDER_PLANE.getAsBoolean()) {
@@ -56,7 +60,8 @@ public class FogPlaneRenderer {
         float r = plane[0];
         float g = plane[1];
         float b = plane[2];
-        float a = plane[3];
+        // Config alpha (plane[3]) is intentionally ignored: the plane is drawn opaque on both sides so
+        // it always reads as murk (a low config alpha is what made it look like clear glass up close).
 
         float s = mc.options.getEffectiveRenderDistance() * 16.0F + 32.0F;
 
@@ -64,9 +69,8 @@ public class FogPlaneRenderer {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.enableDepthTest(); // occluded by opaque terrain/objects in front of it
-        RenderSystem.depthMask(true);   // write depth so water BELOW the plane is hidden; water ABOVE
-                                        // it is nearer, passes the depth test, and still blends on top
+        RenderSystem.enableDepthTest(); // depth-sorted against terrain AND the already-drawn water
+        RenderSystem.depthMask(false);  // translucent overlay: test depth but don't write it
         RenderSystem.disableCull();     // visible from both above and below
 
         // Sampler0 = world-space waterline distance map (foam), Sampler1 = procedural water tile.
@@ -86,41 +90,43 @@ public class FogPlaneRenderer {
             shader.safeGetUniform("WaterlineOrigin").set(WaterlineMap.originX(), WaterlineMap.originZ());
             shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
             shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
-            // Fade only the quad's far rim (3D distance) so the surface stays solid everywhere you
-            // look and just the outer edge hides itself against the horizon.
-            shader.safeGetUniform("PlaneFadeStart").set(s * 0.85F);
-            shader.safeGetUniform("PlaneFadeEnd").set(s * 1.35F);
+            // Fade only the very outer rim of the quad so the world's edge fog shows at the horizon.
+            // Keep it tight to the geometric edge (s = half-size), otherwise a shallow, close-up view --
+            // which fills the screen with far fragments -- fades most of the surface away and the plane
+            // looks like it doesn't render. Edge midpoints sit at ~s, corners at ~s*1.41.
+            shader.safeGetUniform("PlaneFadeStart").set(s * 1.0F);
+            shader.safeGetUniform("PlaneFadeEnd").set(s * 1.5F);
         } else {
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
         }
 
-        // While below the surface, force the plane's fog to our boundary fog instead of whatever the
-        // scene is using. Vanilla's dense, short water fog would otherwise blend the plane away, making
-        // it invisible when the camera is submerged (FogModifier leaves real-fluid fog to vanilla).
-        boolean below = cam.y < surfaceY;
+        // Force the plane's fog to our boundary fog instead of whatever the scene is using. Same on
+        // BOTH sides: start the murk almost at the camera and reach full quickly, so the surface reads
+        // murky right up close at a shallow angle instead of see-through, viewed from above or below.
+        // Foam is applied AFTER fog in the shader, so it stays visible on top even of full murk.
+        float far = Config.FOG_DISTANCE.getAsInt();
         float savedFogStart = RenderSystem.getShaderFogStart();
         float savedFogEnd = RenderSystem.getShaderFogEnd();
         float[] savedFogColor = RenderSystem.getShaderFogColor();
-        if (below) {
-            float far = Config.FOG_DISTANCE.getAsInt();
-            RenderSystem.setShaderFogStart(far * 0.25F);
-            RenderSystem.setShaderFogEnd(far);
-            RenderSystem.setShaderFogColor(r, g, b, 1.0F); // plane colour, like the fog beneath it
-        }
+        RenderSystem.setShaderFogStart(0.0F);
+        RenderSystem.setShaderFogEnd(far * 0.15F);
+        RenderSystem.setShaderFogColor(r, g, b, 1.0F); // plane colour, like the fog beneath it
 
+        // Render the plane opaque on BOTH sides so it always reads as a murk surface. The configured
+        // alpha can be low (so the plane shows through water), but that low alpha is what made it look
+        // like clear glass at a shallow angle -- so force it opaque here. Foam still overlays on top.
+        float va = 1.0F;
         Tesselator tess = Tesselator.getInstance();
         BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-        bb.addVertex(mat, -s, relY, -s).setColor(r, g, b, a);
-        bb.addVertex(mat, -s, relY, s).setColor(r, g, b, a);
-        bb.addVertex(mat, s, relY, s).setColor(r, g, b, a);
-        bb.addVertex(mat, s, relY, -s).setColor(r, g, b, a);
+        bb.addVertex(mat, -s, relY, -s).setColor(r, g, b, va);
+        bb.addVertex(mat, -s, relY, s).setColor(r, g, b, va);
+        bb.addVertex(mat, s, relY, s).setColor(r, g, b, va);
+        bb.addVertex(mat, s, relY, -s).setColor(r, g, b, va);
         BufferUploader.drawWithShader(bb.buildOrThrow());
 
-        if (below) {
-            RenderSystem.setShaderFogStart(savedFogStart);
-            RenderSystem.setShaderFogEnd(savedFogEnd);
-            RenderSystem.setShaderFogColor(savedFogColor[0], savedFogColor[1], savedFogColor[2], savedFogColor[3]);
-        }
+        RenderSystem.setShaderFogStart(savedFogStart);
+        RenderSystem.setShaderFogEnd(savedFogEnd);
+        RenderSystem.setShaderFogColor(savedFogColor[0], savedFogColor[1], savedFogColor[2], savedFogColor[3]);
 
         RenderSystem.depthMask(true);
         RenderSystem.enableCull();
