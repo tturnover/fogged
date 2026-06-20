@@ -85,10 +85,11 @@ public class FogPlaneRenderer {
             shader.safeGetUniform("WaterlineOrigin").set(WaterlineMap.originX(), WaterlineMap.originZ());
             shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
             shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
-            // Fade only the outer rim so the horizon shows through. Tight to the geometric edge
-            // (midpoints ~s, corners ~s*1.41), else a shallow close-up view fades the whole surface.
-            shader.safeGetUniform("PlaneFadeStart").set(s * 1.0F);
-            shader.safeGetUniform("PlaneFadeEnd").set(s * 1.5F);
+            // Fade the rim out at the render-distance fog wall so the plane never shows past where
+            // terrain fades to sky. Keyed to render distance in blocks, not the (larger) geometry edge.
+            float renderBlocks = mc.options.getEffectiveRenderDistance() * 16.0F;
+            shader.safeGetUniform("PlaneFadeStart").set(renderBlocks * 0.8F);
+            shader.safeGetUniform("PlaneFadeEnd").set(renderBlocks);
         } else {
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
         }
