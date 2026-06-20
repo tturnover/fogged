@@ -30,9 +30,6 @@ public class FogPlaneRenderer {
 
     @SubscribeEvent
     static void onRenderLevelStage(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
-            return;
-        }
         if (!Config.RENDER_PLANE.getAsBoolean()) {
             return;
         }
@@ -43,6 +40,19 @@ public class FogPlaneRenderer {
 
         Vec3 cam = event.getCamera().getPosition();
         double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
+        // Below the boundary (incl. submerged in real water) the plane is the murk ceiling overhead.
+        boolean below = cam.y < surfaceY;
+
+        // Above the boundary: draw AFTER translucent water so water above the plane sorts over it.
+        // Below it: draw BEFORE the translucent pass, so the real water surface overhead hasn't written
+        // depth yet and can't occlude the plane. Depth test stays on either way so terrain still hides it.
+        var wantStage = below
+                ? RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES
+                : RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS;
+        if (event.getStage() != wantStage) {
+            return;
+        }
+
         // Camera-relative so the pose matrix maps straight to clip space.
         float relY = (float) (surfaceY - cam.y);
 
@@ -64,7 +74,7 @@ public class FogPlaneRenderer {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.enableDepthTest(); // sorted against terrain and the already-drawn water
+        RenderSystem.enableDepthTest(); // sorted against terrain (and, above the boundary, the water)
         RenderSystem.depthMask(false);  // translucent overlay: test depth but don't write it
         RenderSystem.disableCull();     // visible from both sides
 
@@ -120,6 +130,7 @@ public class FogPlaneRenderer {
         RenderSystem.setShaderFogColor(savedFogColor[0], savedFogColor[1], savedFogColor[2], savedFogColor[3]);
 
         RenderSystem.depthMask(true);
+        RenderSystem.enableDepthTest();
         RenderSystem.enableCull();
         RenderSystem.disableBlend();
     }
