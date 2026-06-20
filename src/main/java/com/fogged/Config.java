@@ -77,12 +77,18 @@ public class Config {
     private static final int TICKS_PER_DAY = 24000;
     private static final int NOON_TICK = 6000; // dayTime 0 = sunrise (06:00), so noon is 6000 ticks in
 
-    // Boundary Y at the world's current time: scheduled height for the day plus the time-of-day offset.
+    // Boundary snaps to this vertical step (blocks). Quantizing the continuous height keeps the plane
+    // resting at a fixed Y between steps so it does not z-fight as the schedule/offset drift sub-block.
+    private static final double HEIGHT_STEP = 0.25;
+
+    // Boundary Y at the world's current time: scheduled height for the day plus the time-of-day offset,
+    // snapped to HEIGHT_STEP so the boundary moves in discrete jumps instead of continuous drift.
     public static double breathHeight(Level level) {
         long dayTime = level.getDayTime();
         double day = (double) dayTime / TICKS_PER_DAY;
         int timeOfDay = (int) Math.floorMod(dayTime, TICKS_PER_DAY);
-        return scheduledHeight(day) + overdayOffset(timeOfDay);
+        double raw = scheduledHeight(day) + overdayOffset(timeOfDay);
+        return Math.round(raw / HEIGHT_STEP) * HEIGHT_STEP;
     }
 
     // Linear interpolation of the day -> height schedule, clamped flat outside the listed range.
