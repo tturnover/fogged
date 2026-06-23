@@ -14,8 +14,9 @@ import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 @EventBusSubscriber(modid = Fogged.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class FogShaders {
 
-    // Set once the shader has loaded; read by FogPlaneRenderer. Null until resources are loaded.
+    // Set once the shaders have loaded; read by FogPlaneRenderer / FogVapor. Null until loaded.
     public static ShaderInstance FOG_PLANE;
+    public static ShaderInstance FOG_VAPOR;
 
     @SubscribeEvent
     static void onRegisterShaders(RegisterShadersEvent event) throws Exception {
@@ -24,5 +25,10 @@ public class FogShaders {
                         ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "fog_plane"),
                         DefaultVertexFormat.POSITION_COLOR),
                 shader -> FOG_PLANE = shader);
+        event.registerShader(
+                new ShaderInstance(event.getResourceProvider(),
+                        ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "fog_vapor"),
+                        DefaultVertexFormat.POSITION_COLOR),
+                shader -> FOG_VAPOR = shader);
     }
 }

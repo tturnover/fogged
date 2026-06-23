@@ -63,7 +63,9 @@ public class FogModifier {
         if (level == null) {
             return false;
         }
-        boolean below = cam.getPosition().y < Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET;
+        // Start the murk a little above the plane (fogStartRaise) instead of exactly at it.
+        double fogLine = Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET + Config.FOG_START_RAISE;
+        boolean below = cam.getPosition().y < fogLine;
         return below != Config.FLIP_FOG.getAsBoolean();
     }
 }

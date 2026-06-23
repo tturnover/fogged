@@ -129,6 +129,9 @@ public class FogPlaneRenderer {
         RenderSystem.setShaderFogEnd(savedFogEnd);
         RenderSystem.setShaderFogColor(savedFogColor[0], savedFogColor[1], savedFogColor[2], savedFogColor[3]);
 
+        // Cold-vapour mist sheets are drawn separately in FogVapor, AFTER the translucent water pass,
+        // so the mist veils over water instead of water tracing dark outlines over it.
+
         RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();

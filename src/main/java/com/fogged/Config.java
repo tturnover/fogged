@@ -17,6 +17,9 @@ public class Config {
     // fog starts exactly at the visible surface.
     public static final double PLANE_SURFACE_OFFSET = -0.38;
 
+    // The murk fog starts applying this many blocks above the plane (not exactly at it). Internal.
+    public static final double FOG_START_RAISE = 0.5;
+
     // ---- Underwater-breathing boundary config ----
 
     public static final ModConfigSpec.ConfigValue<UnmodifiableConfig> PLANE_HEIGHT_SCHEDULE = BUILDER
@@ -69,6 +72,36 @@ public class Config {
             .comment("If the Sable physics mod is installed, also generate foam around its sub-levels",
                     "(ships / contraptions) where they cross the boundary. No effect without Sable.")
             .define("sableFoam", true);
+
+    // ---- Cold-vapour ("liquid nitrogen") layer config ----
+
+    public static final ModConfigSpec.BooleanValue RENDER_VAPOR = BUILDER
+            .comment("Render the cold-vapour layer on top of the plane: drifting horizontal mist sheets",
+                    "(overall variation, densest at grazing angles far away) plus animated vertical splash",
+                    "wisps near the camera, for a liquid-nitrogen look. No effect if renderPlane is off.")
+            .define("renderVapor", true);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends Double>> VAPOR_COLOR_OFFSET = BUILDER
+            .comment("Cold-vapour colour is derived from planeColor plus this per-channel offset [dR, dG, dB]",
+                    "(each -1..1, added then clamped), so the vapour tracks the plane but reads distinct.",
+                    "The default lightens it toward an icy white-blue.")
+            .defineList("vaporColorOffset", List.of(0.45, 0.50, 0.55),
+                    () -> 0.0, o -> o instanceof Number n && n.doubleValue() >= -1.0 && n.doubleValue() <= 1.0);
+
+    public static final ModConfigSpec.DoubleValue VAPOR_STRENGTH = BUILDER
+            .comment("Overall vapour strength (alpha). Lower for a fainter mist, 0 to hide it entirely.")
+            .defineInRange("vaporStrength", 0.85, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue VAPOR_SHEETS = BUILDER
+            .comment("Number of stacked mist sheets over the plane. Each is a grid that rises and falls",
+                    "(see vaporUndulation) so the plane never looks dead flat. More sheets = thicker, more",
+                    "layered mist (and a touch more cost). 0 disables the sheets.")
+            .defineInRange("vaporSheets", 3, 0, 8);
+
+    public static final ModConfigSpec.DoubleValue VAPOR_UNDULATION = BUILDER
+            .comment("Maximum height (in blocks) the mist sheets rise off the plane, giving the flat plane",
+                    "rolling rises and falls. 0 = flat sheets.")
+            .defineInRange("vaporUndulation", 1.5, 0.0, 16.0);
 
     public static final ModConfigSpec.BooleanValue FOAM_DEBUG = BUILDER
             .comment("Debug: render the plane as raw foam data instead of the normal look.",
@@ -201,6 +234,24 @@ public class Config {
 
     public static float[] foamColor() {
         return parseRgba(FOAM_COLOR.get());
+    }
+
+    // Vapour colour = plane colour + per-channel offset (clamped), with the configured strength as alpha.
+    public static float[] vaporColor() {
+        float[] plane = planeColor();
+        List<? extends Double> off = VAPOR_COLOR_OFFSET.get();
+        float dr = off.size() > 0 ? off.get(0).floatValue() : 0.0F;
+        float dg = off.size() > 1 ? off.get(1).floatValue() : 0.0F;
+        float db = off.size() > 2 ? off.get(2).floatValue() : 0.0F;
+        return new float[] {
+                clamp01(plane[0] + dr),
+                clamp01(plane[1] + dg),
+                clamp01(plane[2] + db),
+                VAPOR_STRENGTH.get().floatValue() };
+    }
+
+    private static float clamp01(float v) {
+        return v < 0.0F ? 0.0F : Math.min(v, 1.0F);
     }
 
     // Parses "RRGGBB" or "RRGGBBAA" (with an optional leading '#') into float[]{r, g, b, a} in 0..1.
