@@ -130,6 +130,14 @@ public class Config {
         return Math.round(raw / HEIGHT_STEP) * HEIGHT_STEP;
     }
 
+    // True when a camera at world height y is on the fogged side of the boundary (the thick murk side).
+    // Normally that is below the boundary; flipFog moves it to the side above. Shared by the fog
+    // override, the separation plane and the weather suppression so they all agree on the murk side.
+    public static boolean fogged(Level level, double y) {
+        double fogLine = breathHeight(level) + PLANE_SURFACE_OFFSET + FOG_START_RAISE;
+        return (y < fogLine) != FLIP_FOG.getAsBoolean();
+    }
+
     // Linear interpolation of the day -> height schedule, clamped flat outside the listed range.
     private static double scheduledHeight(double day) {
         ensureSchedule();

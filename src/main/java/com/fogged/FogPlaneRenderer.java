@@ -1,6 +1,7 @@
 package com.fogged;
 
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -22,9 +23,12 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 // Renders a large flat quad at the breathing boundary, centred on the camera so it reads as an
 // "infinite" separation surface. Foam comes from a world-space waterline map (WaterlineMap).
 //
-// Drawn AFTER the translucent water pass and depth-tested against it (vanilla water writes depth):
-// water above the plane draws over it, water below sits behind and is tinted by the plane like any
-// other sub-boundary block. Opaque terrain occludes it normally.
+// Drawn after the opaque section passes (terrain AND Sable sub-level solid blocks both render
+// during renderSectionLayer, before this stage) but BEFORE Sable's single-block sub-levels,
+// entities, block entities and the translucent water pass. It writes depth, so everything that
+// comes after is depth-tested against it: terrain still occludes it, far-side water below is
+// culled by it, and Sable contraptions (windmill/mechanical bearings, ships) that sit above the
+// boundary sort in front and render OVER the fog, while ones below stay hidden behind it.
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public class FogPlaneRenderer {
 
@@ -38,11 +42,16 @@ public class FogPlaneRenderer {
             return;
         }
 
-        // Draw the plane BEFORE the translucent water pass and let it write depth, so it reads as a
+        // Draw the plane right after the opaque section passes and let it write depth, so it reads as a
         // solid murk barrier: real water on the far side of the plane (deep water below it when looking
         // down, the surface above it when submerged) is depth-culled and hidden, while near-side water
         // still sorts over it. Terrain, drawn earlier, occludes the plane normally.
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
+        //
+        // AFTER_CUTOUT_BLOCKS fires after terrain AND Sable sub-level solid blocks are in the depth
+        // buffer, but before Sable's single-block sub-levels (injected at constantAmbientLight) and the
+        // entity/block-entity passes. Drawing here lets above-boundary contraptions depth-sort in front
+        // of the plane and render over the fog instead of being painted over by it.
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_CUTOUT_BLOCKS) {
             return;
         }
 
@@ -68,7 +77,12 @@ public class FogPlaneRenderer {
 
         float s = mc.options.getEffectiveRenderDistance() * 16.0F + 32.0F;
 
-        Matrix4f mat = event.getPoseStack().last().pose();
+        // The shader anchors foam in world space via worldXZ = Position.xz + WorldOffset, so the
+        // Position attribute must stay raw camera-relative coords with the camera rotation living in
+        // ModelViewMat. The PoseStack's top matrix is only the camera view at some stages (it was at
+        // AFTER_BLOCK_ENTITIES); getModelViewMatrix() is the camera view at every stage. Push it onto
+        // RenderSystem's modelview and emit the quad untransformed.
+        Matrix4f view = event.getModelViewMatrix();
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -115,15 +129,25 @@ public class FogPlaneRenderer {
         RenderSystem.setShaderFogEnd(far * 0.15F);
         RenderSystem.setShaderFogColor(r, g, b, 1.0F); // plane colour, like the fog beneath it
 
+        // Put the camera view into RenderSystem's modelview for the draw (its leftover state varies by
+        // stage), then emit raw camera-relative vertices so the shader keeps Position world-anchored.
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.pushMatrix();
+        mvStack.set(view);
+        RenderSystem.applyModelViewMatrix();
+
         // Opaque both sides so it always reads as murk (see note on config alpha above).
         float va = 1.0F;
         Tesselator tess = Tesselator.getInstance();
         BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-        bb.addVertex(mat, -s, relY, -s).setColor(r, g, b, va);
-        bb.addVertex(mat, -s, relY, s).setColor(r, g, b, va);
-        bb.addVertex(mat, s, relY, s).setColor(r, g, b, va);
-        bb.addVertex(mat, s, relY, -s).setColor(r, g, b, va);
+        bb.addVertex(-s, relY, -s).setColor(r, g, b, va);
+        bb.addVertex(-s, relY, s).setColor(r, g, b, va);
+        bb.addVertex(s, relY, s).setColor(r, g, b, va);
+        bb.addVertex(s, relY, -s).setColor(r, g, b, va);
         BufferUploader.drawWithShader(bb.buildOrThrow());
+
+        mvStack.popMatrix();
+        RenderSystem.applyModelViewMatrix();
 
         RenderSystem.setShaderFogStart(savedFogStart);
         RenderSystem.setShaderFogEnd(savedFogEnd);
