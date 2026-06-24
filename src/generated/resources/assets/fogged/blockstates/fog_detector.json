@@ -1,0 +1,38 @@
+{
+  "variants": {
+    "facing=east,vertical_direction=down": {
+      "model": "fogged:block/fog_detector",
+      "x": 180,
+      "y": 270
+    },
+    "facing=east,vertical_direction=up": {
+      "model": "fogged:block/fog_detector",
+      "y": 270
+    },
+    "facing=north,vertical_direction=down": {
+      "model": "fogged:block/fog_detector",
+      "x": 180,
+      "y": 180
+    },
+    "facing=north,vertical_direction=up": {
+      "model": "fogged:block/fog_detector",
+      "y": 180
+    },
+    "facing=south,vertical_direction=down": {
+      "model": "fogged:block/fog_detector",
+      "x": 180
+    },
+    "facing=south,vertical_direction=up": {
+      "model": "fogged:block/fog_detector"
+    },
+    "facing=west,vertical_direction=down": {
+      "model": "fogged:block/fog_detector",
+      "x": 180,
+      "y": 90
+    },
+    "facing=west,vertical_direction=up": {
+      "model": "fogged:block/fog_detector",
+      "y": 90
+    }
+  }
+}

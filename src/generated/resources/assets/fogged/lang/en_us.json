@@ -1,0 +1,17 @@
+{
+  "block.fogged.fog_detector": "Fog Detector",
+  "block.fogged.fog_detector_extension": "Fog Detector Extension",
+  "fogged.configuration.airLossPerTick": "Air Loss Per Tick",
+  "fogged.configuration.breathHeight": "Breathing Boundary Height",
+  "fogged.configuration.foamColor": "Foam Colour (hex RGBA)",
+  "fogged.configuration.foamWidth": "Foam Width",
+  "fogged.configuration.fogDistance": "Under-Plane Fog Distance",
+  "fogged.configuration.planeColor": "Plane Colour (hex RGBA)",
+  "fogged.configuration.renderPlane": "Render Separation Plane",
+  "fogged.configuration.sableFoam": "Sable Sub-Level Foam",
+  "fogged.configuration.section.fogged.common.toml": "Fogged Configs",
+  "fogged.configuration.section.fogged.common.toml.title": "Fogged Configs",
+  "fogged.configuration.title": "Fogged Configs",
+  "item.fogged.fog_vial": "Fog Vial",
+  "itemGroup.fogged": "Fogged"
+}

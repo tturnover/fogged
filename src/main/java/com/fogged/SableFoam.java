@@ -4,12 +4,15 @@ import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
 import dev.ryanhcode.sable.companion.math.Pose3dc;
 import dev.ryanhcode.sable.sublevel.SubLevel;
+import dev.ryanhcode.sable.sublevel.plot.LevelPlot;
 
 import org.joml.Vector3d;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 // Sable integration, isolated so the rest of the mod never references Sable classes directly. Only
 // touched when Sable is actually loaded (see WaterlineMap), so the mod runs fine without Sable.
@@ -26,6 +29,28 @@ final class SableFoam {
     }
 
     private SableFoam() {
+    }
+
+    // World-space Y of a block that lives inside a Sable sub-level (ship / contraption): sub-levels
+    // are stored in a far-off plot region, so the block's raw Y is meaningless against the world fog
+    // plane. Map the block centre through the sub-level's pose to get its true world height. Returns
+    // NaN when the position is not inside any sub-level plot (i.e. it's an ordinary world block).
+    static double worldY(Level level, BlockPos pos) {
+        SubLevelContainer container = SubLevelContainer.getContainer(level);
+        if (container == null || !container.inBounds(pos)) {
+            return Double.NaN;
+        }
+        LevelPlot plot = container.getPlot(new ChunkPos(pos));
+        if (plot == null) {
+            return Double.NaN;
+        }
+        SubLevel sub = plot.getSubLevel();
+        if (sub == null) {
+            return Double.NaN;
+        }
+        Vec3 world = sub.logicalPose()
+                .transformPosition(new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
+        return world.y;
     }
 
     static void stampSubLevels(Level level, int boundaryY, int originX, int originZ,

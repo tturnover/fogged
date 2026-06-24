@@ -1,0 +1,26 @@
+{
+	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
+	"parent": "minecraft:block/block",
+	"ambientocclusion": false,
+	"texture_size": [32, 32],
+	"textures": {
+		"0": "fogged:block/fog_detector_extension",
+		"particle": "fogged:block/fog_detector_extension"
+	},
+	"elements": [
+		{
+			"from": [6.5, 3, 4],
+			"to": [9.5, 19, 12],
+			"rotation": {"angle": 0, "axis": "y", "origin": [6.5, 2, 4]},
+			"faces": {
+				"north": {"uv": [4, 0, 5.5, 8], "texture": "#0"},
+				"east": {"uv": [0, 0, 4, 8], "texture": "#0"},
+				"south": {"uv": [9.5, 0, 11, 8], "texture": "#0"},
+				"west": {"uv": [5.5, 0, 9.5, 8], "texture": "#0"},
+				"up": {"uv": [1.5, 12, 0, 8], "texture": "#0"},
+				"down": {"uv": [3, 8, 1.5, 12], "texture": "#0"}
+			}
+		}
+	]
+}
