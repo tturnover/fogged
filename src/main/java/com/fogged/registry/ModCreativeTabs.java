@@ -22,7 +22,7 @@ public final class ModCreativeTabs {
             "fogged",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.fogged"))
-                    .icon(() -> new ItemStack(ModItems.FOG_VIAL.get()))
+                    .icon(() -> new ItemStack(ModBlocks.FOG_DETECTOR.get()))
                     .displayItems((params, output) ->
                             ModItems.ITEMS.getEntries().forEach(item -> output.accept(item.get())))
                     .build());

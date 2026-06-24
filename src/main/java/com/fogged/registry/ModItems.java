@@ -22,9 +22,7 @@ public final class ModItems {
 
     // --- Items --------------------------------------------------------------
     // Add new items below. One line each; datagen produces the model + lang.
-
-    public static final DeferredItem<Item> FOG_VIAL =
-            register("fog_vial", Item::new, new Item.Properties());
+    // (No standalone items yet — BlockItems are registered by ModBlocks.)
 
     // ------------------------------------------------------------------------
 
