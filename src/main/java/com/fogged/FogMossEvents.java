@@ -3,6 +3,7 @@ package com.fogged;
 import com.fogged.registry.ModBlocks;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
@@ -19,6 +20,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.level.ChunkWatchEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 
 /**
@@ -35,10 +37,10 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 public final class FogMossEvents {
     private FogMossEvents() {}
 
-    // Scan cadence and the horizontal reach (in blocks) around each player. The band is only a few
-    // blocks thick, so the work is a thin slab; throttling keeps it cheap on busy servers.
+    // Scan cadence around each player. The band is only a few blocks thick, so the work is a thin
+    // slab; throttling keeps it cheap on busy servers. The horizontal reach tracks the server's
+    // simulation distance (see scanRadius) so rot keeps pace with everything else that ticks.
     private static final int SCAN_INTERVAL_TICKS = 40;
-    private static final int SCAN_RADIUS = 24;
 
     // Whether Sable (physics sub-levels) is present, so we also rot blocks riding ships/contraptions.
     private static final boolean SABLE = ModList.get().isLoaded("sable");
@@ -57,18 +59,14 @@ public final class FogMossEvents {
 
         int top = FogMoss.activeTopY(level);
         int bottom = level.getMinBuildHeight();
+        int radius = scanRadius(level);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (ServerPlayer player : level.players()) {
             int cx = player.getBlockX();
             int cz = player.getBlockZ();
-            for (int x = cx - SCAN_RADIUS; x <= cx + SCAN_RADIUS; x++) {
-                for (int z = cz - SCAN_RADIUS; z <= cz + SCAN_RADIUS; z++) {
-                    for (int y = top; y >= bottom; y--) {
-                        pos.set(x, y, z);
-                        if (level.isLoaded(pos)) {
-                            rot(level, pos, true); // world blocks: leave a moss puddle
-                        }
-                    }
+            for (int x = cx - radius; x <= cx + radius; x++) {
+                for (int z = cz - radius; z <= cz + radius; z++) {
+                    rotColumn(level, pos, x, z, top, bottom);
                 }
             }
         }
@@ -79,6 +77,46 @@ public final class FogMossEvents {
             double activeSurfaceY = FogMoss.surfaceY(level) - Config.FOG_MOSS_SKIP.getAsInt();
             SableFoam.rotSubLevels(level, activeSurfaceY, (subLevel, p) -> rot(subLevel, p, false));
         }
+    }
+
+    /**
+     * Rot a chunk's whole band when it is sent to a player — i.e. it has entered that player's render
+     * distance — so terrain is already scoured by the time they see it. Firing after generation (not
+     * during it) avoids reentrant edits on world-gen. The periodic tick scan ({@link #onLevelTick})
+     * then keeps it rotted as vegetation regrows or is replanted.
+     */
+    @SubscribeEvent
+    static void onChunkWatch(ChunkWatchEvent.Sent event) {
+        if (!Config.FOG_MOSS_ENABLED.get()) {
+            return;
+        }
+        ServerLevel level = event.getLevel();
+        int top = FogMoss.activeTopY(level);
+        int bottom = level.getMinBuildHeight();
+        ChunkPos cp = event.getPos();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (int x = cp.getMinBlockX(); x <= cp.getMaxBlockX(); x++) {
+            for (int z = cp.getMinBlockZ(); z <= cp.getMaxBlockZ(); z++) {
+                rotColumn(level, pos, x, z, top, bottom);
+            }
+        }
+    }
+
+    // Rot the active fog band of a single x/z column, top down. World blocks leave a moss puddle.
+    private static void rotColumn(ServerLevel level, BlockPos.MutableBlockPos pos,
+                                  int x, int z, int top, int bottom) {
+        for (int y = top; y >= bottom; y--) {
+            pos.set(x, y, z);
+            if (level.isLoaded(pos)) {
+                rot(level, pos, true);
+            }
+        }
+    }
+
+    // Horizontal reach in blocks: the server's view/render distance (in chunks) converted to blocks.
+    // That is the furthest a player can see the murk, so there is no point scanning beyond it.
+    private static int scanRadius(ServerLevel level) {
+        return level.getServer().getPlayerList().getViewDistance() * 16;
     }
 
     /**

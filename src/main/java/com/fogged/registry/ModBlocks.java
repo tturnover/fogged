@@ -52,11 +52,24 @@ public final class ModBlocks {
 
     // The moss the murk leaves behind: a full block that puddles over natural ground beneath the fog
     // plane wherever vegetation dies or a mob falls. See com.fogged.FogMoss / com.fogged.FogMossEvents.
+    //
+    // Three temperature variants are chosen by the biome the puddle grows in (see FogMoss#mossFor):
+    // warm -> SOFT, cold -> HARSH, temperate -> the plain FOG_MOSS.
     public static final DeferredBlock<Block> FOG_MOSS =
-            register("fog_moss", Block::new, BlockBehaviour.Properties.of()
-                    .mapColor(MapColor.COLOR_GREEN)
-                    .strength(0.4F)
-                    .sound(SoundType.MOSS));
+            register("fog_moss", Block::new, mossProps());
+
+    public static final DeferredBlock<Block> SOFT_FOG_MOSS =
+            register("soft_fog_moss", Block::new, mossProps());
+
+    public static final DeferredBlock<Block> HARSH_FOG_MOSS =
+            register("harsh_fog_moss", Block::new, mossProps());
+
+    private static BlockBehaviour.Properties mossProps() {
+        return BlockBehaviour.Properties.of()
+                .mapColor(MapColor.COLOR_GREEN)
+                .strength(0.4F)
+                .sound(SoundType.MOSS);
+    }
 
     // ------------------------------------------------------------------------
 

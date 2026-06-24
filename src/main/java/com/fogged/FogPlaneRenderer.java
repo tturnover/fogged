@@ -32,6 +32,12 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public class FogPlaneRenderer {
 
+    // Period (blocks) of the world-space anchor tile used to keep shader noise/foam coords small and
+    // precise far from spawn (see the WorldOffset note below). A power of two and a multiple of the
+    // foam/water pixel grid, large enough that its seam is essentially never crossed in play. Must
+    // match FogVapor#NOISE_ANCHOR so the two layers anchor identically.
+    static final double NOISE_ANCHOR = 4096.0;
+
     @SubscribeEvent
     static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (!Config.RENDER_PLANE.getAsBoolean()) {
@@ -98,13 +104,20 @@ public class FogPlaneRenderer {
         ShaderInstance shader = FogShaders.FOG_PLANE;
         if (shader != null) {
             RenderSystem.setShader(() -> shader);
-            shader.safeGetUniform("WorldOffset").set((float) cam.x, (float) cam.y, (float) cam.z);
+            // Anchor world-space coords to a large tile near the camera (see NOISE_ANCHOR): the shader
+            // floors worldXZ onto a pixel grid, and full world coords far from spawn lose float32
+            // precision, so the snapped noise/foam boils and flickers as the camera moves sub-block.
+            // Both WorldOffset and WaterlineOrigin shift by the same anchor, so foam UVs stay exact.
+            double ax = Math.floor(cam.x / NOISE_ANCHOR) * NOISE_ANCHOR;
+            double az = Math.floor(cam.z / NOISE_ANCHOR) * NOISE_ANCHOR;
+            shader.safeGetUniform("WorldOffset").set((float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
+            shader.safeGetUniform("Time").set(FogShaders.animTimeSeconds()); // monotonic boil clock
             shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
             shader.safeGetUniform("FoamDebug").set(Config.FOAM_DEBUG.getAsBoolean() ? 1.0F : 0.0F);
             float[] foam = Config.foamColor();
             shader.safeGetUniform("FoamColor").set(foam[0], foam[1], foam[2], foam[3]);
             // Where the waterline map sits in the world, and how its stored distance is scaled.
-            shader.safeGetUniform("WaterlineOrigin").set(WaterlineMap.originX(), WaterlineMap.originZ());
+            shader.safeGetUniform("WaterlineOrigin").set((float) (WaterlineMap.originX() - ax), (float) (WaterlineMap.originZ() - az));
             shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
             shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
             // Fade the rim out so the plane never shows past where the world fades away. Above the

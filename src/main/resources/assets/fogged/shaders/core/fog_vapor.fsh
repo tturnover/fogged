@@ -27,30 +27,34 @@ in vec3 relPos;
 out vec4 fragColor;
 
 const float WISP_STEPS = 4.0; // alpha quantised into this many chunky bands
+const float VAPOR_TIME_RATE = 0.1; // noise time-axis advance per second (~one reshuffle per 10 s)
 
-// --- world-space value-noise fbm (same construction as fog_plane.fsh) ---
-float h21(vec2 p) {
+// --- world-space 3D value-noise fbm (same construction as fog_plane.fsh). Feeding time into the third
+// axis morphs the field in place and only ever forward, so the vapour boils continuously instead of
+// ping-ponging back and forth like a sin() crossfade. ---
+float h31(vec3 p) {
     p = floor(p);
-    float n = p.x * 127.1 + p.y * 311.7;
+    float n = p.x * 127.1 + p.y * 311.7 + p.z * 74.7;
     return fract(sin(n) * 43758.5453);
 }
-float vnoise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
+float vnoise3(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
-    float a = h21(i);
-    float b = h21(i + vec2(1.0, 0.0));
-    float c = h21(i + vec2(0.0, 1.0));
-    float d = h21(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    float a = mix(mix(h31(i + vec3(0,0,0)), h31(i + vec3(1,0,0)), f.x),
+                  mix(h31(i + vec3(0,1,0)), h31(i + vec3(1,1,0)), f.x), f.y);
+    float b = mix(mix(h31(i + vec3(0,0,1)), h31(i + vec3(1,0,1)), f.x),
+                  mix(h31(i + vec3(0,1,1)), h31(i + vec3(1,1,1)), f.x), f.y);
+    return mix(a, b, f.z);
 }
-float fbm(vec2 p) {
+float fbm3(vec2 p, float t) {
     const mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
     float v = 0.0;
     float amp = 0.5;
     for (int i = 0; i < 4; i++) {
-        v += amp * vnoise(p);
+        v += amp * vnoise3(vec3(p, t));
         p = rot * p * 2.0;
+        t *= 1.7;
         amp *= 0.5;
     }
     return v / 0.9375;
@@ -64,9 +68,10 @@ void main() {
     // sliding. This single field drives both the terrace coverage and the surface texture.
     vec2 q = floor(worldXZ * PixelsPerBlock) / PixelsPerBlock;
     vec2 p = q * WispScale;
-    float m = 0.5 + 0.5 * sin(Time * 0.6);
-    float nval = mix(fbm(p), fbm(p + 11.0), m) * 0.6
-               + mix(fbm(p * 1.7 + 19.0), fbm(p * 1.7 + 41.0), 1.0 - m) * 0.4;
+    // Animate by advancing the noise's time axis (forward only, morphs in place) instead of crossfading
+    // two fixed fields with a sin() -- that ran the boil forward then backward.
+    float t = Time * VAPOR_TIME_RATE;
+    float nval = fbm3(p, t) * 0.6 + fbm3(p * 1.7 + 19.0, t * 1.3 + 7.0) * 0.4;
 
     // Terrace: this plane is present where the noise reaches its step threshold, with a soft per-pixel
     // edge band (rather than a hard cut) so the steps read but don't look like solid blocks. Stacking

@@ -11,7 +11,7 @@ uniform float FogStart;
 uniform float FogEnd;
 uniform vec4 FogColor;
 uniform int FogShape;
-uniform float GameTime;
+uniform float Time; // monotonic wall-clock seconds (FogShaders#animTimeSeconds), drives the spot morph
 uniform float FoamWidth;
 uniform float FoamDebug;
 uniform vec2 WaterlineOrigin;   // world XZ of the waterline map's corner
@@ -28,33 +28,37 @@ out vec4 fragColor;
 
 const float TAU = 6.2831853;
 
-// --- shader-side value noise, evaluated in world space so it never tiles/repeats like a texture ---
-float h21(vec2 p) {
+// --- shader-side 3D value noise, evaluated in world space so it never tiles/repeats like a texture.
+// Feeding time into the third axis morphs the field in place and only ever forward, so it boils
+// continuously instead of ping-ponging like a sin() crossfade. ---
+float h31(vec3 p) {
     p = floor(p);
-    float n = p.x * 127.1 + p.y * 311.7;
+    float n = p.x * 127.1 + p.y * 311.7 + p.z * 74.7;
     return fract(sin(n) * 43758.5453);
 }
-float vnoise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
+float vnoise3(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
-    float a = h21(i);
-    float b = h21(i + vec2(1.0, 0.0));
-    float c = h21(i + vec2(0.0, 1.0));
-    float d = h21(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    float a = mix(mix(h31(i + vec3(0,0,0)), h31(i + vec3(1,0,0)), f.x),
+                  mix(h31(i + vec3(0,1,0)), h31(i + vec3(1,1,0)), f.x), f.y);
+    float b = mix(mix(h31(i + vec3(0,0,1)), h31(i + vec3(1,0,1)), f.x),
+                  mix(h31(i + vec3(0,1,1)), h31(i + vec3(1,1,1)), f.x), f.y);
+    return mix(a, b, f.z);
 }
-// Fractal noise: stack octaves, rotating each one so blobs are organic, not axis-aligned squares.
-float fbm(vec2 p) {
+// Fractal noise: stack octaves, rotating each one so blobs are organic, not axis-aligned squares. The
+// time axis scales up with each octave so large blobs drift slowly while fine detail churns faster.
+float fbm3(vec2 p, float t) {
     const mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
     float v = 0.0;
     float amp = 0.5;
     for (int i = 0; i < 4; i++) {
-        v += amp * vnoise(p);
+        v += amp * vnoise3(vec3(p, t));
         p = rot * p * 2.0;
+        t *= 1.7;
         amp *= 0.5;
     }
-    return v / 0.9375; // normalise (0.5+0.25+0.125+0.0625) back to ~[0,1]
+    return v / 0.9375;
 }
 
 // Must match WaterTexture: TILE_BLOCKS blocks span SIZE texels (16 texels per block).
@@ -91,11 +95,12 @@ void main() {
     // Surface spots: low-frequency world-space noise blobs, on the same pixel grid as the foam, that
     // fade in/out in place (morph blends two offset noise layers over time, no translation).
     const float SPOT_CELL_BLOCKS = 3.0;    // blob feature size in blocks
-    const float SPOT_MORPH_SPEED = 500.0;  // how fast the layout reshuffles
+    const float SPOT_TIME_RATE = 0.1;      // noise time-axis advance per second (~one reshuffle per 10 s)
     vec2 sworld = floor(worldXZ * FOAM_PIXELS_PER_BLOCK) / FOAM_PIXELS_PER_BLOCK;
     vec2 cell = sworld / SPOT_CELL_BLOCKS;
-    float morph = 0.5 + 0.5 * sin(GameTime * SPOT_MORPH_SPEED);
-    float s  = mix(fbm(cell), fbm(cell + vec2(31.0, 47.0)), morph);
+    // Animate by advancing the noise's time axis: morphs in place, always forward (no ping-pong, no
+    // slide). Time is monotonic wall-clock seconds, so the rate below is per real second.
+    float s = fbm3(cell, Time * SPOT_TIME_RATE);
     // Map onto the two lowest foam bands only (0.25/0.50) so a spot reads as foam not next to an edge.
     float t = smoothstep(0.45, 0.70, s);
     float lum = t <= 0.0 ? 0.0 : (t < 0.5 ? 0.25 : 0.5);

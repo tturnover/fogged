@@ -18,6 +18,16 @@ public class FogShaders {
     public static ShaderInstance FOG_PLANE;
     public static ShaderInstance FOG_VAPOR;
 
+    // Monotonic wall clock for the surface boil. The game's per-frame partial tick can slip backward
+    // between frames (esp. at uncapped FPS), which made the time-driven noise morph run forward then
+    // backward. nanoTime never goes back, so the boil only ever evolves forward. Cosmetic-only, so it
+    // is fine that it keeps ticking while paused.
+    private static final long ANIM_EPOCH_NS = System.nanoTime();
+
+    public static float animTimeSeconds() {
+        return (System.nanoTime() - ANIM_EPOCH_NS) / 1_000_000_000.0F;
+    }
+
     @SubscribeEvent
     static void onRegisterShaders(RegisterShadersEvent event) throws Exception {
         event.registerShader(

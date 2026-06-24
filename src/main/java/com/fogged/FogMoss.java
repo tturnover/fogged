@@ -48,9 +48,16 @@ public final class FogMoss {
         return y <= activeTopY(level) && y >= level.getMinBuildHeight();
     }
 
+    /** True for any of the three temperature variants of fog moss. */
+    public static boolean isFogMoss(BlockState state) {
+        return state.is(ModBlocks.FOG_MOSS.get())
+                || state.is(ModBlocks.SOFT_FOG_MOSS.get())
+                || state.is(ModBlocks.HARSH_FOG_MOSS.get());
+    }
+
     /** A block the puddle is allowed to overrun: natural worldgen ground, never fog moss itself. */
     public static boolean isNatural(BlockState state) {
-        if (state.is(ModBlocks.FOG_MOSS.get())) {
+        if (isFogMoss(state)) {
             return false;
         }
         return state.is(BlockTags.DIRT)
@@ -75,7 +82,20 @@ public final class FogMoss {
         if (seed == null) {
             return;
         }
-        spread(level, seed, budget);
+        spread(level, seed, budget, mossFor(level, seed));
+    }
+
+    // Pick the fog-moss variant for where the puddle grows, by the biome's base temperature:
+    // warm -> soft, cold -> harsh, otherwise the temperate default. Thresholds are configurable.
+    private static Block mossFor(ServerLevel level, BlockPos pos) {
+        float temp = level.getBiome(pos).value().getBaseTemperature();
+        if (temp >= Config.FOG_MOSS_WARM_MIN.get()) {
+            return ModBlocks.SOFT_FOG_MOSS.get();
+        }
+        if (temp <= Config.FOG_MOSS_COLD_MAX.get()) {
+            return ModBlocks.HARSH_FOG_MOSS.get();
+        }
+        return ModBlocks.FOG_MOSS.get();
     }
 
     // Scan down from `from` for the first natural surface block (natural, with a non-solid block above).
@@ -100,8 +120,8 @@ public final class FogMoss {
     }
 
     // Surface-hugging flood-fill: replace natural surface blocks with fog moss until the budget runs out.
-    private static void spread(ServerLevel level, BlockPos seed, int budget) {
-        BlockState moss = ModBlocks.FOG_MOSS.get().defaultBlockState();
+    private static void spread(ServerLevel level, BlockPos seed, int budget, Block mossBlock) {
+        BlockState moss = mossBlock.defaultBlockState();
         Deque<BlockPos> queue = new ArrayDeque<>();
         Set<Long> seenColumns = new HashSet<>();
         queue.add(seed);

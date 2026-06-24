@@ -32,11 +32,19 @@ public class ModBlockStateProvider extends BlockStateProvider {
     private static final int MOSS_VARIANTS = 4;
     private static final int EXTENSION_VARIANTS = 2;
 
+    /** The temperature variants of fog moss; all share the same randomised cube_all texture set. */
+    private static final List<DeferredBlock<Block>> MOSS_BLOCKS = List.of(
+            ModBlocks.FOG_MOSS,
+            ModBlocks.SOFT_FOG_MOSS,
+            ModBlocks.HARSH_FOG_MOSS);
+
     /** Blocks handled explicitly below; the auto cube_all pass skips these. */
     private static final List<DeferredBlock<?>> CUSTOM = List.of(
             ModBlocks.FOG_DETECTOR,
             ModBlocks.FOG_DETECTOR_EXTENSION,
-            ModBlocks.FOG_MOSS);
+            ModBlocks.FOG_MOSS,
+            ModBlocks.SOFT_FOG_MOSS,
+            ModBlocks.HARSH_FOG_MOSS);
 
     @Override
     protected void registerStatesAndModels() {
@@ -48,14 +56,18 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // rotated by orientation. No item model (the extension has no BlockItem).
         directionalVariants(ModBlocks.FOG_DETECTOR_EXTENSION, "fog_detector_extension", EXTENSION_VARIANTS);
 
-        // Fog moss: randomly pick one of the cube_all texture variants per block.
+        // Fog moss: randomly pick one of the cube_all texture variants per block. The three temperature
+        // variants (plain / soft / harsh) currently share this one texture set; give them their own
+        // block/<variant>_<i> textures later to make them read distinct.
         ConfiguredModel[] moss = new ConfiguredModel[MOSS_VARIANTS];
         for (int i = 0; i < MOSS_VARIANTS; i++) {
             String variant = "fog_moss_" + i;
             moss[i] = new ConfiguredModel(models().cubeAll(variant, modLoc("block/" + variant)));
         }
-        getVariantBuilder(ModBlocks.FOG_MOSS.get()).partialState().setModels(moss);
-        itemModels().withExistingParent("fog_moss", modLoc("block/fog_moss_0"));
+        for (DeferredBlock<Block> block : MOSS_BLOCKS) {
+            getVariantBuilder(block.get()).partialState().setModels(moss);
+            itemModels().withExistingParent(block.getId().getPath(), modLoc("block/fog_moss_0"));
+        }
 
         // Everything else: auto cube_all, blockstate + block model + item model.
         ModBlocks.BLOCKS.getEntries().forEach(holder -> {

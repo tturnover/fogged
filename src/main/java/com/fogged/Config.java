@@ -152,6 +152,17 @@ public class Config {
                     "scales with the event's strength (leaves 1.0, dying mob 1.25, grass/flowers 0.5).")
             .defineInRange("fogMossSizePerStrength", 8, 1, 256);
 
+    public static final ModConfigSpec.DoubleValue FOG_MOSS_WARM_MIN = BUILDER
+            .comment("Biome base temperature at or above which a puddle grows the warm 'soft' fog moss",
+                    "variant. Vanilla reference: plains 0.8, jungle 0.95, savanna/desert 1.2-2.0.")
+            .defineInRange("fogMossWarmMin", 0.9, -2.0, 2.0);
+
+    public static final ModConfigSpec.DoubleValue FOG_MOSS_COLD_MAX = BUILDER
+            .comment("Biome base temperature at or below which a puddle grows the cold 'harsh' fog moss",
+                    "variant. Vanilla reference: taiga 0.25, snowy biomes 0.0, frozen -0.5. Between this",
+                    "and fogMossWarmMin the plain temperate fog moss is used.")
+            .defineInRange("fogMossColdMax", 0.2, -2.0, 2.0);
+
     static final ModConfigSpec SPEC = BUILDER.build();
 
     // Strength (puddle-size multiplier) of each fog-moss event. See FOG_MOSS_SIZE_PER_STRENGTH.
