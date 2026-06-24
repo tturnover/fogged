@@ -50,6 +50,14 @@ public final class ModBlocks {
                     .sound(SoundType.GLASS)
                     .noOcclusion());
 
+    // The moss the murk leaves behind: a full block that puddles over natural ground beneath the fog
+    // plane wherever vegetation dies or a mob falls. See com.fogged.FogMoss / com.fogged.FogMossEvents.
+    public static final DeferredBlock<Block> FOG_MOSS =
+            register("fog_moss", Block::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_GREEN)
+                    .strength(0.4F)
+                    .sound(SoundType.MOSS));
+
     // ------------------------------------------------------------------------
 
     /**

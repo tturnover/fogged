@@ -133,7 +133,31 @@ public class Config {
                     "the delay. 2.0 = one heart per second.")
             .defineInRange("mobSuffocateDamage", 2.0, 0.0, 1000.0);
 
+    // ---- Fog moss (the murk rotting vegetation under the plane) ----
+
+    public static final ModConfigSpec.BooleanValue FOG_MOSS_ENABLED = BUILDER
+            .comment("Master switch for fog moss: the murk under the plane tills nearby farmland back to",
+                    "dirt, kills leaves/flowers/grass, and leaves a fog_moss puddle where they (and dying",
+                    "mobs) fall. Turn off to disable all of that behaviour.")
+            .define("fogMossEnabled", true);
+
+    public static final ModConfigSpec.IntValue FOG_MOSS_SKIP = BUILDER
+            .comment("Dead zone: the topmost blocks directly under the fog plane that the rot leaves alone.",
+                    "The shallow layer right beneath the plane stays untouched; the rot acts on everything",
+                    "from this offset down to the bottom of the world.")
+            .defineInRange("fogMossSkip", 5, 0, 64);
+
+    public static final ModConfigSpec.IntValue FOG_MOSS_SIZE_PER_STRENGTH = BUILDER
+            .comment("Puddle size, in blocks of fog moss, produced by an event of strength 1.0. The size",
+                    "scales with the event's strength (leaves 1.0, dying mob 1.25, grass/flowers 0.5).")
+            .defineInRange("fogMossSizePerStrength", 8, 1, 256);
+
     static final ModConfigSpec SPEC = BUILDER.build();
+
+    // Strength (puddle-size multiplier) of each fog-moss event. See FOG_MOSS_SIZE_PER_STRENGTH.
+    public static final double FOG_MOSS_STRENGTH_LEAVES = 1.0;
+    public static final double FOG_MOSS_STRENGTH_MOB = 1.25;
+    public static final double FOG_MOSS_STRENGTH_PLANT = 0.5;
 
     // --- dynamic breathing-boundary height ---
 

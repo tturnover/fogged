@@ -1,6 +1,7 @@
 {
   "block.fogged.fog_detector": "Fog Detector",
   "block.fogged.fog_detector_extension": "Fog Detector Extension",
+  "block.fogged.fog_moss": "Fog Moss",
   "fogged.configuration.airLossPerTick": "Air Loss Per Tick",
   "fogged.configuration.breathHeight": "Breathing Boundary Height",
   "fogged.configuration.foamColor": "Foam Colour (hex RGBA)",
