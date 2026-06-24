@@ -2,16 +2,16 @@
   "variants": {
     "": [
       {
-        "model": "fogged:block/fog_moss_0"
+        "model": "fogged:block/soft_fog_moss_0"
       },
       {
-        "model": "fogged:block/fog_moss_1"
+        "model": "fogged:block/soft_fog_moss_1"
       },
       {
-        "model": "fogged:block/fog_moss_2"
+        "model": "fogged:block/soft_fog_moss_2"
       },
       {
-        "model": "fogged:block/fog_moss_3"
+        "model": "fogged:block/soft_fog_moss_3"
       }
     ]
   }

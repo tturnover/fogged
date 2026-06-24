@@ -56,17 +56,17 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // rotated by orientation. No item model (the extension has no BlockItem).
         directionalVariants(ModBlocks.FOG_DETECTOR_EXTENSION, "fog_detector_extension", EXTENSION_VARIANTS);
 
-        // Fog moss: randomly pick one of the cube_all texture variants per block. The three temperature
-        // variants (plain / soft / harsh) currently share this one texture set; give them their own
-        // block/<variant>_<i> textures later to make them read distinct.
-        ConfiguredModel[] moss = new ConfiguredModel[MOSS_VARIANTS];
-        for (int i = 0; i < MOSS_VARIANTS; i++) {
-            String variant = "fog_moss_" + i;
-            moss[i] = new ConfiguredModel(models().cubeAll(variant, modLoc("block/" + variant)));
-        }
+        // Fog moss: each temperature variant (plain / soft / harsh) randomly picks one of its own
+        // cube_all texture set, named block/<registry-path>_<i>.
         for (DeferredBlock<Block> block : MOSS_BLOCKS) {
-            getVariantBuilder(block.get()).partialState().setModels(moss);
-            itemModels().withExistingParent(block.getId().getPath(), modLoc("block/fog_moss_0"));
+            String name = block.getId().getPath();
+            ConfiguredModel[] models = new ConfiguredModel[MOSS_VARIANTS];
+            for (int i = 0; i < MOSS_VARIANTS; i++) {
+                String variant = name + "_" + i;
+                models[i] = new ConfiguredModel(models().cubeAll(variant, modLoc("block/" + variant)));
+            }
+            getVariantBuilder(block.get()).partialState().setModels(models);
+            itemModels().withExistingParent(name, modLoc("block/" + name + "_0"));
         }
 
         // Everything else: auto cube_all, blockstate + block model + item model.
