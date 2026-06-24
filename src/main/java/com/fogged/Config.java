@@ -1,10 +1,15 @@
 package com.fogged;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.electronwill.nightconfig.core.UnmodifiableConfig;
 
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -108,6 +113,25 @@ public class Config {
                     "Red = depth-proximity edge factor, Green = sampled scene depth. If Green is a flat",
                     "single colour the depth buffer isn't being read; if Red is blank there's no edge.")
             .define("foamDebug", false);
+
+    // ---- Mobs under the fog ----
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLOWED_MOBS = BUILDER
+            .comment("Entity-type IDs allowed to live under the fog (on the murk side of the boundary).",
+                    "Anything NOT listed cannot spawn there and starts taking damage after",
+                    "mobSuffocateDelaySeconds submerged. IDs may omit the 'minecraft:' namespace.",
+                    "Example: allowedMobs = [\"minecraft:cod\", \"axolotl\", \"guardian\"]")
+            .defineListAllowEmpty("allowedMobs", Config::defaultAllowedMobs, () -> "minecraft:cod",
+                    o -> o instanceof String s && ResourceLocation.tryParse(withNamespace(s)) != null);
+
+    public static final ModConfigSpec.IntValue MOB_SUFFOCATE_DELAY = BUILDER
+            .comment("Seconds a non-allowed mob can stay under the fog before it starts taking damage.")
+            .defineInRange("mobSuffocateDelaySeconds", 5, 0, 600);
+
+    public static final ModConfigSpec.DoubleValue MOB_SUFFOCATE_DAMAGE = BUILDER
+            .comment("Damage dealt to a non-allowed mob each second once it has been under the fog past",
+                    "the delay. 2.0 = one heart per second.")
+            .defineInRange("mobSuffocateDamage", 2.0, 0.0, 1000.0);
 
     static final ModConfigSpec SPEC = BUILDER.build();
 
@@ -232,6 +256,45 @@ public class Config {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    // --- allowed-mob set ---
+
+    // Default allow-list: only the warden belongs in the murk.
+    private static List<String> defaultAllowedMobs() {
+        return new ArrayList<>(List.of("minecraft:warden"));
+    }
+
+    // A bare "cod" is treated as "minecraft:cod" so the config stays terse.
+    private static String withNamespace(String s) {
+        s = s.trim();
+        return s.indexOf(':') >= 0 ? s : "minecraft:" + s;
+    }
+
+    private static List<? extends String> cachedMobsList;
+    private static Set<ResourceLocation> allowedMobIds = new HashSet<>();
+
+    private static void ensureAllowedMobs() {
+        List<? extends String> raw = ALLOWED_MOBS.get();
+        if (raw == cachedMobsList) {
+            return;
+        }
+        cachedMobsList = raw;
+        Set<ResourceLocation> ids = new HashSet<>();
+        for (String s : raw) {
+            ResourceLocation id = ResourceLocation.tryParse(withNamespace(s));
+            if (id != null) {
+                ids.add(id);
+            }
+        }
+        allowedMobIds = ids;
+    }
+
+    // True if the given entity type may live under the fog. Unregistered types are never allowed.
+    public static boolean mobAllowedUnderFog(EntityType<?> type) {
+        ensureAllowedMobs();
+        ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
+        return allowedMobIds.contains(id);
     }
 
     // --- hex RGBA helpers ---
