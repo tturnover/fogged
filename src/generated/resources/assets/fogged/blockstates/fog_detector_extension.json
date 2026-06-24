@@ -1,38 +1,88 @@
 {
   "variants": {
-    "facing=east,vertical_direction=down": {
-      "model": "fogged:block/fog_detector_extension",
-      "x": 180,
-      "y": 270
-    },
-    "facing=east,vertical_direction=up": {
-      "model": "fogged:block/fog_detector_extension",
-      "y": 270
-    },
-    "facing=north,vertical_direction=down": {
-      "model": "fogged:block/fog_detector_extension",
-      "x": 180,
-      "y": 180
-    },
-    "facing=north,vertical_direction=up": {
-      "model": "fogged:block/fog_detector_extension",
-      "y": 180
-    },
-    "facing=south,vertical_direction=down": {
-      "model": "fogged:block/fog_detector_extension",
-      "x": 180
-    },
-    "facing=south,vertical_direction=up": {
-      "model": "fogged:block/fog_detector_extension"
-    },
-    "facing=west,vertical_direction=down": {
-      "model": "fogged:block/fog_detector_extension",
-      "x": 180,
-      "y": 90
-    },
-    "facing=west,vertical_direction=up": {
-      "model": "fogged:block/fog_detector_extension",
-      "y": 90
-    }
+    "facing=east,vertical_direction=down": [
+      {
+        "model": "fogged:block/fog_detector_extension",
+        "x": 180,
+        "y": 270
+      },
+      {
+        "model": "fogged:block/fog_detector_extension_1",
+        "x": 180,
+        "y": 270
+      }
+    ],
+    "facing=east,vertical_direction=up": [
+      {
+        "model": "fogged:block/fog_detector_extension",
+        "y": 270
+      },
+      {
+        "model": "fogged:block/fog_detector_extension_1",
+        "y": 270
+      }
+    ],
+    "facing=north,vertical_direction=down": [
+      {
+        "model": "fogged:block/fog_detector_extension",
+        "x": 180,
+        "y": 180
+      },
+      {
+        "model": "fogged:block/fog_detector_extension_1",
+        "x": 180,
+        "y": 180
+      }
+    ],
+    "facing=north,vertical_direction=up": [
+      {
+        "model": "fogged:block/fog_detector_extension",
+        "y": 180
+      },
+      {
+        "model": "fogged:block/fog_detector_extension_1",
+        "y": 180
+      }
+    ],
+    "facing=south,vertical_direction=down": [
+      {
+        "model": "fogged:block/fog_detector_extension",
+        "x": 180
+      },
+      {
+        "model": "fogged:block/fog_detector_extension_1",
+        "x": 180
+      }
+    ],
+    "facing=south,vertical_direction=up": [
+      {
+        "model": "fogged:block/fog_detector_extension"
+      },
+      {
+        "model": "fogged:block/fog_detector_extension_1"
+      }
+    ],
+    "facing=west,vertical_direction=down": [
+      {
+        "model": "fogged:block/fog_detector_extension",
+        "x": 180,
+        "y": 90
+      },
+      {
+        "model": "fogged:block/fog_detector_extension_1",
+        "x": 180,
+        "y": 90
+      }
+    ],
+    "facing=west,vertical_direction=up": [
+      {
+        "model": "fogged:block/fog_detector_extension",
+        "y": 90
+      },
+      {
+        "model": "fogged:block/fog_detector_extension_1",
+        "y": 90
+      }
+    ]
   }
 }

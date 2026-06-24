@@ -1,7 +1,18 @@
 {
   "variants": {
-    "": {
-      "model": "fogged:block/fog_moss"
-    }
+    "": [
+      {
+        "model": "fogged:block/fog_moss_0"
+      },
+      {
+        "model": "fogged:block/fog_moss_1"
+      },
+      {
+        "model": "fogged:block/fog_moss_2"
+      },
+      {
+        "model": "fogged:block/fog_moss_3"
+      }
+    ]
   }
 }

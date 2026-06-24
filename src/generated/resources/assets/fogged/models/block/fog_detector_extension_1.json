@@ -1,0 +1,6 @@
+{
+  "parent": "fogged:block/fog_detector_extension",
+  "textures": {
+    "0": "fogged:block/fog_detector_extension_1"
+  }
+}

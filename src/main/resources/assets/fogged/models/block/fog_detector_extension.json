@@ -5,8 +5,8 @@
 	"ambientocclusion": false,
 	"texture_size": [32, 32],
 	"textures": {
-		"0": "fogged:block/fog_detector_extension",
-		"particle": "fogged:block/fog_detector_extension"
+		"0": "fogged:block/fog_detector_extension_0",
+		"particle": "minecraft:block/stripped_oak_log"
 	},
 	"elements": [
 		{
