@@ -95,13 +95,13 @@ public class Config {
 
     public static final ModConfigSpec.DoubleValue VAPOR_STRENGTH = BUILDER
             .comment("Overall vapour strength (alpha). Lower for a fainter mist, 0 to hide it entirely.")
-            .defineInRange("vaporStrength", 0.85, 0.0, 1.0);
+            .defineInRange("vaporStrength", 0.95, 0.0, 1.0);
 
     public static final ModConfigSpec.IntValue VAPOR_SHEETS = BUILDER
             .comment("Number of stacked mist sheets over the plane. Each is a grid that rises and falls",
                     "(see vaporUndulation) so the plane never looks dead flat. More sheets = thicker, more",
                     "layered mist (and a touch more cost). 0 disables the sheets.")
-            .defineInRange("vaporSheets", 3, 0, 8);
+            .defineInRange("vaporSheets", 5, 0, 8);
 
     public static final ModConfigSpec.DoubleValue VAPOR_UNDULATION = BUILDER
             .comment("Maximum height (in blocks) the mist sheets rise off the plane, giving the flat plane",
@@ -162,6 +162,41 @@ public class Config {
                     "variant. Vanilla reference: taiga 0.25, snowy biomes 0.0, frozen -0.5. Between this",
                     "and fogMossWarmMin the plain temperate fog moss is used.")
             .defineInRange("fogMossColdMax", 0.2, -2.0, 2.0);
+
+    public static final ModConfigSpec.BooleanValue FOGGY_GRASS_ENABLED = BUILDER
+            .comment("Master switch for foggy grass: wispy tufts that sprout on fog moss, grow taller over",
+                    "time and spread across the patch up to a temperature-regulated density. Off = no tufts.")
+            .define("foggyGrassEnabled", true);
+
+    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_SEED_CHANCE = BUILDER
+            .comment("Base chance that a freshly-placed moss block sprouts a tuft as a puddle spreads. The",
+                    "actual chance is this times the local temperature density (so warm puddles start greener).")
+            .defineInRange("foggyGrassSeedChance", 0.08, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_GROW_CHANCE = BUILDER
+            .comment("Per random-tick chance an existing tuft advances one growth stage (toward its full",
+                    "height). Lower = slower growth.")
+            .defineInRange("foggyGrassGrowChance", 0.35, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_SPREAD_CHANCE = BUILDER
+            .comment("Per random-tick chance a tuft tries to spread onto a neighbouring patch of bare moss",
+                    "(only succeeds while the patch is below its temperature density cap).")
+            .defineInRange("foggyGrassSpreadChance", 0.25, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue FOGGY_GRASS_PROXIMITY = BUILDER
+            .comment("Radius (in blocks) of the window used to measure how crowded a patch is when deciding",
+                    "whether grass may spread. Larger = density is judged over a wider area.")
+            .defineInRange("foggyGrassProximity", 4, 1, 16);
+
+    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_WARM_DENSITY = BUILDER
+            .comment("Fraction of nearby moss that grows grass in warm biomes (at/above fogMossWarmMin).",
+                    "1.0 carpets every moss block; lower leaves bare gaps.")
+            .defineInRange("foggyGrassWarmDensity", 0.6, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_COLD_DENSITY = BUILDER
+            .comment("Fraction of nearby moss that grows grass in cold biomes (at/below fogMossColdMax).",
+                    "Between this and fogMossWarmMin the density is interpolated from the biome temperature.")
+            .defineInRange("foggyGrassColdDensity", 0.05, 0.0, 1.0);
 
     static final ModConfigSpec SPEC = BUILDER.build();
 

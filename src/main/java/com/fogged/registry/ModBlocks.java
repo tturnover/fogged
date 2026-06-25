@@ -6,6 +6,7 @@ import java.util.function.Supplier;
 import com.fogged.Fogged;
 import com.fogged.block.FogDetectorBlock;
 import com.fogged.block.FogDetectorExtensionBlock;
+import com.fogged.block.FoggyGrassBlock;
 
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -70,6 +71,19 @@ public final class ModBlocks {
                 .strength(0.4F)
                 .sound(SoundType.MOSS);
     }
+
+    // The wispy tuft that grows on top of fog moss. It is seeded as moss puddles and then grows
+    // taller and spreads across the patch over time, capped by biome temperature. See FoggyGrassBlock.
+    public static final DeferredBlock<FoggyGrassBlock> FOGGY_GRASS =
+            register("foggy_grass", FoggyGrassBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.PLANT)
+                    .noCollission()
+                    .instabreak()
+                    .randomTicks()
+                    .sound(SoundType.GRASS)
+                    .noOcclusion()
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)
+                    .offsetType(BlockBehaviour.OffsetType.XZ));
 
     // ------------------------------------------------------------------------
 

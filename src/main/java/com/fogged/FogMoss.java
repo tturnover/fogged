@@ -5,6 +5,7 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.fogged.block.FoggyGrassBlock;
 import com.fogged.registry.ModBlocks;
 
 import net.minecraft.core.BlockPos;
@@ -133,6 +134,7 @@ public final class FogMoss {
                 continue; // terrain changed under us / not eligible
             }
             level.setBlock(pos, moss, Block.UPDATE_ALL);
+            FoggyGrassBlock.trySeed(level, pos, level.random);
             placed++;
             for (Direction dir : Direction.Plane.HORIZONTAL) {
                 BlockPos neighbour = pos.relative(dir);

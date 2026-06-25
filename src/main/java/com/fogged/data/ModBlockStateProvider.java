@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.fogged.Fogged;
 import com.fogged.block.FogDetectorBlock;
+import com.fogged.block.FoggyGrassBlock;
 import com.fogged.registry.ModBlocks;
 
 import net.minecraft.core.Direction;
@@ -44,7 +45,8 @@ public class ModBlockStateProvider extends BlockStateProvider {
             ModBlocks.FOG_DETECTOR_EXTENSION,
             ModBlocks.FOG_MOSS,
             ModBlocks.SOFT_FOG_MOSS,
-            ModBlocks.HARSH_FOG_MOSS);
+            ModBlocks.HARSH_FOG_MOSS,
+            ModBlocks.FOGGY_GRASS);
 
     @Override
     protected void registerStatesAndModels() {
@@ -69,6 +71,10 @@ public class ModBlockStateProvider extends BlockStateProvider {
             itemModels().withExistingParent(name, modLoc("block/" + name + "_0"));
         }
 
+        // Foggy grass: one cross model per AGE stage (block/foggy_grass_<age>), each a taller tuft.
+        // The item icon reuses the full-grown tuft texture.
+        foggyGrass();
+
         // Everything else: auto cube_all, blockstate + block model + item model.
         ModBlocks.BLOCKS.getEntries().forEach(holder -> {
             Block block = holder.get();
@@ -77,6 +83,20 @@ public class ModBlockStateProvider extends BlockStateProvider {
             }
             simpleBlockWithItem(block, cubeAll(block));
         });
+    }
+
+    // Foggy grass: a cutout cross whose texture (and thus tuft height) is chosen by the AGE property,
+    // textured at block/foggy_grass_<age>. The held item reuses the tallest stage as its sprite.
+    private void foggyGrass() {
+        getVariantBuilder(ModBlocks.FOGGY_GRASS.get()).forAllStates(state -> {
+            int age = state.getValue(FoggyGrassBlock.AGE);
+            String variant = "foggy_grass_" + age;
+            return ConfiguredModel.builder()
+                    .modelFile(models().cross(variant, modLoc("block/" + variant)).renderType("cutout"))
+                    .build();
+        });
+        itemModels().withExistingParent("foggy_grass", mcLoc("item/generated"))
+                .texture("layer0", modLoc("block/foggy_grass_" + FoggyGrassBlock.MAX_AGE));
     }
 
     // Rotate the supplied model (BlockBench export at block/<name>): X from VERTICAL_DIRECTION
