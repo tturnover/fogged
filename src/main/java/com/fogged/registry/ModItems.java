@@ -22,7 +22,11 @@ public final class ModItems {
 
     // --- Items --------------------------------------------------------------
     // Add new items below. One line each; datagen produces the model + lang.
-    // (No standalone items yet — BlockItems are registered by ModBlocks.)
+
+    // Debug/test item. It is in the fogged:lurker_ward tag, so holding or wearing it stops the carrier
+    // from provoking a fog lurker -- handy for digging next to one without triggering the attack.
+    public static final DeferredItem<Item> LURKER_DEBUG =
+            register("lurker_debug", Item::new, new Item.Properties());
 
     // ------------------------------------------------------------------------
 

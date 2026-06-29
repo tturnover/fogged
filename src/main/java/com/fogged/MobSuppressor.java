@@ -1,6 +1,5 @@
 package com.fogged;
 
-import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.Level;
@@ -56,8 +55,7 @@ public class MobSuppressor {
         double damage = Config.MOB_SUFFOCATE_DAMAGE.get();
         // Once past the delay, apply the per-second damage on each whole-second boundary.
         if (ticks > delayTicks && (ticks - delayTicks) % 20 == 0 && damage > 0.0) {
-            DamageSource source = level.damageSources().drown();
-            mob.hurt(source, (float) damage);
+            mob.hurt(ModDamageTypes.fogSuffocation(level), (float) damage);
         }
     }
 }

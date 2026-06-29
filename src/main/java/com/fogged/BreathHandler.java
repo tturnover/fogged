@@ -3,15 +3,18 @@ package com.fogged;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectUtil;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingBreatheEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 
 // Makes players whose eyes are below the configured breathing boundary breathe as if underwater
 // (air bar drains, then drowning) even when there is no water.
@@ -49,6 +52,27 @@ public class BreathHandler {
         // the loss this tick; otherwise we drain at the configured rate.
         event.setCanBreathe(false);
         event.setConsumeAirAmount(skipLossFromRespiration(player) ? 0 : Config.AIR_LOSS_PER_TICK.getAsInt());
+    }
+
+    // The drowning we induce above uses vanilla's drown damage (so gear/air handling stays vanilla),
+    // which would read "drowned". Re-stamp it as our fog suffocation -- but only for a player who is dry
+    // and under the plane, never for genuine underwater drowning -- so the death message is the fog one
+    // (and, if the lurker hit them recently, the "while fleeing the fog lurker" variant).
+    @SubscribeEvent
+    static void onIncomingDamage(LivingIncomingDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+        if (!event.getSource().is(DamageTypes.DROWN)) {
+            return;
+        }
+        Level level = player.level();
+        if (player.isEyeInFluid(FluidTags.WATER)
+                || player.getEyeY() >= Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET) {
+            return; // real water, or above the boundary -> leave vanilla drowning alone
+        }
+        event.setCanceled(true);
+        player.hurt(ModDamageTypes.fogSuffocation(level), event.getAmount());
     }
 
     private static boolean skipLossFromRespiration(Player player) {

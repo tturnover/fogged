@@ -25,6 +25,13 @@ public class ModLanguageProvider extends LanguageProvider {
     protected void addTranslations() {
         addConfigTranslations();
 
+        add("entity.fogged.fog_lurker", "Fog Lurker");
+
+        // Custom death messages (keyed by each damage type's message_id).
+        add("death.attack.fog_suffocation", "%1$s was swallowed by the fog");
+        add("death.attack.fog_suffocation.player", "%1$s drowned in the fog while fleeing %2$s");
+        add("death.attack.fog_lurker", "%1$s was dragged into the murk by %2$s");
+
         ModBlocks.BLOCKS.getEntries()
                 .forEach(holder -> add(holder.get(), titleCase(holder.getId().getPath())));
 

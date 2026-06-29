@@ -37,10 +37,9 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 public final class FogMossEvents {
     private FogMossEvents() {}
 
-    // Scan cadence around each player. The band is only a few blocks thick, so the work is a thin
-    // slab; throttling keeps it cheap on busy servers. The horizontal reach tracks the server's
-    // simulation distance (see scanRadius) so rot keeps pace with everything else that ticks.
-    private static final int SCAN_INTERVAL_TICKS = 40;
+    // The whole area around each player is swept once per this many ticks, but only one x-stripe of it
+    // is processed each tick (see onLevelTick), so the cost is spread out instead of spiking TPS.
+    private static final int SCAN_PERIOD = 40;
 
     // Whether Sable (physics sub-levels) is present, so we also rot blocks riding ships/contraptions.
     private static final boolean SABLE = ModList.get().isLoaded("sable");
@@ -53,18 +52,20 @@ public final class FogMossEvents {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
-        if (level.getGameTime() % SCAN_INTERVAL_TICKS != 0) {
-            return;
-        }
-
+        // Sweep one x-stripe of the area this tick; over SCAN_PERIOD ticks every column is covered.
+        int phase = (int) (level.getGameTime() % SCAN_PERIOD);
         int top = FogMoss.activeTopY(level);
         int bottom = level.getMinBuildHeight();
         int radius = scanRadius(level);
+        int stripe = (2 * radius + 1 + SCAN_PERIOD - 1) / SCAN_PERIOD;
+
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (ServerPlayer player : level.players()) {
             int cx = player.getBlockX();
             int cz = player.getBlockZ();
-            for (int x = cx - radius; x <= cx + radius; x++) {
+            int x0 = cx - radius + phase * stripe;
+            int x1 = Math.min(cx + radius, x0 + stripe - 1);
+            for (int x = x0; x <= x1; x++) {
                 for (int z = cz - radius; z <= cz + radius; z++) {
                     rotColumn(level, pos, x, z, top, bottom);
                 }
@@ -72,8 +73,8 @@ public final class FogMossEvents {
         }
 
         // Same rot for blocks riding Sable sub-levels (ships / contraptions) under the plane, but no
-        // moss — moss only puddles on the world ground. The Sable call is isolated in SableFoam.
-        if (SABLE) {
+        // moss — moss only puddles on the world ground. Run once per sweep to keep it cheap.
+        if (SABLE && phase == 0) {
             double activeSurfaceY = FogMoss.surfaceY(level) - Config.FOG_MOSS_SKIP.getAsInt();
             SableFoam.rotSubLevels(level, activeSurfaceY, (subLevel, p) -> rot(subLevel, p, false));
         }
@@ -113,10 +114,11 @@ public final class FogMossEvents {
         }
     }
 
-    // Horizontal reach in blocks: the server's view/render distance (in chunks) converted to blocks.
-    // That is the furthest a player can see the murk, so there is no point scanning beyond it.
+    // Horizontal reach in blocks: the server's SIMULATION distance (in chunks) converted to blocks.
+    // Vegetation only regrows / random-ticks within the simulation range, so that is all the maintenance
+    // sweep must cover; chunks entering view distance are scoured once on arrival by onChunkWatch.
     private static int scanRadius(ServerLevel level) {
-        return level.getServer().getPlayerList().getViewDistance() * 16;
+        return level.getServer().getPlayerList().getSimulationDistance() * 16;
     }
 
     /**

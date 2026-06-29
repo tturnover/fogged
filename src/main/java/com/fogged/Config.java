@@ -198,6 +198,62 @@ public class Config {
                     "Between this and fogMossWarmMin the density is interpolated from the biome temperature.")
             .defineInRange("foggyGrassColdDensity", 0.05, 0.0, 1.0);
 
+    // ---- Fog lurker (the worm that haunts the murk) ----
+
+    public static final ModConfigSpec.BooleanValue LURKER_ENABLED = BUILDER
+            .comment("Master switch for the fog lurker: a phantom worm that glides under the fog plane",
+                    "near submerged players, breaks the surface with a dorsal fin, and lunges for a heavy",
+                    "hit if you break a block close to it. Off = it never spawns.")
+            .define("lurkerEnabled", true);
+
+    public static final ModConfigSpec.IntValue LURKER_SPAWN_MIN_SECONDS = BUILDER
+            .comment("Minimum seconds between lurker spawns for a player. Each gap is rolled randomly",
+                    "between this and lurkerSpawnMaxSeconds.")
+            .defineInRange("lurkerSpawnMinSeconds", 30, 1, 86400);
+
+    public static final ModConfigSpec.IntValue LURKER_SPAWN_MAX_SECONDS = BUILDER
+            .comment("Maximum seconds between lurker spawns for a player (default 1200 = 20 minutes).")
+            .defineInRange("lurkerSpawnMaxSeconds", 1200, 1, 86400);
+
+    public static final ModConfigSpec.IntValue LURKER_MAX_NEARBY = BUILDER
+            .comment("Most lurkers that may exist within lurkerRange of a player at once. Default 1 = a",
+                    "single lurker stalks each player.")
+            .defineInRange("lurkerMaxNearby", 1, 0, 16);
+
+    public static final ModConfigSpec.IntValue LURKER_RANGE = BUILDER
+            .comment("Horizontal range (blocks) used to spawn, count and retire lurkers around a player.",
+                    "They appear near its edge and burrow away once no under-fog player is within it.")
+            .defineInRange("lurkerRange", 28, 8, 128);
+
+    public static final ModConfigSpec.IntValue LURKER_AGGRO_RADIUS = BUILDER
+            .comment("Breaking a block within this many blocks of a docile lurker disturbs it.")
+            .defineInRange("lurkerAggroRadius", 12, 1, 64);
+
+    public static final ModConfigSpec.IntValue LURKER_BLOCKS_TO_ATTACK = BUILDER
+            .comment("How many blocks must be broken near a docile lurker (within lurkerAggroRadius) before",
+                    "it lunges. Each break sends a one-second warning screen shake, doubling in strength per",
+                    "block, so tension builds toward the attack.")
+            .defineInRange("lurkerBlocksToAttack", 3, 1, 64);
+
+    public static final ModConfigSpec.IntValue LURKER_BLOCK_WINDOW = BUILDER
+            .comment("Seconds allowed between blocks for the count to keep building toward the attack. Wait",
+                    "longer than this and the disturbance ebbs away one block at a time.")
+            .defineInRange("lurkerBlockWindowSeconds", 15, 1, 600);
+
+    public static final ModConfigSpec.IntValue LURKER_MIN_DEPTH = BUILDER
+            .comment("A player must be at least this many blocks below the fog surface before a lurker will",
+                    "spawn near them, keeping the worm to the deep murk.")
+            .defineInRange("lurkerMinDepth", 30, 0, 512);
+
+    public static final ModConfigSpec.DoubleValue LURKER_LUNGE_DAMAGE = BUILDER
+            .comment("Damage a lunging lurker deals when it reaches its target. 2.0 = one heart.")
+            .defineInRange("lurkerLungeDamage", 7.0, 0.0, 1000.0);
+
+    public static final ModConfigSpec.DoubleValue LURKER_SHAKE_RADIUS = BUILDER
+            .comment("Client: within this distance of a lurker the screen shakes faintly as a warning, and",
+                    "harder the closer it is (and while it lunges). 0 disables the shake.")
+            .defineInRange("lurkerShakeRadius", 16.0, 0.0, 64.0);
+
     static final ModConfigSpec SPEC = BUILDER.build();
 
     // Strength (puddle-size multiplier) of each fog-moss event. See FOG_MOSS_SIZE_PER_STRENGTH.
@@ -214,14 +270,28 @@ public class Config {
     // resting at a fixed Y between steps so it does not z-fight as the schedule/offset drift sub-block.
     private static final double HEIGHT_STEP = 0.25;
 
+    // One-entry memo: breathHeight depends only on the level's day-time, but it is called for every
+    // entity every tick (MobSuppressor) and for many blocks in the moss sweep. Caching it per
+    // (level, dayTime) collapses all of a tick's calls to a single computation.
+    private static Level cachedHeightLevel;
+    private static long cachedHeightDayTime = Long.MIN_VALUE;
+    private static double cachedHeight;
+
     // Boundary Y at the world's current time: scheduled height for the day plus the time-of-day offset,
     // snapped to HEIGHT_STEP so the boundary moves in discrete jumps instead of continuous drift.
     public static double breathHeight(Level level) {
         long dayTime = level.getDayTime();
+        if (level == cachedHeightLevel && dayTime == cachedHeightDayTime) {
+            return cachedHeight;
+        }
         double day = (double) dayTime / TICKS_PER_DAY;
         int timeOfDay = (int) Math.floorMod(dayTime, TICKS_PER_DAY);
         double raw = scheduledHeight(day) + overdayOffset(timeOfDay);
-        return Math.round(raw / HEIGHT_STEP) * HEIGHT_STEP;
+        double result = Math.round(raw / HEIGHT_STEP) * HEIGHT_STEP;
+        cachedHeightLevel = level;
+        cachedHeightDayTime = dayTime;
+        cachedHeight = result;
+        return result;
     }
 
     // True when a camera at world height y is on the fogged side of the boundary (the thick murk side).
