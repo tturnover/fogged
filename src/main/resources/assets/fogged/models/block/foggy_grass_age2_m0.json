@@ -1,0 +1,22 @@
+{
+  "__comment": "PLACEHOLDER stump for foggy grass age 2, model variant 0. Replace with a BlockBench model; keep texture var #0 and render_type cutout so datagen can re-point the 3 shared textures.",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "0": "fogged:block/foggy_grass_0",
+    "particle": "fogged:block/foggy_grass_0"
+  },
+  "elements": [
+    {
+      "from": [5, 0, 5],
+      "to": [11, 11, 11],
+      "faces": {
+        "north": {"uv": [0, 0, 16, 16], "texture": "#0"},
+        "south": {"uv": [0, 0, 16, 16], "texture": "#0"},
+        "east":  {"uv": [0, 0, 16, 16], "texture": "#0"},
+        "west":  {"uv": [0, 0, 16, 16], "texture": "#0"},
+        "up":    {"uv": [0, 0, 16, 16], "texture": "#0"},
+        "down":  {"uv": [0, 0, 16, 16], "texture": "#0"}
+      }
+    }
+  ]
+}

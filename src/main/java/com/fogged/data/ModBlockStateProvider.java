@@ -33,6 +33,11 @@ public class ModBlockStateProvider extends BlockStateProvider {
     private static final int MOSS_VARIANTS = 4;
     private static final int EXTENSION_VARIANTS = 2;
 
+    /** Foggy grass: 5 authored (stump placeholder) model shapes per age stage, each randomly textured
+     *  with one of GRASS_TEXTURES shared textures -> GRASS_MODELS*GRASS_TEXTURES random variants per age. */
+    private static final int GRASS_MODELS = 5;
+    private static final int GRASS_TEXTURES = 3;
+
     /** The temperature variants of fog moss; all share the same randomised cube_all texture set. */
     private static final List<DeferredBlock<Block>> MOSS_BLOCKS = List.of(
             ModBlocks.FOG_MOSS,
@@ -71,8 +76,8 @@ public class ModBlockStateProvider extends BlockStateProvider {
             itemModels().withExistingParent(name, modLoc("block/" + name + "_0"));
         }
 
-        // Foggy grass: one cross model per AGE stage (block/foggy_grass_<age>), each a taller tuft.
-        // The item icon reuses the full-grown tuft texture.
+        // Foggy grass: per AGE stage, randomly pick one of 5 authored stump models, each randomly
+        // textured with one of 3 shared textures. The item icon reuses a shared tuft texture.
         foggyGrass();
 
         // Everything else: auto cube_all, blockstate + block model + item model.
@@ -85,18 +90,28 @@ public class ModBlockStateProvider extends BlockStateProvider {
         });
     }
 
-    // Foggy grass: a cutout cross whose texture (and thus tuft height) is chosen by the AGE property,
-    // textured at block/foggy_grass_<age>. The held item reuses the tallest stage as its sprite.
+    // Foggy grass: each AGE stage offers GRASS_MODELS authored stump models (block/foggy_grass_age<age>_m<m>,
+    // hand-editable placeholders), and each of those is emitted GRASS_TEXTURES times as a generated child
+    // that re-points texture #0 to one of the shared block/foggy_grass_<t> textures. All the resulting
+    // model+texture combos are equal-weight random variants, so the game picks one per block position.
     private void foggyGrass() {
-        getVariantBuilder(ModBlocks.FOGGY_GRASS.get()).forAllStates(state -> {
-            int age = state.getValue(FoggyGrassBlock.AGE);
-            String variant = "foggy_grass_" + age;
-            return ConfiguredModel.builder()
-                    .modelFile(models().cross(variant, modLoc("block/" + variant)).renderType("cutout"))
-                    .build();
-        });
+        var builder = getVariantBuilder(ModBlocks.FOGGY_GRASS.get());
+        for (int age = 0; age <= FoggyGrassBlock.MAX_AGE; age++) {
+            ConfiguredModel[] variants = new ConfiguredModel[GRASS_MODELS * GRASS_TEXTURES];
+            int i = 0;
+            for (int m = 0; m < GRASS_MODELS; m++) {
+                String base = "foggy_grass_age" + age + "_m" + m;
+                for (int t = 0; t < GRASS_TEXTURES; t++) {
+                    ModelFile textured = models()
+                            .withExistingParent(base + "_t" + t, modLoc("block/" + base))
+                            .texture("0", modLoc("block/foggy_grass_" + t));
+                    variants[i++] = new ConfiguredModel(textured);
+                }
+            }
+            builder.partialState().with(FoggyGrassBlock.AGE, age).setModels(variants);
+        }
         itemModels().withExistingParent("foggy_grass", mcLoc("item/generated"))
-                .texture("layer0", modLoc("block/foggy_grass_" + FoggyGrassBlock.MAX_AGE));
+                .texture("layer0", modLoc("block/foggy_grass_2"));
     }
 
     // Rotate the supplied model (BlockBench export at block/<name>): X from VERTICAL_DIRECTION
