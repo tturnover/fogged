@@ -1,3 +1,5 @@
+# IS IN VERY EARLY STAGE, EVERYTHING CAN BE CHANGE
+
 Fogged
 ======
 
