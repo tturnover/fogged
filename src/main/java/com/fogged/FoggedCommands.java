@@ -39,7 +39,9 @@ public final class FoggedCommands {
         LiteralArgumentBuilder<CommandSourceStack> fogged = Commands.literal("fogged")
                 .then(Commands.literal("spawnlurker")
                         .requires(src -> src.hasPermission(2))
-                        .executes(FoggedCommands::spawn))
+                        .executes(ctx -> spawn(ctx, false))
+                        .then(Commands.literal("noai")
+                                .executes(ctx -> spawn(ctx, true))))
                 .then(Commands.literal("fogheight")
                         .executes(FoggedCommands::fogHeight))
                 .then(Commands.literal("depth")
@@ -49,19 +51,27 @@ public final class FoggedCommands {
         event.getDispatcher().register(fogged);
     }
 
-    private static int spawn(CommandContext<CommandSourceStack> ctx) {
+    private static int spawn(CommandContext<CommandSourceStack> ctx, boolean noAi) {
         CommandSourceStack src = ctx.getSource();
         if (!(src.getLevel() instanceof ServerLevel level)) {
             src.sendFailure(Component.literal("No server level."));
             return 0;
         }
 
-        // A few blocks ahead of the source, buried under the ground so it spawns underground.
+        // Normally buried a few blocks ahead of the source. The no-AI debug spawn instead drops right at
+        // the source's head (eye level), frozen and laid out straight, so it's right in front of you.
         Vec3 look = Vec3.directionFromRotation(0.0F, src.getRotation().y);
-        double x = src.getPosition().x + look.x * 6.0;
-        double z = src.getPosition().z + look.z * 6.0;
-        double ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
-        double y = Math.min(ground, src.getPosition().y) - FogLurker.BURROW_DEPTH;
+        double x, y, z;
+        if (noAi) {
+            x = src.getPosition().x;
+            z = src.getPosition().z;
+            y = src.getEntity() != null ? src.getEntity().getEyeY() : src.getPosition().y + 1.6;
+        } else {
+            x = src.getPosition().x + look.x * 6.0;
+            z = src.getPosition().z + look.z * 6.0;
+            double ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
+            y = Math.min(ground, src.getPosition().y) - FogLurker.BURROW_DEPTH;
+        }
 
         FogLurker lurker = ModEntities.FOG_LURKER.get().create(level);
         if (lurker == null) {
@@ -71,10 +81,14 @@ public final class FoggedCommands {
         lurker.moveTo(x, y, z, src.getRotation().y, 0.0F);
         lurker.finalizeSpawn(level, level.getCurrentDifficultyAt(lurker.blockPosition()),
                 MobSpawnType.COMMAND, null);
+        lurker.setFrozen(noAi);
+        if (noAi) {
+            lurker.setPersistenceRequired(); // keep the debug dummy around even if you wander off
+        }
         level.addFreshEntity(lurker);
 
         src.sendSuccess(() -> Component.literal(String.format(
-                "Spawned a fog lurker at %.1f %.1f %.1f", x, y, z)), true);
+                "Spawned a fog lurker%s at %.1f %.1f %.1f", noAi ? " (no AI)" : "", x, y, z)), true);
         return Command.SINGLE_SUCCESS;
     }
 

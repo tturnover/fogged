@@ -1,6 +1,8 @@
 package com.fogged.entity;
 
 import com.fogged.Fogged;
+import com.fogged.entity.part.LurkerBodyCenterModel;
+import com.fogged.entity.part.LurkerBodyPawsModel;
 import com.fogged.entity.part.LurkerHeadModel;
 import com.fogged.entity.part.LurkerSegmentAModel;
 import com.fogged.entity.part.LurkerSegmentBModel;
@@ -26,6 +28,8 @@ public final class FogLurkerClient {
     @SubscribeEvent
     static void onRegisterLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(LurkerHeadModel.LAYER, LurkerHeadModel::createBodyLayer);
+        event.registerLayerDefinition(LurkerBodyPawsModel.LAYER, LurkerBodyPawsModel::createBodyLayer);
+        event.registerLayerDefinition(LurkerBodyCenterModel.LAYER, LurkerBodyCenterModel::createBodyLayer);
         event.registerLayerDefinition(LurkerSegmentAModel.LAYER, LurkerSegmentAModel::createBodyLayer);
         event.registerLayerDefinition(LurkerSegmentBModel.LAYER, LurkerSegmentBModel::createBodyLayer);
         event.registerLayerDefinition(LurkerSegmentCModel.LAYER, LurkerSegmentCModel::createBodyLayer);

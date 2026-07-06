@@ -46,7 +46,7 @@ public final class FogMossEvents {
 
     @SubscribeEvent
     static void onLevelTick(LevelTickEvent.Post event) {
-        if (!Config.FOG_MOSS_ENABLED.get()) {
+        if (!Config.FLORA_ENABLED.get()) {
             return;
         }
         if (!(event.getLevel() instanceof ServerLevel level)) {
@@ -88,7 +88,7 @@ public final class FogMossEvents {
      */
     @SubscribeEvent
     static void onChunkWatch(ChunkWatchEvent.Sent event) {
-        if (!Config.FOG_MOSS_ENABLED.get()) {
+        if (!Config.FLORA_ENABLED.get()) {
             return;
         }
         ServerLevel level = event.getLevel();
@@ -174,7 +174,7 @@ public final class FogMossEvents {
 
     @SubscribeEvent
     static void onLivingDeath(LivingDeathEvent event) {
-        if (!Config.FOG_MOSS_ENABLED.get()) {
+        if (!Config.FLORA_ENABLED.get()) {
             return;
         }
         Entity entity = event.getEntity();

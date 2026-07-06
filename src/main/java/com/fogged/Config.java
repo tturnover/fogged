@@ -25,7 +25,22 @@ public class Config {
     // The murk fog starts applying this many blocks above the plane (not exactly at it). Internal.
     public static final double FOG_START_RAISE = 0.5;
 
-    // ---- Underwater-breathing boundary config ----
+    // Config values below are grouped into TOML categories with BUILDER.push/pop. Those calls sit in
+    // static blocks so they run in declaration order, interleaved with the field initializers -- Java
+    // runs static initializer blocks and static field initializers top-to-bottom (JLS 12.4.2).
+
+    // ==== [items] : items / devices ====
+    static { BUILDER.push("items"); }
+
+    public static final ModConfigSpec.BooleanValue ITEMS_ENABLED = BUILDER
+            .comment("Master switch for the mod's items/devices (currently the fog detector). Off = the",
+                    "detector emits no redstone signal and is hidden from the creative tab.")
+            .define("itemsEnabled", true);
+
+    static { BUILDER.pop(); }
+
+    // ==== [boundary] : underwater-breathing boundary ====
+    static { BUILDER.push("boundary"); }
 
     public static final ModConfigSpec.ConfigValue<UnmodifiableConfig> PLANE_HEIGHT_SCHEDULE = BUILDER
             .comment("Breathing-boundary height over time, as a day -> height table. The boundary is the Y",
@@ -55,6 +70,11 @@ public class Config {
                     "the breathing boundary.")
             .define("flipFog", false);
 
+    static { BUILDER.pop(); }
+
+    // ==== [plane] : separation plane (and its cold-vapour layer) ====
+    static { BUILDER.push("plane"); }
+
     public static final ModConfigSpec.BooleanValue RENDER_PLANE = BUILDER
             .comment("Whether to render the semi-transparent separation plane at the breathing boundary.")
             .define("renderPlane", true);
@@ -78,7 +98,14 @@ public class Config {
                     "(ships / contraptions) where they cross the boundary. No effect without Sable.")
             .define("sableFoam", true);
 
-    // ---- Cold-vapour ("liquid nitrogen") layer config ----
+    public static final ModConfigSpec.BooleanValue FOAM_DEBUG = BUILDER
+            .comment("Debug: render the plane as raw foam data instead of the normal look.",
+                    "Red = depth-proximity edge factor, Green = sampled scene depth. If Green is a flat",
+                    "single colour the depth buffer isn't being read; if Red is blank there's no edge.")
+            .define("foamDebug", false);
+
+    // ---- [plane.vapor] : cold-vapour ("liquid nitrogen") layer ----
+    static { BUILDER.push("vapor"); }
 
     public static final ModConfigSpec.BooleanValue RENDER_VAPOR = BUILDER
             .comment("Render the cold-vapour layer on top of the plane: drifting horizontal mist sheets",
@@ -108,13 +135,23 @@ public class Config {
                     "rolling rises and falls. 0 = flat sheets.")
             .defineInRange("vaporUndulation", 1.5, 0.0, 16.0);
 
-    public static final ModConfigSpec.BooleanValue FOAM_DEBUG = BUILDER
-            .comment("Debug: render the plane as raw foam data instead of the normal look.",
-                    "Red = depth-proximity edge factor, Green = sampled scene depth. If Green is a flat",
-                    "single colour the depth buffer isn't being read; if Red is blank there's no edge.")
-            .define("foamDebug", false);
+    static { BUILDER.pop(); }   // [plane.vapor]
+    static { BUILDER.pop(); }   // [plane]
 
-    // ---- Mobs under the fog ----
+    // ==== [mobs] : the fog lurker + murk suffocation of non-allowed mobs ====
+    static { BUILDER.push("mobs"); }
+
+    public static final ModConfigSpec.BooleanValue MOBS_ENABLED = BUILDER
+            .comment("Master switch for the mod's mobs and mob behaviour: the fog lurker plus the murk",
+                    "suffocation of non-allowed mobs. Off = no lurkers (any already in the world burrow",
+                    "away) and non-allowed mobs no longer suffocate under the fog.")
+            .define("mobsEnabled", true);
+
+    public static final ModConfigSpec.BooleanValue MOB_SUFFOCATION_ENABLED = BUILDER
+            .comment("Whether the murk suffocates non-allowed mobs (blocks their spawns and damages them",
+                    "under the fog). Off keeps the lurker but lets any mob live under the fog. Ignored",
+                    "when mobsEnabled is off.")
+            .define("mobSuffocationEnabled", true);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLOWED_MOBS = BUILDER
             .comment("Entity-type IDs allowed to live under the fog (on the murk side of the boundary).",
@@ -133,87 +170,14 @@ public class Config {
                     "the delay. 2.0 = one heart per second.")
             .defineInRange("mobSuffocateDamage", 2.0, 0.0, 1000.0);
 
-    // ---- Fog moss (the murk rotting vegetation under the plane) ----
+    // ---- [mobs.lurker] : the worm that haunts the murk (on/off is mobsEnabled above) ----
+    static { BUILDER.push("lurker"); }
 
-    public static final ModConfigSpec.BooleanValue FOG_MOSS_ENABLED = BUILDER
-            .comment("Master switch for fog moss: the murk under the plane tills nearby farmland back to",
-                    "dirt, kills leaves/flowers/grass, and leaves a fog_moss puddle where they (and dying",
-                    "mobs) fall. Turn off to disable all of that behaviour.")
-            .define("fogMossEnabled", true);
-
-    public static final ModConfigSpec.IntValue FOG_MOSS_SKIP = BUILDER
-            .comment("Dead zone: the topmost blocks directly under the fog plane that the rot leaves alone.",
-                    "The shallow layer right beneath the plane stays untouched; the rot acts on everything",
-                    "from this offset down to the bottom of the world.")
-            .defineInRange("fogMossSkip", 5, 0, 64);
-
-    public static final ModConfigSpec.IntValue FOG_MOSS_SIZE_PER_STRENGTH = BUILDER
-            .comment("Puddle size, in blocks of fog moss, produced by an event of strength 1.0. The size",
-                    "scales with the event's strength (leaves 1.0, dying mob 1.25, grass/flowers 0.5).")
-            .defineInRange("fogMossSizePerStrength", 8, 1, 256);
-
-    public static final ModConfigSpec.DoubleValue FOG_MOSS_WARM_MIN = BUILDER
-            .comment("Biome base temperature at or above which a puddle grows the warm 'soft' fog moss",
-                    "variant. Vanilla reference: plains 0.8, jungle 0.95, savanna/desert 1.2-2.0.")
-            .defineInRange("fogMossWarmMin", 0.9, -2.0, 2.0);
-
-    public static final ModConfigSpec.DoubleValue FOG_MOSS_COLD_MAX = BUILDER
-            .comment("Biome base temperature at or below which a puddle grows the cold 'harsh' fog moss",
-                    "variant. Vanilla reference: taiga 0.25, snowy biomes 0.0, frozen -0.5. Between this",
-                    "and fogMossWarmMin the plain temperate fog moss is used.")
-            .defineInRange("fogMossColdMax", 0.2, -2.0, 2.0);
-
-    public static final ModConfigSpec.BooleanValue FOGGY_GRASS_ENABLED = BUILDER
-            .comment("Master switch for foggy grass: wispy tufts that sprout on fog moss, grow taller over",
-                    "time and spread across the patch up to a temperature-regulated density. Off = no tufts.")
-            .define("foggyGrassEnabled", true);
-
-    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_SEED_CHANCE = BUILDER
-            .comment("Base chance that a freshly-placed moss block sprouts a tuft as a puddle spreads. The",
-                    "actual chance is this times the local temperature density (so warm puddles start greener).")
-            .defineInRange("foggyGrassSeedChance", 0.08, 0.0, 1.0);
-
-    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_GROW_CHANCE = BUILDER
-            .comment("Per random-tick chance an existing tuft advances one growth stage (toward its full",
-                    "height). Lower = slower growth.")
-            .defineInRange("foggyGrassGrowChance", 0.35, 0.0, 1.0);
-
-    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_SPREAD_CHANCE = BUILDER
-            .comment("Per random-tick chance a tuft tries to spread onto a neighbouring patch of bare moss",
-                    "(only succeeds while the patch is below its temperature density cap).")
-            .defineInRange("foggyGrassSpreadChance", 0.25, 0.0, 1.0);
-
-    public static final ModConfigSpec.IntValue FOGGY_GRASS_PROXIMITY = BUILDER
-            .comment("Radius (in blocks) of the window used to measure how crowded a patch is when deciding",
-                    "whether grass may spread. Larger = density is judged over a wider area.")
-            .defineInRange("foggyGrassProximity", 4, 1, 16);
-
-    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_WARM_DENSITY = BUILDER
-            .comment("Fraction of nearby moss that grows grass in warm biomes (at/above fogMossWarmMin).",
-                    "1.0 carpets every moss block; lower leaves bare gaps.")
-            .defineInRange("foggyGrassWarmDensity", 0.6, 0.0, 1.0);
-
-    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_COLD_DENSITY = BUILDER
-            .comment("Fraction of nearby moss that grows grass in cold biomes (at/below fogMossColdMax).",
-                    "Between this and fogMossWarmMin the density is interpolated from the biome temperature.")
-            .defineInRange("foggyGrassColdDensity", 0.05, 0.0, 1.0);
-
-    // ---- Fog lurker (the worm that haunts the murk) ----
-
-    public static final ModConfigSpec.BooleanValue LURKER_ENABLED = BUILDER
-            .comment("Master switch for the fog lurker: a phantom worm that glides under the fog plane",
-                    "near submerged players, breaks the surface with a dorsal fin, and lunges for a heavy",
-                    "hit if you break a block close to it. Off = it never spawns.")
-            .define("lurkerEnabled", true);
-
-    public static final ModConfigSpec.IntValue LURKER_SPAWN_MIN_SECONDS = BUILDER
-            .comment("Minimum seconds between lurker spawns for a player. Each gap is rolled randomly",
-                    "between this and lurkerSpawnMaxSeconds.")
-            .defineInRange("lurkerSpawnMinSeconds", 30, 1, 86400);
-
-    public static final ModConfigSpec.IntValue LURKER_SPAWN_MAX_SECONDS = BUILDER
-            .comment("Maximum seconds between lurker spawns for a player (default 1200 = 20 minutes).")
-            .defineInRange("lurkerSpawnMaxSeconds", 1200, 1, 86400);
+    public static final ModConfigSpec.ConfigValue<List<? extends Integer>> LURKER_SPAWN_SECONDS = BUILDER
+            .comment("Random gap between lurker spawns for a player, as [minSeconds, maxSeconds]. Each",
+                    "spawn waits a random time in this range (default 30..1200s = up to 20 minutes).")
+            .defineList("lurkerSpawnSeconds", List.of(30, 1200), () -> 30,
+                    o -> o instanceof Number n && n.intValue() >= 1 && n.intValue() <= 86400);
 
     public static final ModConfigSpec.IntValue LURKER_MAX_NEARBY = BUILDER
             .comment("Most lurkers that may exist within lurkerRange of a player at once. Default 1 = a",
@@ -254,12 +218,119 @@ public class Config {
                     "harder the closer it is (and while it lunges). 0 disables the shake.")
             .defineInRange("lurkerShakeRadius", 16.0, 0.0, 64.0);
 
+    static { BUILDER.pop(); }   // [mobs.lurker]
+    static { BUILDER.pop(); }   // [mobs]
+
+    // ==== [flora] : fog moss + foggy grass ====
+    static { BUILDER.push("flora"); }
+
+    public static final ModConfigSpec.BooleanValue FLORA_ENABLED = BUILDER
+            .comment("Master switch for the mod's flora: fog moss (with its rot and spread) and foggy",
+                    "grass. Off = no new moss puddles form and existing moss/grass stops growing or",
+                    "spreading.")
+            .define("floraEnabled", true);
+
+    // ---- [flora.moss] : the murk rotting vegetation under the plane ----
+    static { BUILDER.push("moss"); }
+
+    public static final ModConfigSpec.IntValue FOG_MOSS_SKIP = BUILDER
+            .comment("Dead zone: the topmost blocks directly under the fog plane that the rot leaves alone.",
+                    "The shallow layer right beneath the plane stays untouched; the rot acts on everything",
+                    "from this offset down to the bottom of the world.")
+            .defineInRange("fogMossSkip", 5, 0, 64);
+
+    public static final ModConfigSpec.IntValue FOG_MOSS_SIZE_PER_STRENGTH = BUILDER
+            .comment("Puddle size, in blocks of fog moss, produced by an event of strength 1.0. The size",
+                    "scales with the event's strength (leaves 1.0, dying mob 1.25, grass/flowers 0.5).")
+            .defineInRange("fogMossSizePerStrength", 8, 1, 256);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends Double>> FOG_MOSS_TEMP_BAND = BUILDER
+            .comment("Biome-temperature band that picks the fog-moss variant, as [coldMax, warmMin].",
+                    "At/below coldMax grows the cold 'harsh' variant; at/above warmMin the warm 'soft'",
+                    "variant; between the two the plain temperate moss. Vanilla ref: snowy 0.0, taiga",
+                    "0.25, plains 0.8, jungle 0.95, savanna/desert 1.2-2.0.")
+            .defineList("fogMossTempBand", List.of(0.2, 0.9), () -> 0.0,
+                    o -> o instanceof Number n && n.doubleValue() >= -2.0 && n.doubleValue() <= 2.0);
+
+    static { BUILDER.pop(); }   // [flora.moss]
+
+    // ---- [flora.grass] : the wispy tufts that grow on fog moss ----
+    static { BUILDER.push("grass"); }
+
+    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_SEED_CHANCE = BUILDER
+            .comment("Base chance that a freshly-placed moss block sprouts a tuft as a puddle spreads. The",
+                    "actual chance is this times the local temperature density (so warm puddles start greener).")
+            .defineInRange("foggyGrassSeedChance", 0.08, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_GROW_CHANCE = BUILDER
+            .comment("Per random-tick chance an existing tuft advances one growth stage (toward its full",
+                    "height). Lower = slower growth.")
+            .defineInRange("foggyGrassGrowChance", 0.35, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_SPREAD_CHANCE = BUILDER
+            .comment("Per random-tick chance a tuft tries to spread onto a neighbouring patch of bare moss",
+                    "(only succeeds while the patch is below its temperature density cap).")
+            .defineInRange("foggyGrassSpreadChance", 0.25, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue FOGGY_GRASS_PROXIMITY = BUILDER
+            .comment("Radius (in blocks) of the window used to measure how crowded a patch is when deciding",
+                    "whether grass may spread. Larger = density is judged over a wider area.")
+            .defineInRange("foggyGrassProximity", 4, 1, 16);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends Double>> FOGGY_GRASS_DENSITY = BUILDER
+            .comment("Fraction of nearby moss that grows grass, as [coldBiome, warmBiome] (each 0..1).",
+                    "Cold biomes (at/below the moss coldMax) use the first, warm (at/above warmMin) the",
+                    "second, and between them the density is interpolated from the biome temperature.",
+                    "1.0 carpets every moss block; lower leaves bare gaps.")
+            .defineList("foggyGrassDensity", List.of(0.05, 0.6), () -> 0.0,
+                    o -> o instanceof Number n && n.doubleValue() >= 0.0 && n.doubleValue() <= 1.0);
+
+    static { BUILDER.pop(); }   // [flora.grass]
+    static { BUILDER.pop(); }   // [flora]
+
     static final ModConfigSpec SPEC = BUILDER.build();
 
     // Strength (puddle-size multiplier) of each fog-moss event. See FOG_MOSS_SIZE_PER_STRENGTH.
     public static final double FOG_MOSS_STRENGTH_LEAVES = 1.0;
     public static final double FOG_MOSS_STRENGTH_MOB = 1.25;
     public static final double FOG_MOSS_STRENGTH_PLANT = 0.5;
+
+    // --- combined range accessors ---
+    // Each pulls one end out of a [low, high] list config, falling back to the default if it is short.
+
+    private static double at(List<? extends Number> list, int i, double fallback) {
+        return list.size() > i ? list.get(i).doubleValue() : fallback;
+    }
+
+    /** Minimum seconds between lurker spawns (first entry of lurkerSpawnSeconds). */
+    public static int lurkerSpawnMinSeconds() {
+        return (int) at(LURKER_SPAWN_SECONDS.get(), 0, 30);
+    }
+
+    /** Maximum seconds between lurker spawns, never below the minimum. */
+    public static int lurkerSpawnMaxSeconds() {
+        return Math.max(lurkerSpawnMinSeconds(), (int) at(LURKER_SPAWN_SECONDS.get(), 1, 1200));
+    }
+
+    /** Temperature at/below which fog moss grows the cold variant (first entry of fogMossTempBand). */
+    public static double fogMossColdMax() {
+        return at(FOG_MOSS_TEMP_BAND.get(), 0, 0.2);
+    }
+
+    /** Temperature at/above which fog moss grows the warm variant (second entry of fogMossTempBand). */
+    public static double fogMossWarmMin() {
+        return at(FOG_MOSS_TEMP_BAND.get(), 1, 0.9);
+    }
+
+    /** Foggy-grass density in cold biomes (first entry of foggyGrassDensity). */
+    public static double foggyGrassColdDensity() {
+        return at(FOGGY_GRASS_DENSITY.get(), 0, 0.05);
+    }
+
+    /** Foggy-grass density in warm biomes (second entry of foggyGrassDensity). */
+    public static double foggyGrassWarmDensity() {
+        return at(FOGGY_GRASS_DENSITY.get(), 1, 0.6);
+    }
 
     // --- dynamic breathing-boundary height ---
 
@@ -435,6 +506,11 @@ public class Config {
         ensureAllowedMobs();
         ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
         return allowedMobIds.contains(id);
+    }
+
+    // Whether the murk suffocates non-allowed mobs: needs both the mobs master switch and its own toggle.
+    public static boolean mobSuffocationEnabled() {
+        return MOBS_ENABLED.get() && MOB_SUFFOCATION_ENABLED.get();
     }
 
     // --- hex RGBA helpers ---

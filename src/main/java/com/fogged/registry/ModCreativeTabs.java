@@ -1,9 +1,11 @@
 package com.fogged.registry;
 
+import com.fogged.Config;
 import com.fogged.Fogged;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.IEventBus;
@@ -24,7 +26,15 @@ public final class ModCreativeTabs {
                     .title(Component.translatable("itemGroup.fogged"))
                     .icon(() -> new ItemStack(ModBlocks.FOG_DETECTOR.get()))
                     .displayItems((params, output) ->
-                            ModItems.ITEMS.getEntries().forEach(item -> output.accept(item.get())))
+                            ModItems.ITEMS.getEntries().forEach(item -> {
+                                // The items master switch hides the (now inert) fog detector device.
+                                if (!Config.ITEMS_ENABLED.get()
+                                        && item.get() instanceof BlockItem bi
+                                        && bi.getBlock() == ModBlocks.FOG_DETECTOR.get()) {
+                                    return;
+                                }
+                                output.accept(item.get());
+                            }))
                     .build());
 
     public static void register(IEventBus modEventBus) {

@@ -90,10 +90,10 @@ public final class FogMoss {
     // warm -> soft, cold -> harsh, otherwise the temperate default. Thresholds are configurable.
     private static Block mossFor(ServerLevel level, BlockPos pos) {
         float temp = level.getBiome(pos).value().getBaseTemperature();
-        if (temp >= Config.FOG_MOSS_WARM_MIN.get()) {
+        if (temp >= Config.fogMossWarmMin()) {
             return ModBlocks.SOFT_FOG_MOSS.get();
         }
-        if (temp <= Config.FOG_MOSS_COLD_MAX.get()) {
+        if (temp <= Config.fogMossColdMax()) {
             return ModBlocks.HARSH_FOG_MOSS.get();
         }
         return ModBlocks.FOG_MOSS.get();

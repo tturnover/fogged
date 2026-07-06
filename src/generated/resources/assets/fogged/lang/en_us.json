@@ -9,7 +9,6 @@
   "death.attack.fog_suffocation": "%1$s was swallowed by the fog",
   "death.attack.fog_suffocation.player": "%1$s drowned in the fog while fleeing %2$s",
   "entity.fogged.fog_lurker": "Fog Lurker",
-  "item.fogged.lurker_debug": "Lurker Debug Ward",
   "fogged.configuration.airLossPerTick": "Air Loss Per Tick",
   "fogged.configuration.breathHeight": "Breathing Boundary Height",
   "fogged.configuration.foamColor": "Foam Colour (hex RGBA)",
@@ -21,5 +20,6 @@
   "fogged.configuration.section.fogged.common.toml": "Fogged Configs",
   "fogged.configuration.section.fogged.common.toml.title": "Fogged Configs",
   "fogged.configuration.title": "Fogged Configs",
+  "item.fogged.lurker_debug": "Lurker Debug",
   "itemGroup.fogged": "Fogged"
 }

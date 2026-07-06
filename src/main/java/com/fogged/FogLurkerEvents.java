@@ -45,14 +45,19 @@ public final class FogLurkerEvents {
 
     @SubscribeEvent
     static void onLevelTick(LevelTickEvent.Post event) {
-        if (!Config.LURKER_ENABLED.get()) {
-            return;
-        }
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
         if (level.getGameTime() % 20 != 0) {
             return; // a once-a-second check is plenty for second-scale intervals
+        }
+        if (!Config.MOBS_ENABLED.get()) {
+            // Mobs master switch off: retire any lurkers still in the world.
+            for (FogLurker lurker : level.getEntities(ModEntities.FOG_LURKER.get(), l -> true)) {
+                lurker.discard();
+            }
+            NEXT_SPAWN.clear();
+            return;
         }
 
         long now = level.getGameTime();
@@ -85,8 +90,8 @@ public final class FogLurkerEvents {
 
     // A random spawn gap in ticks, rolled between the configured min and max seconds.
     private static long nextInterval(ServerLevel level) {
-        int min = Config.LURKER_SPAWN_MIN_SECONDS.getAsInt();
-        int max = Math.max(min, Config.LURKER_SPAWN_MAX_SECONDS.getAsInt());
+        int min = Config.lurkerSpawnMinSeconds();
+        int max = Config.lurkerSpawnMaxSeconds();
         return (min + level.random.nextInt(max - min + 1)) * 20L;
     }
 
@@ -131,7 +136,7 @@ public final class FogLurkerEvents {
 
     // Disturb every docile lurker in aggro range of an under-fog player, unless the player is warded.
     private static void disturbNearby(Level level, Player player) {
-        if (!Config.LURKER_ENABLED.get() || level.isClientSide) {
+        if (!Config.MOBS_ENABLED.get() || level.isClientSide) {
             return;
         }
         if (!Config.fogged(level, player.getEyeY()) || isWarded(player)) {

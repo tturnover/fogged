@@ -3,6 +3,8 @@ package com.fogged.entity;
 import com.fogged.Config;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -17,6 +19,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 
@@ -43,6 +46,9 @@ public class FogLurker extends Monster {
     // warning shake (each broken block doubles it).
     private static final EntityDataAccessor<Integer> DATA_DISTURBANCE =
             SynchedEntityData.defineId(FogLurker.class, EntityDataSerializers.INT);
+    // Debug "frozen" spawn: no AI, no lifespan, body laid out straight so the model is fully visible.
+    private static final EntityDataAccessor<Boolean> DATA_FROZEN =
+            SynchedEntityData.defineId(FogLurker.class, EntityDataSerializers.BOOLEAN);
 
     private static final int PULSE_TICKS = 20; // one-second client shake pulse per block broken
 
@@ -118,6 +124,16 @@ public class FogLurker extends Monster {
         super.defineSynchedData(builder);
         builder.define(DATA_STATE, State.DOCILE.ordinal());
         builder.define(DATA_DISTURBANCE, 0);
+        builder.define(DATA_FROZEN, false);
+    }
+
+    /** Debug frozen spawn: stops all AI/lifespan and lays the body out straight. */
+    public boolean isFrozen() {
+        return this.entityData.get(DATA_FROZEN);
+    }
+
+    public void setFrozen(boolean frozen) {
+        this.entityData.set(DATA_FROZEN, frozen);
     }
 
     /** Blocks broken toward the attack so far. */
@@ -155,11 +171,57 @@ public class FogLurker extends Monster {
     @Override
     public void tick() {
         super.tick();
+        if (isFrozen()) {
+            layStraightTrail(); // debug spawn: hold a fixed extended body so the whole model is visible
+            return;
+        }
         // Record the trail on both sides (client positions are interpolated, so the body glides too).
         historyHead = (historyHead - 1 + TRAIL_LENGTH) % TRAIL_LENGTH;
         history[historyHead] = position();
         if (historyCount < TRAIL_LENGTH) {
             historyCount++;
+        }
+        if (level().isClientSide) {
+            emitBurrowParticles();
+        }
+    }
+
+    // Fill the trail with a straight line running back from the head along its facing, so a motionless
+    // (frozen) worm still renders as a full stretched body instead of collapsing every piece onto one point.
+    private void layStraightTrail() {
+        double yaw = Math.toRadians(getYRot() + 90.0);
+        double bx = -Math.cos(yaw);
+        double bz = -Math.sin(yaw);
+        Vec3 head = position();
+        for (int i = 0; i < TRAIL_LENGTH; i++) {
+            history[i] = head.add(bx * i * 0.5, 0.0, bz * i * 0.5);
+        }
+        historyHead = 0;
+        historyCount = TRAIL_LENGTH;
+    }
+
+    /**
+     * Spew the crumbs of whatever blocks the worm is tunnelling through -- the same break particles you
+     * get mining the block -- sampled along the body trail so the whole length churns the ground it
+     * passes through. Client-only and skipped for any sample point that is in open air.
+     */
+    private void emitBurrowParticles() {
+        // Sample a handful of points back along the body so crumbs trail the whole worm, not just the head.
+        for (int i = 0; i < historyCount && i <= 36; i += 6) {
+            Vec3 p = historyAt(i);
+            BlockPos pos = BlockPos.containing(p.x, p.y, p.z);
+            BlockState state = level().getBlockState(pos);
+            if (!state.blocksMotion()) {
+                continue; // in open air (cave / surfaced fin): nothing to break
+            }
+            BlockParticleOption opt = new BlockParticleOption(ParticleTypes.BLOCK, state).setPos(pos);
+            for (int n = 0; n < 2; n++) {
+                double ox = (random.nextDouble() - 0.5) * 1.2;
+                double oy = (random.nextDouble() - 0.5) * 1.2;
+                double oz = (random.nextDouble() - 0.5) * 1.2;
+                level().addParticle(opt, p.x + ox, p.y + oy, p.z + oz,
+                        (random.nextDouble() - 0.5) * 0.2, 0.15, (random.nextDouble() - 0.5) * 0.2);
+            }
         }
     }
 
@@ -229,6 +291,9 @@ public class FogLurker extends Monster {
 
     @Override
     protected void customServerAiStep() {
+        if (isFrozen()) {
+            return; // debug spawn: no movement, no lifespan countdown
+        }
         // Its time is up: stop everything else and burrow away, then vanish once deep enough.
         if (--lifespanTicks <= 0 && state() != State.LEAVING) {
             setState(State.LEAVING);

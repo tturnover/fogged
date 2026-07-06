@@ -56,8 +56,10 @@ public class LurkerHeadModel extends LurkerPart {
         MeshDefinition meshdefinition = new MeshDefinition();
         PartDefinition partdefinition = meshdefinition.getRoot();
 
-        // bone2 lowered from y=15 (Blockbench export) to y=24 so the head's spine sits on the trail line.
-        PartDefinition bone2 = partdefinition.addOrReplaceChild("bone2", CubeListBuilder.create().texOffs(33, -12).addBox(0.0F, -8.0F, -7.0F, 0.0F, 6.0F, 15.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 24.0F, -1.0F));
+        // bone2 raised from the export's y=15 to y=24.5 so the model's body_child point ([0,9.5,6] in
+        // Blockbench) lands on the trail line (model y=24) -- that point is where the first body piece's
+        // body_parrent seam attaches (see FogLurkerRenderer.HEAD_DIST).
+        PartDefinition bone2 = partdefinition.addOrReplaceChild("bone2", CubeListBuilder.create().texOffs(33, -12).addBox(0.0F, -8.0F, -7.0F, 0.0F, 6.0F, 15.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 24.5F, -1.0F));
 
         bone2.addOrReplaceChild("cube_r1", CubeListBuilder.create().texOffs(33, -12).addBox(0.0F, -6.0F, -7.0F, 0.0F, 6.0F, 15.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(0.0F, -2.0F, 0.0F, 0.0F, 0.0F, -0.6981F));
 

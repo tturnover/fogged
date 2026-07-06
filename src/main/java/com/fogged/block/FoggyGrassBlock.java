@@ -27,7 +27,7 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
  * at a stable density instead of swallowing every moss block.
  */
 public class FoggyGrassBlock extends BushBlock {
-    /** Growth stages 0..MAX_AGE; higher = a taller, bushier tuft (see the datagen cross models). */
+    /** Growth stages 0..MAX_AGE; higher = a taller, bushier tuft (see the per-age stump models). */
     public static final int MAX_AGE = 3;
     public static final IntegerProperty AGE = IntegerProperty.create("age", 0, MAX_AGE);
 
@@ -68,7 +68,7 @@ public class FoggyGrassBlock extends BushBlock {
 
     @Override
     public void randomTick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        if (!Config.FOGGY_GRASS_ENABLED.get()) {
+        if (!Config.FLORA_ENABLED.get()) {
             return;
         }
         // Grow upward toward the limit.
@@ -116,7 +116,7 @@ public class FoggyGrassBlock extends BushBlock {
      * temperature density so warm puddles come up greener. Called by {@link FogMoss} as it spreads.
      */
     public static void trySeed(ServerLevel level, BlockPos mossPos, RandomSource random) {
-        if (!Config.FOGGY_GRASS_ENABLED.get()) {
+        if (!Config.FLORA_ENABLED.get()) {
             return;
         }
         BlockPos top = mossPos.above();
@@ -170,13 +170,13 @@ public class FoggyGrassBlock extends BushBlock {
     }
 
     // Density fraction (0..1) of moss this biome's temperature supports, interpolated between the cold
-    // and warm anchors that also pick the moss variant (FOG_MOSS_COLD_MAX .. FOG_MOSS_WARM_MIN).
+    // and warm anchors that also pick the moss variant (fogMossTempBand = [coldMax, warmMin]).
     private static double density(ServerLevel level, BlockPos pos) {
         double temp = level.getBiome(pos).value().getBaseTemperature();
-        double cold = Config.FOG_MOSS_COLD_MAX.get();
-        double warm = Config.FOG_MOSS_WARM_MIN.get();
-        double lo = Config.FOGGY_GRASS_COLD_DENSITY.get();
-        double hi = Config.FOGGY_GRASS_WARM_DENSITY.get();
+        double cold = Config.fogMossColdMax();
+        double warm = Config.fogMossWarmMin();
+        double lo = Config.foggyGrassColdDensity();
+        double hi = Config.foggyGrassWarmDensity();
         if (warm <= cold) {
             return hi; // misconfigured thresholds: fall back to the dense end
         }

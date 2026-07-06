@@ -1,6 +1,8 @@
 package com.fogged.entity;
 
 import com.fogged.Fogged;
+import com.fogged.entity.part.LurkerBodyCenterModel;
+import com.fogged.entity.part.LurkerBodyPawsModel;
 import com.fogged.entity.part.LurkerHeadModel;
 import com.fogged.entity.part.LurkerPart;
 import com.fogged.entity.part.LurkerSegmentAModel;
@@ -36,19 +38,34 @@ public class FogLurkerRenderer extends EntityRenderer<FogLurker> {
 
     private static final float SCALE = 1.35F;       // overall size
     private static final int SEGMENT_COUNT = 6;     // body segments between head and tail
-    private static final double HEAD_DIST = 0.6;    // world-space gap (blocks) from head to first segment
-    private static final double SEGMENT_DIST = 0.6; // world-space gap (blocks) between consecutive pieces
     private static final double WALK_STEP = 0.5;    // history-clock step (ticks) used to measure arc length
     private static final double WALK_MAX = 80.0;    // furthest back (ticks) the body walk will look
 
+    // Inter-piece spacing comes from the body_parrent / body_child points placed in the Blockbench models:
+    // each piece is anchored at its parent seam (the trail placement point) and trails backward to its
+    // child seam, where the next piece's parent attaches. So the gap to the next piece equals the piece's
+    // own parent->child length, in blocks = (childZ - parentZ) px / 16 * SCALE.
+    private static final double PX = SCALE / 16.0;
+    private static final double HEAD_DIST = 6.0 * PX;    // head body_child z=6 -> first body piece sits here
+    private static final double PAWS_LEN = 7.0 * PX;     // paws parent z=-4 -> child z=3
+    private static final double CENTER_LEN = 11.0 * PX;  // center parent z=-4 -> child z=7
+    private static final double DEFAULT_LEN = 0.6;       // placeholder segments / tail have no points yet
+
+    private static final int[] PAWS_AT = {0, 2}; // body-piece indices that use the paw'd segment (1st and 3rd)
+    private static final int CENTER_AT = 1;      // body piece sitting between the two paw'd segments
+
     private final LurkerHeadModel head;
-    private final LurkerPart[] segmentVariants; // cycled along the body
+    private final LurkerPart paws;
+    private final LurkerPart bodyCenter;
+    private final LurkerPart[] segmentVariants; // cycled along the rest of the body
     private final LurkerTailModel tail;
 
     public FogLurkerRenderer(EntityRendererProvider.Context context) {
         super(context);
         this.shadowRadius = 0.7F;
         this.head = new LurkerHeadModel(context.bakeLayer(LurkerHeadModel.LAYER));
+        this.paws = new LurkerBodyPawsModel(context.bakeLayer(LurkerBodyPawsModel.LAYER));
+        this.bodyCenter = new LurkerBodyCenterModel(context.bakeLayer(LurkerBodyCenterModel.LAYER));
         this.segmentVariants = new LurkerPart[] {
                 new LurkerSegmentAModel(context.bakeLayer(LurkerSegmentAModel.LAYER)),
                 new LurkerSegmentBModel(context.bakeLayer(LurkerSegmentBModel.LAYER)),
@@ -69,7 +86,9 @@ public class FogLurkerRenderer extends EntityRenderer<FogLurker> {
         // chain shares one sub-tick timeline and never creeps forward-and-back between frames. The render
         // origin the dispatcher set is exactly historyLerp(partialTick, 0), so offsets are relative to it.
         Vec3 headPos = entity.historyLerp(partialTick, 0.0);
-        head.setupAnim(entity, 0.0F, 0.0F, entity.tickCount + partialTick, 0.0F, 0.0F); // burrow / lunge anim
+        float age = entity.tickCount + partialTick;
+        head.setupAnim(entity, 0.0F, 0.0F, age, 0.0F, 0.0F);  // burrow / lunge anim
+        paws.setupAnim(entity, 0.0F, 0.0F, age, 0.0F, 0.0F);  // shared paws instance: animate once, reused below
         renderPiece(head, headPos, headForward(entity, partialTick, headPos), headPos, poseStack, buffers, lightAt(entity, headPos));
 
         // Place the body pieces at constant WORLD-DISTANCE spacing by walking the smooth history path and
@@ -87,8 +106,8 @@ public class FogLurkerRenderer extends EntityRenderer<FogLurker> {
                 Vec3 pos = prev.lerp(cur, (nextTarget - acc) / d);
                 Vec3 fwd = pos.add(prev.subtract(cur)); // tangent pointing back toward the head
                 renderPiece(pieceFor(placed), pos, fwd, headPos, poseStack, buffers, lightAt(entity, pos));
+                nextTarget += pieceLength(placed); // gap to the next piece = this piece's own length
                 placed++;
-                nextTarget += SEGMENT_DIST;
             }
             acc += d;
             prev = cur;
@@ -103,7 +122,24 @@ public class FogLurkerRenderer extends EntityRenderer<FogLurker> {
     }
 
     private LurkerPart pieceFor(int index) {
-        return index < SEGMENT_COUNT ? segmentVariants[index % segmentVariants.length] : tail;
+        if (index >= SEGMENT_COUNT) return tail;
+        for (int p : PAWS_AT) {
+            if (index == p) return paws;
+        }
+        if (index == CENTER_AT) return bodyCenter;
+        return segmentVariants[index % segmentVariants.length];
+    }
+
+    // World-space length (blocks) of the body piece at `index`, used as the gap to the piece behind it so
+    // each piece's body_child seam meets the next piece's body_parrent seam. Pieces without seam points
+    // (the placeholder segments and tail) fall back to a constant spacing.
+    private double pieceLength(int index) {
+        if (index >= SEGMENT_COUNT) return DEFAULT_LEN; // tail (last piece; value unused)
+        for (int p : PAWS_AT) {
+            if (index == p) return PAWS_LEN;
+        }
+        if (index == CENTER_AT) return CENTER_LEN;
+        return DEFAULT_LEN;
     }
 
     // Light for a piece: sampled in the open air above its column (or at the piece itself when it is
