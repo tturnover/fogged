@@ -130,16 +130,20 @@ public class FogPlaneRenderer {
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
         }
 
-        // Override scene fog with our boundary fog, same both sides: murk starts at the camera and
-        // reaches full within a few blocks, so the surface is murky even up close at a shallow angle.
-        // Foam is applied AFTER fog in the shader, so it stays visible on top.
+        // Only force our green murk fog when actually IN the murk (below the plane): there it reaches
+        // full within a few blocks so the ceiling reads as murk. Above the plane -- dry OR underwater --
+        // we leave the vanilla scene fog, so the plane dissolves into whatever the world fades to (the
+        // horizon/world-edge fog when dry, the water fog when submerged) instead of tinting the far view
+        // its own colour or cutting a hard edge at the loaded-chunk boundary.
         float far = Config.FOG_DISTANCE.getAsInt();
         float savedFogStart = RenderSystem.getShaderFogStart();
         float savedFogEnd = RenderSystem.getShaderFogEnd();
         float[] savedFogColor = RenderSystem.getShaderFogColor();
-        RenderSystem.setShaderFogStart(0.0F);
-        RenderSystem.setShaderFogEnd(far * 0.15F);
-        RenderSystem.setShaderFogColor(r, g, b, 1.0F); // plane colour, like the fog beneath it
+        if (below) {
+            RenderSystem.setShaderFogStart(0.0F);
+            RenderSystem.setShaderFogEnd(far * 0.15F);
+            RenderSystem.setShaderFogColor(r, g, b, 1.0F); // plane colour, like the fog beneath it
+        }
 
         // Put the camera view into RenderSystem's modelview for the draw (its leftover state varies by
         // stage), then emit raw camera-relative vertices so the shader keeps Position world-anchored.
