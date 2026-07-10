@@ -10,10 +10,8 @@
 uniform vec4 ColorModulator;
 uniform float FogStart;
 uniform float FogEnd;
-uniform vec4 FogColor;
 uniform int FogShape;
 uniform float Time;             // smooth game time in seconds (drives the drift)
-uniform vec3 WorldOffset;
 uniform float WispScale;        // world-space frequency of the wisp/terrace noise
 uniform float PixelsPerBlock;   // snap the noise to this grid (matches the plane's foam pixels)
 uniform float StepThreshold;    // this plane only shows where the noise field is >= this (terraces)

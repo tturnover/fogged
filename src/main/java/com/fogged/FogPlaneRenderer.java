@@ -96,9 +96,8 @@ public class FogPlaneRenderer {
         RenderSystem.depthMask(true);   // opaque murk: write depth so far-side water is culled by it
         RenderSystem.disableCull();     // visible from both sides
 
-        // Sampler0 = waterline distance map (foam), Sampler1 = procedural surface tile.
+        // Sampler0 = waterline distance map (foam rings).
         RenderSystem.setShaderTexture(0, WaterlineMap.textureId());
-        RenderSystem.setShaderTexture(1, WaterTexture.textureId());
 
         // Our shader once loaded; fall back to the plain one otherwise.
         ShaderInstance shader = FogShaders.FOG_PLANE;

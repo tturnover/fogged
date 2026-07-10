@@ -2,8 +2,7 @@
     "vertex": "fogged:fog_plane",
     "fragment": "fogged:fog_plane",
     "samplers": [
-        { "name": "Sampler0" },
-        { "name": "Sampler1" }
+        { "name": "Sampler0" }
     ],
     "attributes": [
         "Position",

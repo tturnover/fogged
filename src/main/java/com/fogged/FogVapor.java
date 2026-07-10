@@ -29,8 +29,8 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public final class FogVapor {
 
-    // Pixel grid the shader snaps the noise to (matches WaterTexture/foam's 4 px per block), and the
-    // world-space frequency of the terrace/wisp noise.
+    // Pixel grid the shader snaps the noise to (matches the foam's 4 px per block), and the world-space
+    // frequency of the terrace/wisp noise.
     private static final float PIXELS_PER_BLOCK = 4.0F;
     private static final float WISP_SCALE = 0.09F;
 
@@ -118,14 +118,12 @@ public final class FogVapor {
         shader.safeGetUniform("PlaneFadeStart").set(fogFar * 0.8F);
         shader.safeGetUniform("PlaneFadeEnd").set(fogFar);
 
-        // Dissolve the vapour into fog of the plane's own colour across the visible range.
-        float[] plane = Config.planeColor();
+        // Fade the vapour out across the visible range (the shader dissolves its alpha by FogStart/End;
+        // it keeps its own vertex colour, so no fog colour is needed here).
         float savedFogStart = RenderSystem.getShaderFogStart();
         float savedFogEnd = RenderSystem.getShaderFogEnd();
-        float[] savedFogColor = RenderSystem.getShaderFogColor();
         RenderSystem.setShaderFogStart(fogFar * 0.25F);
         RenderSystem.setShaderFogEnd(fogFar);
-        RenderSystem.setShaderFogColor(plane[0], plane[1], plane[2], 1.0F);
 
         // Equally-spaced flat planes from just above the boundary up to the configured height. Each is a
         // single big quad; the shader keeps it only where the noise field reaches that plane's rising
@@ -159,7 +157,6 @@ public final class FogVapor {
 
         RenderSystem.setShaderFogStart(savedFogStart);
         RenderSystem.setShaderFogEnd(savedFogEnd);
-        RenderSystem.setShaderFogColor(savedFogColor[0], savedFogColor[1], savedFogColor[2], savedFogColor[3]);
 
         RenderSystem.depthMask(true);
         RenderSystem.enableCull();

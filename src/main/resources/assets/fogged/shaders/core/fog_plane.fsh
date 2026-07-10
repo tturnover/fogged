@@ -2,8 +2,7 @@
 
 #moj_import <fog.glsl>
 
-uniform sampler2D Sampler0; // world-space waterline distance map (R = distance to nearest waterline)
-uniform sampler2D Sampler1; // procedural, seamlessly-tiling water/foam texture (R=water, G=foam)
+uniform sampler2D Sampler0; // world-space waterline distance map (R = solid/entity dist, G = plant dist)
 
 uniform vec4 ColorModulator;
 uniform vec4 FoamColor;     // foam base colour (rgb) and strength (a)
@@ -25,8 +24,6 @@ in vec2 worldXZ;
 in vec3 relPos;
 
 out vec4 fragColor;
-
-const float TAU = 6.2831853;
 
 // --- shader-side 3D value noise, evaluated in world space so it never tiles/repeats like a texture.
 // Feeding time into the third axis morphs the field in place and only ever forward, so it boils
@@ -60,10 +57,6 @@ float fbm3(vec2 p, float t) {
     }
     return v / 0.9375;
 }
-
-// Must match WaterTexture: TILE_BLOCKS blocks span SIZE texels (16 texels per block).
-const float WATER_TILE_BLOCKS = 4.0;
-const float WATER_TILE_TEXELS = 64.0;
 
 // Foam & spot pixelation: 4 pixels per block -> each pixel is a quarter of a block. Both the foam
 // edge and the surface spots snap to this same grid so their pixels are identical in size and aligned.
