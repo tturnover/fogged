@@ -12,7 +12,6 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
-import net.minecraft.world.level.material.FogType;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -50,11 +49,6 @@ public final class FogVapor {
         }
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) {
-            return;
-        }
-        // Submerged in real water: vanilla owns that view, so skip the mist -- otherwise it veils the far
-        // underwater scene and sky-through-water in the vapour colour.
-        if (event.getCamera().getFluidInCamera() != FogType.NONE) {
             return;
         }
 
