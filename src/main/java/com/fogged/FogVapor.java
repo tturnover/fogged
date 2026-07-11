@@ -32,7 +32,9 @@ public final class FogVapor {
     // Pixel grid the shader snaps the noise to (matches the foam's 4 px per block), and the world-space
     // frequency of the terrace/wisp noise.
     private static final float PIXELS_PER_BLOCK = 4.0F;
-    private static final float WISP_SCALE = 0.09F;
+    // Chosen so NOISE_ANCHOR * WISP_SCALE (4096 * 0.09375 = 384) is a whole number: the tileable noise
+    // wraps at that integer lattice period, so the wisps repeat exactly with the anchor -> no seam.
+    private static final float WISP_SCALE = 0.09375F;
 
     private FogVapor() {
     }
@@ -106,17 +108,24 @@ public final class FogVapor {
         RenderSystem.depthMask(false);  // translucent: never writes depth
         RenderSystem.disableCull();     // seen from both sides
 
+        // Sampler3 = terrain depth snapshot (shared with the plane) for the soft occlusion edge.
+        RenderSystem.setShaderTexture(3, SceneDepth.depthTextureId());
+
         RenderSystem.setShader(() -> shader);
         // Anchor world coords to a tile near the camera so the floor()-snapped wisp noise stays precise
         // far from spawn instead of boiling/flickering. Same period as the plane (see NOISE_ANCHOR).
-        double ax = Math.floor(cam.x / FogPlaneRenderer.NOISE_ANCHOR) * FogPlaneRenderer.NOISE_ANCHOR;
-        double az = Math.floor(cam.z / FogPlaneRenderer.NOISE_ANCHOR) * FogPlaneRenderer.NOISE_ANCHOR;
+        // Round (not floor) so anchor seams fall at +/-NOISE_ANCHOR/2, not on x=0 / z=0 -- a floor
+        // put a seam on spawn, so crossing 0 flipped the anchor and made the snapped noise jump.
+        double ax = Math.rint(cam.x / FogPlaneRenderer.NOISE_ANCHOR) * FogPlaneRenderer.NOISE_ANCHOR;
+        double az = Math.rint(cam.z / FogPlaneRenderer.NOISE_ANCHOR) * FogPlaneRenderer.NOISE_ANCHOR;
         shader.safeGetUniform("WorldOffset").set((float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
         shader.safeGetUniform("Time").set((float) timeSeconds);
         shader.safeGetUniform("WispScale").set(WISP_SCALE);
         shader.safeGetUniform("PixelsPerBlock").set(PIXELS_PER_BLOCK);
         shader.safeGetUniform("PlaneFadeStart").set(fogFar * 0.8F);
         shader.safeGetUniform("PlaneFadeEnd").set(fogFar);
+        // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
+        shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
 
         // Fade the vapour out across the visible range (the shader dissolves its alpha by FogStart/End;
         // it keeps its own vertex colour, so no fog colour is needed here).

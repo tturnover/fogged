@@ -70,9 +70,14 @@ public class FogPlaneRenderer {
         boolean below = (cam.y < surfaceY) != Config.FLIP_FOG.getAsBoolean();
 
         // Keep the world-space waterline foam map up to date around the camera. Its radius follows the
-        // render distance so the foam/light covers the part of the plane that is actually visible.
+        // render distance so the foam covers the part of the plane that is actually visible.
         int mapBlocks = mc.options.getEffectiveRenderDistance() * 16;
         WaterlineMap.update(mc.level, cam, Mth.floor(surfaceY), mapBlocks);
+
+        // Snapshot the terrain depth BEFORE drawing the plane, so the plane and the later vapour pass can
+        // soft-fade against occluding geometry (the plane writes depth, so sampling the live depth buffer
+        // would be a read/write feedback loop). Reused by FogVapor.
+        SceneDepth.capture();
 
         float[] plane = Config.planeColor();
         float r = plane[0];
@@ -96,8 +101,9 @@ public class FogPlaneRenderer {
         RenderSystem.depthMask(true);   // opaque murk: write depth so far-side water is culled by it
         RenderSystem.disableCull();     // visible from both sides
 
-        // Sampler0 = waterline distance map (foam rings).
+        // Sampler0 = waterline map (foam rings). Sampler3 = terrain depth snapshot for soft edges.
         RenderSystem.setShaderTexture(0, WaterlineMap.textureId());
+        RenderSystem.setShaderTexture(3, SceneDepth.depthTextureId());
 
         // Our shader once loaded; fall back to the plain one otherwise.
         ShaderInstance shader = FogShaders.FOG_PLANE;
@@ -107,8 +113,12 @@ public class FogPlaneRenderer {
             // floors worldXZ onto a pixel grid, and full world coords far from spawn lose float32
             // precision, so the snapped noise/foam boils and flickers as the camera moves sub-block.
             // Both WorldOffset and WaterlineOrigin shift by the same anchor, so foam UVs stay exact.
-            double ax = Math.floor(cam.x / NOISE_ANCHOR) * NOISE_ANCHOR;
-            double az = Math.floor(cam.z / NOISE_ANCHOR) * NOISE_ANCHOR;
+            // Round (not floor) so the anchor tiles are centred on the origin: their seams fall at
+            // +/-NOISE_ANCHOR/2, NOT at 0. A floor here put a seam exactly on x=0 / z=0, so crossing
+            // spawn flipped the anchor and made the snapped noise jump. Rounding keeps the whole
+            // -2048..2048 spawn region on one tile.
+            double ax = Math.rint(cam.x / NOISE_ANCHOR) * NOISE_ANCHOR;
+            double az = Math.rint(cam.z / NOISE_ANCHOR) * NOISE_ANCHOR;
             shader.safeGetUniform("WorldOffset").set((float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
             shader.safeGetUniform("Time").set(FogShaders.animTimeSeconds()); // monotonic boil clock
             shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
@@ -126,6 +136,8 @@ public class FogPlaneRenderer {
             float fadeEnd = below ? fogFar : mc.options.getEffectiveRenderDistance() * 16.0F;
             shader.safeGetUniform("PlaneFadeStart").set(fadeEnd * 0.8F);
             shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
+            // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
+            shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
         } else {
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
         }

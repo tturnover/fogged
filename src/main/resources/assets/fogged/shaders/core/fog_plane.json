@@ -2,7 +2,8 @@
     "vertex": "fogged:fog_plane",
     "fragment": "fogged:fog_plane",
     "samplers": [
-        { "name": "Sampler0" }
+        { "name": "Sampler0" },
+        { "name": "Sampler3" }
     ],
     "attributes": [
         "Position",
@@ -25,6 +26,7 @@
         { "name": "FoamColor", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0 ] },
         { "name": "FoamDebug", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "PlaneFadeStart", "type": "float", "count": 1, "values": [ 100000.0 ] },
-        { "name": "PlaneFadeEnd", "type": "float", "count": 1, "values": [ 1000000.0 ] }
+        { "name": "PlaneFadeEnd", "type": "float", "count": 1, "values": [ 1000000.0 ] },
+        { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1920.0, 1080.0 ] }
     ]
 }

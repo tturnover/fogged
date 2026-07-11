@@ -2,7 +2,8 @@
 
 #moj_import <fog.glsl>
 
-uniform sampler2D Sampler0; // world-space waterline distance map (R = solid/entity dist, G = plant dist)
+uniform sampler2D Sampler0; // world-space waterline map (R = solid/entity dist, G = plant dist)
+uniform sampler2D Sampler3; // scene depth snapshot (terrain, captured before the plane) for soft edges
 
 uniform vec4 ColorModulator;
 uniform vec4 FoamColor;     // foam base colour (rgb) and strength (a)
@@ -18,6 +19,8 @@ uniform float WaterlineSize;    // map edge length in blocks
 uniform float WaterlineMaxDist; // distance (blocks) the map's stored value of 1.0 represents
 uniform float PlaneFadeStart;   // distance at which the surface starts fading to transparent
 uniform float PlaneFadeEnd;     // distance at which it is fully gone (reveals the real horizon)
+uniform mat4 ProjMat;           // reused to linearise depth for the soft-occlusion fade
+uniform vec2 ScreenSize;        // framebuffer size in pixels, to map gl_FragCoord into the depth sampler
 
 in vec4 vertexColor;
 in vec2 worldXZ;
@@ -25,33 +28,39 @@ in vec3 relPos;
 
 out vec4 fragColor;
 
-// --- shader-side 3D value noise, evaluated in world space so it never tiles/repeats like a texture.
-// Feeding time into the third axis morphs the field in place and only ever forward, so it boils
-// continuously instead of ping-ponging like a sin() crossfade. ---
-float h31(vec3 p) {
-    p = floor(p);
-    float n = p.x * 127.1 + p.y * 311.7 + p.z * 74.7;
+// --- shader-side 3D value noise. TILEABLE: the spatial lattice (xy) wraps at a world-space period so
+// the field repeats seamlessly. That period is made equal to the renderer's NOISE_ANCHOR, so when the
+// anchor tile flips as the camera moves the pattern is identical across the jump -- no seam at ANY
+// distance. The z axis is time (unwrapped), so it still boils forward in place. Octaves are NOT rotated
+// here: a rotated lattice does not tile on the world axes, so seamlessness requires dropping it. ---
+const float NOISE_PERIOD_BLOCKS = 4096.0; // MUST equal FogPlaneRenderer.NOISE_ANCHOR for a seamless wrap
+
+float h31(vec3 ip, float per) {
+    vec2 w = mod(ip.xy, vec2(per)); // wrap the (already-integer) spatial lattice into one tile; GLSL mod >= 0
+    float n = w.x * 127.1 + w.y * 311.7 + ip.z * 74.7;
     return fract(sin(n) * 43758.5453);
 }
-float vnoise3(vec3 p) {
+float vnoise3(vec3 p, float per) {
     vec3 i = floor(p);
     vec3 f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
-    float a = mix(mix(h31(i + vec3(0,0,0)), h31(i + vec3(1,0,0)), f.x),
-                  mix(h31(i + vec3(0,1,0)), h31(i + vec3(1,1,0)), f.x), f.y);
-    float b = mix(mix(h31(i + vec3(0,0,1)), h31(i + vec3(1,0,1)), f.x),
-                  mix(h31(i + vec3(0,1,1)), h31(i + vec3(1,1,1)), f.x), f.y);
+    float a = mix(mix(h31(i + vec3(0,0,0), per), h31(i + vec3(1,0,0), per), f.x),
+                  mix(h31(i + vec3(0,1,0), per), h31(i + vec3(1,1,0), per), f.x), f.y);
+    float b = mix(mix(h31(i + vec3(0,0,1), per), h31(i + vec3(1,0,1), per), f.x),
+                  mix(h31(i + vec3(0,1,1), per), h31(i + vec3(1,1,1), per), f.x), f.y);
     return mix(a, b, f.z);
 }
-// Fractal noise: stack octaves, rotating each one so blobs are organic, not axis-aligned squares. The
-// time axis scales up with each octave so large blobs drift slowly while fine detail churns faster.
-float fbm3(vec2 p, float t) {
-    const mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
+// Fractal noise: stack octaves at doubling frequency; each octave wraps at twice the period of the last
+// so the whole sum stays periodic. The time axis scales up per octave so large blobs drift slowly while
+// fine detail churns faster. `per` is the base spatial period in the passed p-coordinate space.
+float fbm3(vec2 p, float t, float per) {
     float v = 0.0;
     float amp = 0.5;
+    float pr = per;
     for (int i = 0; i < 4; i++) {
-        v += amp * vnoise3(vec3(p, t));
-        p = rot * p * 2.0;
+        v += amp * vnoise3(vec3(p, t), pr);
+        p *= 2.0;
+        pr *= 2.0;
         t *= 1.7;
         amp *= 0.5;
     }
@@ -62,6 +71,25 @@ float fbm3(vec2 p, float t) {
 // edge and the surface spots snap to this same grid so their pixels are identical in size and aligned.
 const float FOAM_PIXELS_PER_BLOCK = 4.0;
 const float FOAM_STEPS = 4.0;
+const float OCCLUSION_FADE = 3.0;  // blocks of depth over which an occluding edge softens
+
+// Window depth -> positive camera distance, from the same ProjMat used to project the quad. Both the
+// fragment and the sampled scene depth go through this, so their difference is a true world-space gap.
+float viewDist(float d) {
+    float ndc = d * 2.0 - 1.0;
+    return ProjMat[3][2] / (ndc + ProjMat[2][2]);
+}
+
+// Soft occlusion: 1.0 in the open, fading to 0.0 as the plane closes on the occluding geometry in the
+// pre-plane depth snapshot, so a block/shore silhouette is a gradient instead of a hard depth cut.
+float softOcclusion() {
+    float sceneD = texture(Sampler3, gl_FragCoord.xy / ScreenSize).r;
+    if (sceneD >= 1.0) {
+        return 1.0; // open sky behind: nothing to fade against
+    }
+    float gap = viewDist(sceneD) - viewDist(gl_FragCoord.z);
+    return clamp(gap / OCCLUSION_FADE, 0.0, 1.0);
+}
 
 void main() {
     vec4 color = vertexColor * ColorModulator;
@@ -87,13 +115,14 @@ void main() {
 
     // Surface spots: low-frequency world-space noise blobs, on the same pixel grid as the foam, that
     // fade in/out in place (morph blends two offset noise layers over time, no translation).
-    const float SPOT_CELL_BLOCKS = 3.0;    // blob feature size in blocks
+    const float SPOT_CELL_BLOCKS = 4.0;    // blob feature size in blocks (divides NOISE_PERIOD for a tile)
     const float SPOT_TIME_RATE = 0.1;      // noise time-axis advance per second (~one reshuffle per 10 s)
     vec2 sworld = floor(worldXZ * FOAM_PIXELS_PER_BLOCK) / FOAM_PIXELS_PER_BLOCK;
     vec2 cell = sworld / SPOT_CELL_BLOCKS;
     // Animate by advancing the noise's time axis: morphs in place, always forward (no ping-pong, no
-    // slide). Time is monotonic wall-clock seconds, so the rate below is per real second.
-    float s = fbm3(cell, Time * SPOT_TIME_RATE);
+    // slide). Time is monotonic wall-clock seconds, so the rate below is per real second. The base
+    // period is the world period in cell space, so the noise tiles exactly with the anchor -> no seam.
+    float s = fbm3(cell, Time * SPOT_TIME_RATE, NOISE_PERIOD_BLOCKS / SPOT_CELL_BLOCKS);
     // Map onto the two lowest foam bands only (0.25/0.50) so a spot reads as foam not next to an edge.
     float t = smoothstep(0.45, 0.70, s);
     float lum = t <= 0.0 ? 0.0 : (t < 0.5 ? 0.25 : 0.5);
@@ -126,10 +155,16 @@ void main() {
         float fogA = clamp((fogDist - FogStart) / max(FogEnd - FogStart, 1e-4), 0.0, 1.0);
         outColor.a = max(outColor.a, fogA);
 
-        // Fade only the far rim (3D distance) so the surface stays solid where you look and the outer
-        // edge reveals the real horizon; discard once fully faded.
-        float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, length(relPos));
+        // Fade the far rim by the larger of the HORIZONTAL radius and the VERTICAL drop to the surface.
+        // Horizontal keeps the murk disc at full render-distance radius no matter the camera height (a
+        // pure 3D distance shrank it as the player climbed); the vertical term then fades the whole
+        // plane once the camera is farther above the surface than it can see, so it doesn't hang in the
+        // void after the world below has fogged out. The outer rim reveals the real horizon.
+        float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, max(length(relPos.xz), abs(relPos.y)));
         outColor.a *= fade;
+        // Soft occlusion edge against terrain/blocks (see softOcclusion): grazing shores and block
+        // silhouettes dissolve instead of cutting hard.
+        outColor.a *= softOcclusion();
         if (outColor.a <= 0.003) {
             discard;
         }

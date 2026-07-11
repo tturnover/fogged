@@ -105,10 +105,12 @@ public final class WaterlineMap {
             originZ = cz;
         }
 
+        boolean recomputed = false;
         if (originMoved || boundaryY != lastBoundaryY || tick - lastRecomputeTick >= RECOMPUTE_INTERVAL) {
             lastBoundaryY = boundaryY;
             lastRecomputeTick = tick;
             recompute(level, boundaryY);
+            recomputed = true; // foam distances were resampled -> re-upload even if the origin didn't move
         }
 
         // Ease + re-upload at most once per tick (bounded cost), or immediately after a re-centre.
@@ -119,7 +121,7 @@ public final class WaterlineMap {
             boolean changed = ease(target, shown, step);
             changed |= ease(targetP, shownP, step);
             lastTick = tick;
-            if (changed || originMoved) {
+            if (changed || originMoved || recomputed) {
                 upload();
             }
             if (newTick) {
