@@ -106,11 +106,14 @@ public final class FogMossEvents {
     // Rot the active fog band of a single x/z column, top down. World blocks leave a moss puddle.
     private static void rotColumn(ServerLevel level, BlockPos.MutableBlockPos pos,
                                   int x, int z, int top, int bottom) {
+        // Load state is per-CHUNK, so check the column once instead of every block in the deep band --
+        // this is the hottest loop of the per-tick sweep. If the chunk is absent, the whole column is.
+        if (!level.hasChunkAt(x, z)) {
+            return;
+        }
         for (int y = top; y >= bottom; y--) {
             pos.set(x, y, z);
-            if (level.isLoaded(pos)) {
-                rot(level, pos, true);
-            }
+            rot(level, pos, true);
         }
     }
 

@@ -515,27 +515,61 @@ public class Config {
 
     // --- hex RGBA helpers ---
 
+    // These are read every frame by the renderers, so the parsed result is cached and only re-parsed
+    // when the underlying config string/value actually changes -- avoids per-frame hex parsing and
+    // float[] garbage. The returned arrays are shared and treated as read-only by every caller.
+    private static String planeColorRaw;
+    private static float[] planeColorCache;
+
     public static float[] planeColor() {
-        return parseRgba(PLANE_COLOR.get());
+        String s = PLANE_COLOR.get();
+        if (planeColorCache == null || !s.equals(planeColorRaw)) {
+            planeColorRaw = s;
+            planeColorCache = parseRgba(s);
+        }
+        return planeColorCache;
     }
 
+    private static String foamColorRaw;
+    private static float[] foamColorCache;
+
     public static float[] foamColor() {
-        return parseRgba(FOAM_COLOR.get());
+        String s = FOAM_COLOR.get();
+        if (foamColorCache == null || !s.equals(foamColorRaw)) {
+            foamColorRaw = s;
+            foamColorCache = parseRgba(s);
+        }
+        return foamColorCache;
     }
 
     // Vapour colour = plane colour + per-channel offset (clamped), with the configured strength as alpha.
+    private static float[] vaporColorCache;
+    private static List<? extends Double> vaporOffsetRaw;
+    private static double vaporStrengthRaw = Double.NaN;
+
     public static float[] vaporColor() {
         float[] plane = planeColor();
         List<? extends Double> off = VAPOR_COLOR_OFFSET.get();
-        float dr = off.size() > 0 ? off.get(0).floatValue() : 0.0F;
-        float dg = off.size() > 1 ? off.get(1).floatValue() : 0.0F;
-        float db = off.size() > 2 ? off.get(2).floatValue() : 0.0F;
-        return new float[] {
-                clamp01(plane[0] + dr),
-                clamp01(plane[1] + dg),
-                clamp01(plane[2] + db),
-                VAPOR_STRENGTH.get().floatValue() };
+        double strength = VAPOR_STRENGTH.get();
+        if (vaporColorCache == null || plane != planeColorForVapor || off != vaporOffsetRaw
+                || strength != vaporStrengthRaw) {
+            planeColorForVapor = plane;
+            vaporOffsetRaw = off;
+            vaporStrengthRaw = strength;
+            float dr = off.size() > 0 ? off.get(0).floatValue() : 0.0F;
+            float dg = off.size() > 1 ? off.get(1).floatValue() : 0.0F;
+            float db = off.size() > 2 ? off.get(2).floatValue() : 0.0F;
+            vaporColorCache = new float[] {
+                    clamp01(plane[0] + dr),
+                    clamp01(plane[1] + dg),
+                    clamp01(plane[2] + db),
+                    (float) strength };
+        }
+        return vaporColorCache;
     }
+
+    // The plane-colour array vaporColor was last derived from; a new array means planeColor re-parsed.
+    private static float[] planeColorForVapor;
 
     private static float clamp01(float v) {
         return v < 0.0F ? 0.0F : Math.min(v, 1.0F);

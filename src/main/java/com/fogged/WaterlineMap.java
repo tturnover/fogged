@@ -95,18 +95,24 @@ public final class WaterlineMap {
         long tick = level.getGameTime();
         boolean originMoved = cx != originX || cz != originZ;
 
-        // Keep the shown fields world-anchored: shift their contents by the offset the map just moved.
+        // Keep the fields world-anchored: shift their contents by the offset the map just moved. The
+        // distance fields (target/targetP) are shifted too, so walking does NOT trigger a full rescan
+        // every time the camera crosses a block boundary -- only the periodic recompute below rebuilds
+        // them. The newly exposed edge strip reads as "far water" until that next recompute (<= a few
+        // ticks), which the foam ease already hides at the map's outer rim.
         if (originMoved) {
             int dx = (cx - originX) * CELLS_PER_BLOCK;
             int dz = (cz - originZ) * CELLS_PER_BLOCK;
             shiftField(shown, dx, dz);
             shiftField(shownP, dx, dz);
+            shiftField(target, dx, dz);
+            shiftField(targetP, dx, dz);
             originX = cx;
             originZ = cz;
         }
 
         boolean recomputed = false;
-        if (originMoved || boundaryY != lastBoundaryY || tick - lastRecomputeTick >= RECOMPUTE_INTERVAL) {
+        if (boundaryY != lastBoundaryY || tick - lastRecomputeTick >= RECOMPUTE_INTERVAL) {
             lastBoundaryY = boundaryY;
             lastRecomputeTick = tick;
             recompute(level, boundaryY);
