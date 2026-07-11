@@ -50,6 +50,11 @@ public class Config {
                     "TOML table syntax, e.g.   planeHeightSchedule = { \"0\" = -30, \"10\" = 40, \"80\" = 100 }")
             .define("planeHeightSchedule", Config::defaultSchedule, Config::isValidSchedule);
 
+    public static final ModConfigSpec.BooleanValue PLANE_HEIGHT_CYCLE = BUILDER
+            .comment("On: loop the schedule back and forth (with default days 0/10/80: 0->10->80->10->0->...).",
+                    "Off (default): hold the last height after the last day.")
+            .define("planeHeightCycle", false);
+
     public static final ModConfigSpec.ConfigValue<List<? extends Double>> OVERDAY_OFFSET = BUILDER
             .comment("Daily height offset added on top of the scheduled height, as [minNoon, maxMidnight].",
                     "It eases from the noon minimum to the midnight maximum and back over the day.")
@@ -380,6 +385,17 @@ public class Config {
         double[] heights = schedHeights;
         if (days.length == 0) {
             return 0.0;
+        }
+        // Cycle mode: fold the day count into a triangle wave over [first, last] so the height
+        // ping-pongs instead of holding flat. The folded day stays in range for the interpolation below.
+        if (PLANE_HEIGHT_CYCLE.get() && days.length >= 2) {
+            double lo = days[0];
+            double span = days[days.length - 1] - lo;
+            if (span > 0.0) {
+                double period = 2.0 * span;
+                double m = (day - lo) - period * Math.floor((day - lo) / period); // mod, in [0, period)
+                day = lo + (m <= span ? m : period - m);                          // reflect second half
+            }
         }
         if (day <= days[0]) {
             return heights[0];
