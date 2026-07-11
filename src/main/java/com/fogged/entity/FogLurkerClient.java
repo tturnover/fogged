@@ -4,10 +4,9 @@ import com.fogged.Fogged;
 import com.fogged.entity.part.LurkerBodyCenterModel;
 import com.fogged.entity.part.LurkerBodyPawsModel;
 import com.fogged.entity.part.LurkerHeadModel;
-import com.fogged.entity.part.LurkerSegmentAModel;
-import com.fogged.entity.part.LurkerSegmentBModel;
-import com.fogged.entity.part.LurkerSegmentCModel;
-import com.fogged.entity.part.LurkerTailModel;
+import com.fogged.entity.part.LurkerTailStartModel;
+import com.fogged.entity.part.LurkerTailMiddleModel;
+import com.fogged.entity.part.LurkerTailEndModel;
 import com.fogged.registry.ModEntities;
 
 import net.neoforged.api.distmarker.Dist;
@@ -30,9 +29,8 @@ public final class FogLurkerClient {
         event.registerLayerDefinition(LurkerHeadModel.LAYER, LurkerHeadModel::createBodyLayer);
         event.registerLayerDefinition(LurkerBodyPawsModel.LAYER, LurkerBodyPawsModel::createBodyLayer);
         event.registerLayerDefinition(LurkerBodyCenterModel.LAYER, LurkerBodyCenterModel::createBodyLayer);
-        event.registerLayerDefinition(LurkerSegmentAModel.LAYER, LurkerSegmentAModel::createBodyLayer);
-        event.registerLayerDefinition(LurkerSegmentBModel.LAYER, LurkerSegmentBModel::createBodyLayer);
-        event.registerLayerDefinition(LurkerSegmentCModel.LAYER, LurkerSegmentCModel::createBodyLayer);
-        event.registerLayerDefinition(LurkerTailModel.LAYER, LurkerTailModel::createBodyLayer);
+        event.registerLayerDefinition(LurkerTailStartModel.LAYER, LurkerTailStartModel::createBodyLayer);
+        event.registerLayerDefinition(LurkerTailMiddleModel.LAYER, LurkerTailMiddleModel::createBodyLayer);
+        event.registerLayerDefinition(LurkerTailEndModel.LAYER, LurkerTailEndModel::createBodyLayer);
     }
 }
