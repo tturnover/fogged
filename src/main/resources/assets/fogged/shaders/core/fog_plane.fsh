@@ -21,6 +21,10 @@ uniform float PlaneFadeStart;   // distance at which the surface starts fading t
 uniform float PlaneFadeEnd;     // distance at which it is fully gone (reveals the real horizon)
 uniform mat4 ProjMat;           // reused to linearise depth for the soft-occlusion fade
 uniform vec2 ScreenSize;        // framebuffer size in pixels, to map gl_FragCoord into the depth sampler
+uniform int EntityHoleCount;    // number of active entity dissolve discs (0..MAX_ENTITY_HOLES)
+// Packed 4 floats per entity: camera-relative centre X, Z, horizontal radius (blocks), vertical gap to
+// the plane (blocks; 0 while the hitbox straddles it). Sized MAX_ENTITY_HOLES * 4 (see the renderer).
+uniform float EntityHoles[128];
 
 in vec4 vertexColor;
 in vec2 worldXZ;
@@ -78,6 +82,19 @@ const float OCCLUSION_FADE = 3.0;  // blocks of depth over which an occluding ed
 float viewDist(float d) {
     float ndc = d * 2.0 - 1.0;
     return ProjMat[3][2] / (ndc + ProjMat[2][2]);
+}
+
+// Ordered 4x4 Bayer threshold for screen-door transparency. Indexed by the output pixel so a partial
+// coverage becomes a stable checker of kept/dropped pixels rather than a continuous alpha.
+float bayerDither(vec2 fc) {
+    const float m[16] = float[16](
+         0.0/16.0,  8.0/16.0,  2.0/16.0, 10.0/16.0,
+        12.0/16.0,  4.0/16.0, 14.0/16.0,  6.0/16.0,
+         3.0/16.0, 11.0/16.0,  1.0/16.0,  9.0/16.0,
+        15.0/16.0,  7.0/16.0, 13.0/16.0,  5.0/16.0);
+    int x = int(mod(fc.x, 4.0));
+    int y = int(mod(fc.y, 4.0));
+    return m[y * 4 + x];
 }
 
 // Soft occlusion: 1.0 in the open, fading to 0.0 as the plane closes on the occluding geometry in the
@@ -162,9 +179,41 @@ void main() {
         // void after the world below has fogged out. The outer rim reveals the real horizon.
         float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, max(length(relPos.xz), abs(relPos.y)));
         outColor.a *= fade;
+        // Near-player dissolve: as the eye nears the plane, open a small soft disc around the player so
+        // the surface doesn't snap in as a hard sheet right at eye level. relPos.y is the eye-to-plane
+        // vertical gap, so the hole opens only near the boundary and fades shut as the eye moves away.
+        const float NEAR_HOLE_RADIUS = 5.0; // blocks, horizontal radius of the dissolve around the player
+        const float NEAR_HOLE_HEIGHT = 2.0; // eye-to-plane vertical gap over which it closes
+        float hole = (1.0 - smoothstep(0.0, NEAR_HOLE_RADIUS, length(relPos.xz)))
+                   * (1.0 - smoothstep(0.0, NEAR_HOLE_HEIGHT, abs(relPos.y)));
+
+        // Entity dissolve discs: the same hole opened around every entity near the plane, sized by its
+        // hitbox, so a crossing mob/player isn't hard-cut by the depth-writing plane -- it pokes through
+        // a soft hole instead. Each disc fades out radially past its hitbox radius and vertically as the
+        // entity separates from the plane (ENTITY_HOLE_HEIGHT). Constant loop bound for GLSL 150.
+        const float ENTITY_HOLE_HEIGHT = 1.0; // vertical gap past the hitbox over which a disc closes
+        for (int i = 0; i < 32; i++) {
+            if (i >= EntityHoleCount) {
+                break;
+            }
+            vec2 c = vec2(EntityHoles[i * 4], EntityHoles[i * 4 + 1]);
+            float radius = EntityHoles[i * 4 + 2];
+            float vgap = EntityHoles[i * 4 + 3];
+            float radial = 1.0 - smoothstep(0.0, radius, length(relPos.xz - c));
+            float vgate = 1.0 - smoothstep(0.0, ENTITY_HOLE_HEIGHT, vgap);
+            hole = max(hole, radial * vgate);
+        }
+
         // Soft occlusion edge against terrain/blocks (see softOcclusion): grazing shores and block
-        // silhouettes dissolve instead of cutting hard.
-        outColor.a *= softOcclusion();
+        // silhouettes dissolve instead of cutting hard, plus the near-player / entity holes above. Done
+        // as a screen-door DISCARD, not an alpha fade: the plane writes depth, so a see-through faded
+        // fragment still culled the later translucent water pass and left a hard cut line where water
+        // flows down past the boundary near a block. Discarding the faded fraction of pixels writes no
+        // depth there, so the water renders through the dissolve instead of being cut.
+        float coverage = softOcclusion() * (1.0 - hole);
+        if (coverage < bayerDither(gl_FragCoord.xy)) {
+            discard;
+        }
         if (outColor.a <= 0.003) {
             discard;
         }

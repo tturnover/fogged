@@ -11,9 +11,12 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -37,6 +40,16 @@ public class FogPlaneRenderer {
     // foam/water pixel grid, large enough that its seam is essentially never crossed in play. Must
     // match FogVapor#NOISE_ANCHOR so the two layers anchor identically.
     static final double NOISE_ANCHOR = 4096.0;
+
+    // Entity dissolve discs: entities straddling / near the plane open a hitbox-sized hole in it (see the
+    // fog_plane shader) so they poke through the depth-writing plane instead of being hard-cut at it.
+    private static final int MAX_ENTITY_HOLES = 32;           // must match the shader's loop bound / array size
+    private static final double ENTITY_HOLE_RANGE = 48.0;     // only entities within this horizontal dist get a hole
+    private static final double ENTITY_HOLE_VERT = 1.0;       // vertical gap past the hitbox at which the hole closes
+    private static final double ENTITY_HOLE_MARGIN = 0.4;     // extra radius past the hitbox so the disc clears the silhouette
+    // Reused each frame to avoid per-frame allocation: 4 packed floats per disc (relX, relZ, radius, vgap).
+    private static final float[] entityHoleBuf = new float[MAX_ENTITY_HOLES * 4];
+    private static final double[] entityHoleDistSq = new double[MAX_ENTITY_HOLES];
 
     @SubscribeEvent
     static void onRenderLevelStage(RenderLevelStageEvent event) {
@@ -138,6 +151,10 @@ public class FogPlaneRenderer {
             shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
             // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
             shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
+            // Per-entity dissolve discs so crossing mobs/players poke through instead of being hard-cut.
+            int holes = gatherEntityHoles(mc.level, cam, surfaceY);
+            shader.safeGetUniform("EntityHoleCount").set(holes);
+            shader.safeGetUniform("EntityHoles").set(entityHoleBuf);
         } else {
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
         }
@@ -188,5 +205,51 @@ public class FogPlaneRenderer {
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();
         RenderSystem.disableBlend();
+    }
+
+    // Fill entityHoleBuf with up to MAX_ENTITY_HOLES dissolve discs for entities near the plane, packed as
+    // (camera-relative X, camera-relative Z, horizontal radius, vertical gap). An entity qualifies when its
+    // hitbox is within ENTITY_HOLE_VERT of the plane vertically and ENTITY_HOLE_RANGE of the camera
+    // horizontally. On overflow the farthest disc is dropped so the nearest ones survive. Returns the count.
+    private static int gatherEntityHoles(ClientLevel level, Vec3 cam, double surfaceY) {
+        int count = 0;
+        final double rangeSq = ENTITY_HOLE_RANGE * ENTITY_HOLE_RANGE;
+        for (Entity e : level.entitiesForRendering()) {
+            AABB b = e.getBoundingBox();
+            // Vertical gap from the plane to the entity's box (0 while it straddles); skip once it clears.
+            double vgap = Math.max(0.0, Math.max(surfaceY - b.maxY, b.minY - surfaceY));
+            if (vgap > ENTITY_HOLE_VERT) {
+                continue;
+            }
+            double dx = (b.minX + b.maxX) * 0.5 - cam.x;
+            double dz = (b.minZ + b.maxZ) * 0.5 - cam.z;
+            double dSq = dx * dx + dz * dz;
+            if (dSq > rangeSq) {
+                continue;
+            }
+            double radius = 0.5 * Math.max(b.maxX - b.minX, b.maxZ - b.minZ) + ENTITY_HOLE_MARGIN;
+            int slot;
+            if (count < MAX_ENTITY_HOLES) {
+                slot = count++;
+            } else {
+                // Full: replace the farthest disc, but only if this entity is closer than it.
+                int farthest = 0;
+                for (int i = 1; i < MAX_ENTITY_HOLES; i++) {
+                    if (entityHoleDistSq[i] > entityHoleDistSq[farthest]) {
+                        farthest = i;
+                    }
+                }
+                if (dSq >= entityHoleDistSq[farthest]) {
+                    continue;
+                }
+                slot = farthest;
+            }
+            entityHoleDistSq[slot] = dSq;
+            entityHoleBuf[slot * 4] = (float) dx;
+            entityHoleBuf[slot * 4 + 1] = (float) dz;
+            entityHoleBuf[slot * 4 + 2] = (float) radius;
+            entityHoleBuf[slot * 4 + 3] = (float) vgap;
+        }
+        return count;
     }
 }

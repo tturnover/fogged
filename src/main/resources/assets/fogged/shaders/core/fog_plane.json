@@ -27,6 +27,8 @@
         { "name": "FoamDebug", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "PlaneFadeStart", "type": "float", "count": 1, "values": [ 100000.0 ] },
         { "name": "PlaneFadeEnd", "type": "float", "count": 1, "values": [ 1000000.0 ] },
-        { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1920.0, 1080.0 ] }
+        { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1920.0, 1080.0 ] },
+        { "name": "EntityHoleCount", "type": "int", "count": 1, "values": [ 0 ] },
+        { "name": "EntityHoles", "type": "float", "count": 128, "values": [ 0.0 ] }
     ]
 }

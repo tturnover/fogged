@@ -23,7 +23,7 @@ public class Config {
     public static final double PLANE_SURFACE_OFFSET = -0.38;
 
     // The murk fog starts applying this many blocks above the plane (not exactly at it). Internal.
-    public static final double FOG_START_RAISE = 0.5;
+    public static final double FOG_START_RAISE = 0.75;
 
     // Config values below are grouped into TOML categories with BUILDER.push/pop. Those calls sit in
     // static blocks so they run in declaration order, interleaved with the field initializers -- Java
