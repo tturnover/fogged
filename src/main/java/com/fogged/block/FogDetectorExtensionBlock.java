@@ -31,9 +31,10 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public class FogDetectorExtensionBlock extends FogDetectorBlock {
     public static final MapCodec<FogDetectorExtensionBlock> CODEC = simpleCodec(FogDetectorExtensionBlock::new);
 
-    // Extension model is the single tall element (pixels), clamped to the block (y<=16).
+    // Extension model is the single tall antenna (pixels); it rises above the block top (y up to 19),
+    // so the shape overhangs the block -- Block.box yields an ArrayVoxelShape for the out-of-cell coords.
     private static final VoxelShape EXTENSION_SHAPE = Shapes.or(
-            Block.box(6.5, 2.0, 4.0, 9.5, 16.0, 12.0));
+            Block.box(6.5, 3.0, 4.0, 9.5, 19.0, 12.0));
 
     public FogDetectorExtensionBlock(Properties properties) {
         super(properties);

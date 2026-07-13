@@ -68,10 +68,12 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
     /** Max number of extensions that may be stacked above a base detector. */
     public static final int MAX_EXTENSIONS = MAX_COLUMN - 1;
 
-    // Shape from the model elements (pixels); the tall element is clamped to the block (y<=16).
+    // Shape follows the model elements (pixels). The tall antenna rises above the block top (y up to
+    // 19), so its VoxelShape overhangs the block: Block.box builds an ArrayVoxelShape for out-of-cell
+    // coords, and the flip/rotate below carry the overhang into the DOWN and yaw-rotated orientations.
     private static final VoxelShape DETECTOR_SHAPE = Shapes.or(
             Block.box(0.0, 0.0, 0.0, 16.0, 2.0, 16.0),
-            Block.box(6.5, 2.0, 4.0, 9.5, 16.0, 12.0),
+            Block.box(6.5, 2.0, 4.0, 9.5, 19.0, 12.0),
             Block.box(2.5, 2.0, 3.0, 6.5, 6.0, 7.0));
 
     // Per-orientation shape cache (block is a singleton).
