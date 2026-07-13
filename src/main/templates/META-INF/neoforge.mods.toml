@@ -11,6 +11,7 @@ modId="${mod_id}" #mandatory
 version="${mod_version}" #mandatory
 displayName="${mod_name}" #mandatory
 displayURL="https://github.com/tturnover/fogged"
+logoFile="fogged-icon.png"
 authors="tturnover"
 description='''
 Adds a breathing boundary: below a configurable Y height you breathe as if underwater and the world
