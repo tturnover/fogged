@@ -230,10 +230,11 @@ public class Config {
     static { BUILDER.push("flora"); }
 
     public static final ModConfigSpec.BooleanValue FLORA_ENABLED = BUILDER
-            .comment("Master switch for the mod's flora: fog moss (with its rot and spread) and foggy",
+            .comment("IN DEVELOPMENT -- off by default while the flora is unfinished; enable to try it.",
+                    "Master switch for the mod's flora: fog moss (with its rot and spread) and foggy",
                     "grass. Off = no new moss puddles form and existing moss/grass stops growing or",
                     "spreading.")
-            .define("floraEnabled", true);
+            .define("floraEnabled", false);
 
     // ---- [flora.moss] : the murk rotting vegetation under the plane ----
     static { BUILDER.push("moss"); }
