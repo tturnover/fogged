@@ -151,6 +151,9 @@ public class FogPlaneRenderer {
             shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
             // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
             shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
+            // Dissolve holes only on the fogged side: from the dry side they'd be a clear window down
+            // through the murk. On the fogged side the revealed content is hidden by the murk fog.
+            shader.safeGetUniform("HolesActive").set(below ? 1.0F : 0.0F);
             // Per-entity dissolve discs so crossing mobs/players poke through instead of being hard-cut.
             int holes = gatherEntityHoles(mc.level, cam, surfaceY);
             shader.safeGetUniform("EntityHoleCount").set(holes);

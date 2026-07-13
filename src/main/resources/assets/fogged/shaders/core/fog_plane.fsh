@@ -21,6 +21,7 @@ uniform float PlaneFadeStart;   // distance at which the surface starts fading t
 uniform float PlaneFadeEnd;     // distance at which it is fully gone (reveals the real horizon)
 uniform mat4 ProjMat;           // reused to linearise depth for the soft-occlusion fade
 uniform vec2 ScreenSize;        // framebuffer size in pixels, to map gl_FragCoord into the depth sampler
+uniform float HolesActive;      // 1 on the fogged side (dissolve holes on), 0 on the dry side (solid plane)
 uniform int EntityHoleCount;    // number of active entity dissolve discs (0..MAX_ENTITY_HOLES)
 // Packed 4 floats per entity: camera-relative centre X, Z, horizontal radius (blocks), vertical gap to
 // the plane (blocks; 0 while the hitbox straddles it). Sized MAX_ENTITY_HOLES * 4 (see the renderer).
@@ -203,6 +204,10 @@ void main() {
             float vgate = 1.0 - smoothstep(0.0, ENTITY_HOLE_HEIGHT, vgap);
             hole = max(hole, radial * vgate);
         }
+        // Only dissolve on the fogged side. From the dry side (looking down onto the murk) a hole would
+        // be a clear, unfogged window straight through to the world the murk should hide; keep the plane
+        // solid there. On the fogged side the revealed content sits in the murk fog, so it stays hidden.
+        hole *= HolesActive;
 
         // Soft occlusion edge against terrain/blocks (see softOcclusion): grazing shores and block
         // silhouettes dissolve instead of cutting hard, plus the near-player / entity holes above. Done
