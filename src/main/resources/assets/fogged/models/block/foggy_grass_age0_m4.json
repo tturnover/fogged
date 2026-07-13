@@ -1,5 +1,5 @@
 {
-  "__comment": "PLACEHOLDER stump for foggy grass age 0, model variant 4. Replace with a BlockBench model; keep texture var #0 and render_type cutout so datagen can re-point the 3 shared textures.",
+  "__comment": "PLACEHOLDER cross for foggy grass age 0, model variant 4. Two 45-crossed quads (plant style). Replace with a BlockBench model; keep texture var #0 and render_type cutout so datagen can re-point the 3 shared textures.",
   "render_type": "minecraft:cutout",
   "textures": {
     "0": "fogged:block/foggy_grass_0",
@@ -7,15 +7,23 @@
   },
   "elements": [
     {
-      "from": [4, 0, 8],
-      "to": [8, 5, 12],
+      "from": [4, 0, 10],
+      "to": [8, 5, 10],
+      "rotation": {"origin": [6, 0, 10], "axis": "y", "angle": 45, "rescale": true},
+      "shade": false,
       "faces": {
         "north": {"uv": [0, 0, 16, 16], "texture": "#0"},
-        "south": {"uv": [0, 0, 16, 16], "texture": "#0"},
-        "east":  {"uv": [0, 0, 16, 16], "texture": "#0"},
-        "west":  {"uv": [0, 0, 16, 16], "texture": "#0"},
-        "up":    {"uv": [0, 0, 16, 16], "texture": "#0"},
-        "down":  {"uv": [0, 0, 16, 16], "texture": "#0"}
+        "south": {"uv": [0, 0, 16, 16], "texture": "#0"}
+      }
+    },
+    {
+      "from": [6, 0, 8],
+      "to": [6, 5, 12],
+      "rotation": {"origin": [6, 0, 10], "axis": "y", "angle": 45, "rescale": true},
+      "shade": false,
+      "faces": {
+        "east": {"uv": [0, 0, 16, 16], "texture": "#0"},
+        "west": {"uv": [0, 0, 16, 16], "texture": "#0"}
       }
     }
   ]
