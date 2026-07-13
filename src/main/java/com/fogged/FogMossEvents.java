@@ -24,13 +24,15 @@ import net.neoforged.neoforge.event.level.ChunkWatchEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 
 /**
- * Drives the {@link FogMoss} behaviour. Server-side only.
+ * Drives the under-fog "drowned world" scour and the {@link FogMoss} behaviour. Server-side only.
  *
+ * <p>Two independent behaviours share one scan of the band below the fog plane (around each player):
  * <ul>
- *   <li>A throttled scan of the rot band below the fog plane (around each player) tills farmland back
- *       to dirt — clearing whatever was planted on it — and kills leaves, flowers and grass, leaving a
- *       fog-moss puddle where each plant stood.</li>
- *   <li>A mob dying inside the band leaves a (larger) puddle where it fell.</li>
+ *   <li><b>Submerge the world</b> ({@link Config#SUBMERGE_WORLD}): snuff fire, freeze lava, drown
+ *       torches and wilt plants / crops / leaves, like being underwater. Core fog behaviour, not flora.</li>
+ *   <li><b>Flora</b> ({@link Config#FLORA_ENABLED}): leave a fog-moss puddle where vegetation is wilted,
+ *       and a larger one where a mob dies in the band. Wilting also runs (to seed the moss) when only
+ *       flora is on.</li>
  * </ul>
  */
 @EventBusSubscriber(modid = Fogged.MODID)
@@ -44,9 +46,14 @@ public final class FogMossEvents {
     // Whether Sable (physics sub-levels) is present, so we also rot blocks riding ships/contraptions.
     private static final boolean SABLE = ModList.get().isLoaded("sable");
 
+    // True when the band scan has anything to do: either the world-submerge scour or the flora moss.
+    private static boolean scanActive() {
+        return Config.SUBMERGE_WORLD.get() || Config.FLORA_ENABLED.get();
+    }
+
     @SubscribeEvent
     static void onLevelTick(LevelTickEvent.Post event) {
-        if (!Config.FLORA_ENABLED.get()) {
+        if (!scanActive()) {
             return;
         }
         if (!(event.getLevel() instanceof ServerLevel level)) {
@@ -88,7 +95,7 @@ public final class FogMossEvents {
      */
     @SubscribeEvent
     static void onChunkWatch(ChunkWatchEvent.Sent event) {
-        if (!Config.FLORA_ENABLED.get()) {
+        if (!scanActive()) {
             return;
         }
         ServerLevel level = event.getLevel();
@@ -130,23 +137,34 @@ public final class FogMossEvents {
      */
     private static void rot(Level level, BlockPos pos, boolean spawnMoss) {
         BlockState state = level.getBlockState(pos);
+        boolean submerge = Config.SUBMERGE_WORLD.get();
+        boolean flora = Config.FLORA_ENABLED.get();
+        // Only flora leaves a moss puddle behind; the caller allows it only for world ground.
+        boolean moss = spawnMoss && flora;
 
-        // Submerged under the fog behaves like underwater: snuff fire, freeze lava, drown torches.
-        if (state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE)) {
-            level.removeBlock(pos, false);
-            return;
+        // Underwater environmental effects: core "submerge the world" behaviour, not flora.
+        if (submerge) {
+            if (state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE)) {
+                level.removeBlock(pos, false);
+                return;
+            }
+            if (state.is(Blocks.LAVA)) {
+                BlockState frozen = state.getFluidState().isSource()
+                        ? Blocks.OBSIDIAN.defaultBlockState()
+                        : Blocks.COBBLESTONE.defaultBlockState();
+                level.setBlock(pos, frozen, Block.UPDATE_ALL);
+                level.levelEvent(1501, pos, 0); // lava-extinguish fizz
+                return;
+            }
+            if (state.is(Blocks.TORCH) || state.is(Blocks.WALL_TORCH)
+                    || state.is(Blocks.SOUL_TORCH) || state.is(Blocks.SOUL_WALL_TORCH)) {
+                level.destroyBlock(pos, true);
+                return;
+            }
         }
-        if (state.is(Blocks.LAVA)) {
-            BlockState frozen = state.getFluidState().isSource()
-                    ? Blocks.OBSIDIAN.defaultBlockState()
-                    : Blocks.COBBLESTONE.defaultBlockState();
-            level.setBlock(pos, frozen, Block.UPDATE_ALL);
-            level.levelEvent(1501, pos, 0); // lava-extinguish fizz
-            return;
-        }
-        if (state.is(Blocks.TORCH) || state.is(Blocks.WALL_TORCH)
-                || state.is(Blocks.SOUL_TORCH) || state.is(Blocks.SOUL_WALL_TORCH)) {
-            level.destroyBlock(pos, true);
+
+        // Wilting vegetation runs for the world scour OR to seed flora moss; the puddle needs flora.
+        if (!submerge && !flora) {
             return;
         }
 
@@ -161,7 +179,7 @@ public final class FogMossEvents {
 
         if (state.is(BlockTags.LEAVES)) {
             level.destroyBlock(pos, false);
-            if (spawnMoss && level instanceof ServerLevel server) {
+            if (moss && level instanceof ServerLevel server) {
                 FogMoss.puddleAt(server, pos.below(), Config.FOG_MOSS_STRENGTH_LEAVES);
             }
             return;
@@ -169,7 +187,7 @@ public final class FogMossEvents {
 
         if (isPlant(state)) {
             level.destroyBlock(pos, false);
-            if (spawnMoss && level instanceof ServerLevel server) {
+            if (moss && level instanceof ServerLevel server) {
                 FogMoss.puddleAt(server, pos.below(), Config.FOG_MOSS_STRENGTH_PLANT);
             }
         }

@@ -75,6 +75,13 @@ public class Config {
                     "the breathing boundary.")
             .define("flipFog", false);
 
+    public static final ModConfigSpec.BooleanValue SUBMERGE_WORLD = BUILDER
+            .comment("The murk drowns the world below the boundary like being underwater: snuffs fire and",
+                    "soul fire, freezes lava to stone, drowns torches, and wilts plants / crops / leaves.",
+                    "Off leaves the world untouched under the fog. Independent of the flora feature, which",
+                    "only adds the moss puddles left where vegetation is wilted.")
+            .define("submergeWorld", true);
+
     static { BUILDER.pop(); }
 
     // ==== [plane] : separation plane (and its cold-vapour layer) ====
