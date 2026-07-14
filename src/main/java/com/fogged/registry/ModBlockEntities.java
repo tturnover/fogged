@@ -2,6 +2,7 @@ package com.fogged.registry;
 
 import com.fogged.Fogged;
 import com.fogged.block.FogDetectorBlockEntity;
+import com.fogged.block.NozzleFilterBlockEntity;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -20,6 +21,11 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FogDetectorBlockEntity>> FOG_DETECTOR =
             BLOCK_ENTITIES.register("fog_detector", () -> BlockEntityType.Builder
                     .of(FogDetectorBlockEntity::new, ModBlocks.FOG_DETECTOR.get())
+                    .build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<NozzleFilterBlockEntity>> NOZZLE_FILTER =
+            BLOCK_ENTITIES.register("nozzle_filter", () -> BlockEntityType.Builder
+                    .of(NozzleFilterBlockEntity::new, ModBlocks.NOZZLE_FILTER.get())
                     .build(null));
 
     public static void register(IEventBus modEventBus) {

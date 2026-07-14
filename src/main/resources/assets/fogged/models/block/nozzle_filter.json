@@ -1,0 +1,35 @@
+{
+  "__comment": "Placeholder 'for now' filter model: the lower half reuses Create's nozzle net texture as a stub body, with a plain white box capping the upper half. Authored facing UP; the blockstate rotates it per FACING (see ModBlockStateProvider#nozzleFilter).",
+  "textures": {
+    "net": "create:block/net",
+    "white": "fogged:block/fluff",
+    "particle": "fogged:block/fluff"
+  },
+  "elements": [
+    {
+      "name": "body",
+      "from": [2, 0, 2],
+      "to": [14, 8, 14],
+      "faces": {
+        "north": {"uv": [2, 8, 14, 16], "texture": "#net"},
+        "east":  {"uv": [2, 8, 14, 16], "texture": "#net"},
+        "south": {"uv": [2, 8, 14, 16], "texture": "#net"},
+        "west":  {"uv": [2, 8, 14, 16], "texture": "#net"},
+        "down":  {"uv": [2, 2, 14, 14], "texture": "#net"}
+      }
+    },
+    {
+      "name": "filter",
+      "from": [1, 8, 1],
+      "to": [15, 16, 15],
+      "faces": {
+        "north": {"uv": [1, 0, 15, 8], "texture": "#white"},
+        "east":  {"uv": [1, 0, 15, 8], "texture": "#white"},
+        "south": {"uv": [1, 0, 15, 8], "texture": "#white"},
+        "west":  {"uv": [1, 0, 15, 8], "texture": "#white"},
+        "up":    {"uv": [1, 1, 15, 15], "texture": "#white"},
+        "down":  {"uv": [1, 1, 15, 15], "texture": "#white"}
+      }
+    }
+  ]
+}

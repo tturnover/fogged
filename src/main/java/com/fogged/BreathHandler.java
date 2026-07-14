@@ -42,7 +42,8 @@ public class BreathHandler {
                 || player.canBreatheUnderwater()
                 || MobEffectUtil.hasWaterBreathing(player)
                 || player.isEyeInFluid(FluidTags.WATER)
-                || player.getEyeY() >= Config.breathHeight(player.level()) + Config.PLANE_SURFACE_OFFSET;
+                || player.getEyeY() >= Config.breathHeight(player.level()) + Config.PLANE_SURFACE_OFFSET
+                || BreatheSpheres.isBreathable(player.level(), player.getEyePosition()); // inside a nozzle-filter sphere
         if (handledElsewhere) {
             return;
         }

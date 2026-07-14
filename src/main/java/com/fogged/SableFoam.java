@@ -125,6 +125,27 @@ final class SableFoam {
         return world.y;
     }
 
+    // World-space centre of a block that lives inside a Sable sub-level (ship / contraption). Same
+    // mapping as worldY but returns the full transformed point, so a breathing sphere on a contraption
+    // is registered where the contraption actually is (riders are ordinary world-space entities).
+    // Returns null when the position is not inside any sub-level plot (an ordinary world block).
+    static Vec3 worldCenter(Level level, BlockPos pos) {
+        SubLevelContainer container = SubLevelContainer.getContainer(level);
+        if (container == null || !container.inBounds(pos)) {
+            return null;
+        }
+        LevelPlot plot = container.getPlot(new ChunkPos(pos));
+        if (plot == null) {
+            return null;
+        }
+        SubLevel sub = plot.getSubLevel();
+        if (sub == null) {
+            return null;
+        }
+        return sub.logicalPose()
+                .transformPosition(new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
+    }
+
     static void stampSubLevels(Level level, int boundaryY, int originX, int originZ,
                                int size, int cellsPerBlock, CellStamper stamper) {
         SubLevelContainer container = SubLevelContainer.getContainer(level);

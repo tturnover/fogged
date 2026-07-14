@@ -4,6 +4,7 @@
   "block.fogged.fog_moss": "Fog Moss",
   "block.fogged.foggy_grass": "Foggy Grass",
   "block.fogged.harsh_fog_moss": "Harsh Fog Moss",
+  "block.fogged.nozzle_filter": "Nozzle Filter",
   "block.fogged.soft_fog_moss": "Soft Fog Moss",
   "death.attack.fog_lurker": "%1$s was dragged into the murk by %2$s",
   "death.attack.fog_suffocation": "%1$s was swallowed by the fog",
@@ -20,6 +21,11 @@
   "fogged.configuration.section.fogged.common.toml": "Fogged Configs",
   "fogged.configuration.section.fogged.common.toml.title": "Fogged Configs",
   "fogged.configuration.title": "Fogged Configs",
+  "fogged.tooltip.fog_detector.desc1": "Emits a _redstone signal_ by how deep it sits under the fog.",
+  "fogged.tooltip.fog_detector.desc2": "Right-click with _another_ to stack it taller.",
+  "fogged.tooltip.nozzle.desc1": "Apply _3 Fluff Balls_ to filter out _thick fog_.",
+  "fogged.tooltip.nozzle.desc2": "An _Encased Fan's_ speed controls the _breathable area_.",
+  "item.fogged.fluff_ball": "Fluff Ball",
   "item.fogged.lurker_debug": "Lurker Debug",
   "itemGroup.fogged": "Fogged"
 }
