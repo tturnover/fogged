@@ -27,6 +27,13 @@ public class ModLanguageProvider extends LanguageProvider {
 
         add("entity.fogged.fog_lurker", "Fog Lurker");
 
+        // Create-style Fogged tooltips (see FoggedTooltip / FoggedTooltips). The "Hold [Shift]" prompt
+        // reuses Create's own lang keys at runtime, so only the description bodies live here.
+        add("fogged.tooltip.nozzle.desc1", "Apply _3 Fluff Balls_ to filter out _thick fog_.");
+        add("fogged.tooltip.nozzle.desc2", "An _Encased Fan's_ speed controls the _breathable area_.");
+        add("fogged.tooltip.fog_detector.desc1", "Emits a _redstone signal_ by how deep it sits under the fog.");
+        add("fogged.tooltip.fog_detector.desc2", "Right-click with _another_ to stack it taller.");
+
         // Custom death messages (keyed by each damage type's message_id).
         add("death.attack.fog_suffocation", "%1$s was swallowed by the fog");
         add("death.attack.fog_suffocation.player", "%1$s drowned in the fog while fleeing %2$s");

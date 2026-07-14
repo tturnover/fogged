@@ -7,6 +7,7 @@ import com.fogged.Fogged;
 import com.fogged.block.FogDetectorBlock;
 import com.fogged.block.FogDetectorExtensionBlock;
 import com.fogged.block.FoggyGrassBlock;
+import com.fogged.block.NozzleFilterBlock;
 
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -64,6 +65,18 @@ public final class ModBlocks {
 
     public static final DeferredBlock<Block> HARSH_FOG_MOSS =
             register("harsh_fog_moss", Block::new, mossProps());
+
+    // Nozzle filter: a create:nozzle converted by right-clicking it with 3 fluff balls. Not obtainable
+    // as an item (registerNoItem) -- it only exists by replacing an in-world nozzle. It carries a block
+    // entity that reads the attached fan's speed each tick and opens a breathing sphere (radius 3..16,
+    // maxing at half fan power) that lets players/entities breathe under the fog. Too much airflow
+    // (over half power) overloads it back into a nozzle. See NozzleFilterBlock / NozzleFilterBlockEntity.
+    public static final DeferredBlock<NozzleFilterBlock> NOZZLE_FILTER =
+            registerNoItem("nozzle_filter", NozzleFilterBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(2.0F)
+                    .sound(SoundType.NETHERITE_BLOCK)
+                    .noOcclusion());
 
     private static BlockBehaviour.Properties mossProps() {
         return BlockBehaviour.Properties.of()

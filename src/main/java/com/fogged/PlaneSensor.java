@@ -2,6 +2,7 @@ package com.fogged;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.ModList;
 
 /**
@@ -26,5 +27,20 @@ public final class PlaneSensor {
             }
         }
         return pos.getY() + 0.5;
+    }
+
+    /**
+     * World-space centre of the block at {@code pos}. For an ordinary world block this is just the block
+     * centre; for a block riding a Sable sub-level it is the centre mapped through the sub-level's pose,
+     * so callers that compare against world-space entity positions (e.g. breathing spheres) line up.
+     */
+    public static Vec3 worldCenter(Level level, BlockPos pos) {
+        if (SABLE) {
+            Vec3 c = SableFoam.worldCenter(level, pos);
+            if (c != null) {
+                return c; // block rides a sub-level: use its transformed world centre
+            }
+        }
+        return Vec3.atCenterOf(pos);
     }
 }

@@ -1,0 +1,63 @@
+{
+  "__comment": "Hand-authored so the fluff ball is a flat white square in the GUI (viewed face-on) but a small 3D cube everywhere else (hand/ground/frame). Datagen skips this item; see ModItemModelProvider.",
+  "textures": {
+    "all": "fogged:item/fluff_ball",
+    "particle": "fogged:item/fluff_ball"
+  },
+  "elements": [
+    {
+      "from": [3, 3, 3],
+      "to": [13, 13, 13],
+      "faces": {
+        "north": {"uv": [0, 0, 16, 16], "texture": "#all"},
+        "east":  {"uv": [0, 0, 16, 16], "texture": "#all"},
+        "south": {"uv": [0, 0, 16, 16], "texture": "#all"},
+        "west":  {"uv": [0, 0, 16, 16], "texture": "#all"},
+        "up":    {"uv": [0, 0, 16, 16], "texture": "#all"},
+        "down":  {"uv": [0, 0, 16, 16], "texture": "#all"}
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [0, 0, 0],
+      "translation": [0, 0, 0],
+      "scale": [1.6, 1.6, 1.6]
+    },
+    "fixed": {
+      "rotation": [0, 0, 0],
+      "translation": [0, 0, 0],
+      "scale": [1, 1, 1]
+    },
+    "ground": {
+      "rotation": [0, 0, 0],
+      "translation": [0, 2, 0],
+      "scale": [0.5, 0.5, 0.5]
+    },
+    "head": {
+      "rotation": [0, 0, 0],
+      "translation": [0, 13, 0],
+      "scale": [1, 1, 1]
+    },
+    "thirdperson_righthand": {
+      "rotation": [70, 45, 0],
+      "translation": [0, 2.5, 0],
+      "scale": [0.7, 0.7, 0.7]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [70, 45, 0],
+      "translation": [0, 2.5, 0],
+      "scale": [0.7, 0.7, 0.7]
+    },
+    "firstperson_righthand": {
+      "rotation": [0, 45, 0],
+      "translation": [0, 0, 0],
+      "scale": [0.8, 0.8, 0.8]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, 45, 0],
+      "translation": [0, 0, 0],
+      "scale": [0.8, 0.8, 0.8]
+    }
+  }
+}

@@ -28,6 +28,13 @@ public final class ModItems {
     public static final DeferredItem<Item> LURKER_DEBUG =
             register("lurker_debug", Item::new, new Item.Properties());
 
+    // Fluff ball ("puff"): the material used to convert a Create nozzle into a nozzle filter. Three of
+    // these, right-clicked onto a create:nozzle, replace it with a fogged:nozzle_filter. Its icon is a
+    // flat white square but it renders as a small 3D cube in hand -- both come from a hand-authored item
+    // model (assets/fogged/models/item/fluff_ball.json), so datagen skips it (see ModItemModelProvider).
+    public static final DeferredItem<Item> FLUFF_BALL =
+            register("fluff_ball", Item::new, new Item.Properties());
+
     // ------------------------------------------------------------------------
 
     public static <T extends Item> DeferredItem<T> register(

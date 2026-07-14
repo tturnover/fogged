@@ -5,6 +5,7 @@ import java.util.List;
 import com.fogged.Fogged;
 import com.fogged.block.FogDetectorBlock;
 import com.fogged.block.FoggyGrassBlock;
+import com.fogged.block.NozzleFilterBlock;
 import com.fogged.registry.ModBlocks;
 
 import net.minecraft.core.Direction;
@@ -51,7 +52,8 @@ public class ModBlockStateProvider extends BlockStateProvider {
             ModBlocks.FOG_MOSS,
             ModBlocks.SOFT_FOG_MOSS,
             ModBlocks.HARSH_FOG_MOSS,
-            ModBlocks.FOGGY_GRASS);
+            ModBlocks.FOGGY_GRASS,
+            ModBlocks.NOZZLE_FILTER);
 
     @Override
     protected void registerStatesAndModels() {
@@ -79,6 +81,10 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // Foggy grass: per AGE stage, randomly pick one of 5 authored stump models, each randomly
         // textured with one of 3 shared textures. The item icon reuses a shared tuft texture.
         foggyGrass();
+
+        // Nozzle filter: single supplied model rotated by FACING (matching Create's own nozzle
+        // blockstate orientations). No item model -- it has no BlockItem.
+        nozzleFilter();
 
         // Everything else: auto cube_all, blockstate + block model + item model.
         ModBlocks.BLOCKS.getEntries().forEach(holder -> {
@@ -112,6 +118,25 @@ public class ModBlockStateProvider extends BlockStateProvider {
         }
         itemModels().withExistingParent("foggy_grass", mcLoc("item/generated"))
                 .texture("layer0", modLoc("block/foggy_grass_2"));
+    }
+
+    // Rotate the supplied block/nozzle_filter model by FACING, using the same X/Y rotations Create's
+    // nozzle blockstate uses (the authored model faces UP; every other facing is a rotation of it).
+    private void nozzleFilter() {
+        ModelFile model = models().getExistingFile(modLoc("block/nozzle_filter"));
+        getVariantBuilder(ModBlocks.NOZZLE_FILTER.get()).forAllStates(state -> {
+            int x;
+            int y;
+            switch (state.getValue(NozzleFilterBlock.FACING)) {
+                case DOWN -> { x = 180; y = 0; }
+                case NORTH -> { x = 90; y = 0; }
+                case SOUTH -> { x = 90; y = 180; }
+                case EAST -> { x = 90; y = 90; }
+                case WEST -> { x = 90; y = 270; }
+                default -> { x = 0; y = 0; } // UP
+            }
+            return ConfiguredModel.builder().modelFile(model).rotationX(x).rotationY(y).build();
+        });
     }
 
     // Rotate the supplied model (BlockBench export at block/<name>): X from VERTICAL_DIRECTION

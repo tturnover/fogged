@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "fogged:block/nozzle_filter",
+      "x": 180
+    },
+    "facing=east": {
+      "model": "fogged:block/nozzle_filter",
+      "x": 90,
+      "y": 90
+    },
+    "facing=north": {
+      "model": "fogged:block/nozzle_filter",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "fogged:block/nozzle_filter",
+      "x": 90,
+      "y": 180
+    },
+    "facing=up": {
+      "model": "fogged:block/nozzle_filter"
+    },
+    "facing=west": {
+      "model": "fogged:block/nozzle_filter",
+      "x": 90,
+      "y": 270
+    }
+  }
+}

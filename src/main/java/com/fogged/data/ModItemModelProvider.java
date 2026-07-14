@@ -25,6 +25,10 @@ public class ModItemModelProvider extends ItemModelProvider {
             if (holder.get() instanceof BlockItem) {
                 return; // handled by the block state provider
             }
+            // Fluff ball has a hand-authored model (flat square icon, 3D cube in hand) in src/main/resources.
+            if (holder.getId().getPath().equals("fluff_ball")) {
+                return;
+            }
             basicItem(holder.get());
         });
     }
