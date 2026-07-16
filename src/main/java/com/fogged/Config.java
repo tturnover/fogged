@@ -193,7 +193,7 @@ public class Config {
 
     public static final ModConfigSpec.IntValue LURKER_MAX_NEARBY = BUILDER
             .comment("Most lurkers that may exist within lurkerRange of a player at once. Default 1 = a",
-                    "single lurker stalks each player.")
+                    "single lurker stems each player.")
             .defineInRange("lurkerMaxNearby", 1, 0, 16);
 
     public static final ModConfigSpec.IntValue LURKER_RANGE = BUILDER
@@ -299,6 +299,55 @@ public class Config {
                     o -> o instanceof Number n && n.doubleValue() >= 0.0 && n.doubleValue() <= 1.0);
 
     static { BUILDER.pop(); }   // [flora.grass]
+
+    // ---- [flora.eye] : the fog eye + the stem it climbs to the fog surface on ----
+    static { BUILDER.push("eye"); }
+
+    public static final ModConfigSpec.DoubleValue FOG_EYE_SEED_CHANCE = BUILDER
+            .comment("Base chance that a freshly-placed moss block sprouts a fog eye as a puddle spreads.",
+                    "Far lower than foggyGrassSeedChance -- the eye is meant to be a rare landmark. The",
+                    "actual chance is this times the temperature factor from fogEyeTempChance.")
+            .defineInRange("fogEyeSeedChance", 0.004, 0.0, 1.0);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends Double>> FOG_EYE_TEMP_CHANCE = BUILDER
+            .comment("Temperature factor multiplying fogEyeSeedChance, as [coldBiome, warmBiome] (each",
+                    "0..1). Cold biomes (at/below the moss coldMax) use the first, warm (at/above warmMin)",
+                    "the second, and between them it is interpolated from the biome temperature. The default",
+                    "makes eyes common in warm biomes and nearly absent in cold ones.")
+            .defineList("fogEyeTempChance", List.of(0.1, 1.0), () -> 0.0,
+                    o -> o instanceof Number n && n.doubleValue() >= 0.0 && n.doubleValue() <= 1.0);
+
+    public static final ModConfigSpec.IntValue FOG_EYE_GROW_TICKS = BUILDER
+            .comment("Ticks between growth steps while an eye is climbing to (or sinking back toward) the",
+                    "fog surface -- one block of stem per step. 40 = one block every two seconds. Once the",
+                    "eye reaches the surface it stops stepping and only rechecks once a second.")
+            .defineInRange("fogEyeGrowTicks", 40, 1, 200);
+
+    // Branching has no knobs on purpose: the eye grows by vanilla's chorus flower rules (segment
+    // lengths, arm counts, room checks), so the shape is whatever chorus would have done. See
+    // FogEyeBlock. What is ours is the pacing and the height it is aiming at, below.
+
+    public static final ModConfigSpec.IntValue FOG_EYE_MAX_HEIGHT = BUILDER
+            .comment("Tallest a plant may grow, in blocks from its moss root. An eye that hits this cap",
+                    "stops short of the fog surface instead of chasing a far-off plane forever.")
+            .defineInRange("fogEyeMaxHeight", 64, 1, 384);
+
+    public static final ModConfigSpec.DoubleValue FOG_EYE_RETREAT_CHANCE = BUILDER
+            .comment("Chance, per random tick, that an eye resting open at the fog surface ducks back down.",
+                    "It drops a random 1..N blocks, N being its own stem down to the base of its branch,",
+                    "shuts, and then climbs back at the usual growth rate -- the duck is sudden, the",
+                    "recovery slow. Being on random ticks, this follows the randomTickSpeed gamerule like",
+                    "any other plant: at the default 3 a block is ticked about once a minute, so 0.2 works",
+                    "out around one pull-back every 5-6 minutes. Raise randomTickSpeed and eyes duck more",
+                    "often. 0 = they rest open forever.")
+            .defineInRange("fogEyeRetreatChance", 0.2, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue FOG_EYE_TOP_OFFSET = BUILDER
+            .comment("How many blocks below the fog surface the eye comes to rest. 0 = the topmost block",
+                    "still under the plane; higher keeps the eye deeper in the murk.")
+            .defineInRange("fogEyeTopOffset", 0, 0, 64);
+
+    static { BUILDER.pop(); }   // [flora.eye]
     static { BUILDER.pop(); }   // [flora]
 
     static final ModConfigSpec SPEC = BUILDER.build();
@@ -343,6 +392,16 @@ public class Config {
     /** Foggy-grass density in warm biomes (second entry of foggyGrassDensity). */
     public static double foggyGrassWarmDensity() {
         return at(FOGGY_GRASS_DENSITY.get(), 1, 0.6);
+    }
+
+    /** Fog-eye seed-chance factor in cold biomes (first entry of fogEyeTempChance). */
+    public static double fogEyeColdChance() {
+        return at(FOG_EYE_TEMP_CHANCE.get(), 0, 0.1);
+    }
+
+    /** Fog-eye seed-chance factor in warm biomes (second entry of fogEyeTempChance). */
+    public static double fogEyeWarmChance() {
+        return at(FOG_EYE_TEMP_CHANCE.get(), 1, 1.0);
     }
 
     // --- dynamic breathing-boundary height ---

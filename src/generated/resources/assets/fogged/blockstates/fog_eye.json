@@ -1,0 +1,374 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "fogged:block/fog_eye_base",
+        "uvlock": true,
+        "x": 180
+      },
+      "when": {
+        "facing": "down"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head",
+          "x": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head",
+          "x": 180,
+          "y": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head",
+          "x": 180,
+          "y": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head",
+          "x": 180,
+          "y": 270
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean",
+          "x": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean",
+          "x": 180,
+          "y": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean",
+          "x": 180,
+          "y": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean",
+          "x": 180,
+          "y": 270
+        }
+      ],
+      "when": {
+        "facing": "down",
+        "open": "true"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head_closed",
+          "x": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed",
+          "x": 180,
+          "y": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed",
+          "x": 180,
+          "y": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed",
+          "x": 180,
+          "y": 270
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean",
+          "x": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean",
+          "x": 180,
+          "y": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean",
+          "x": 180,
+          "y": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean",
+          "x": 180,
+          "y": 270
+        }
+      ],
+      "when": {
+        "facing": "down",
+        "open": "false"
+      }
+    },
+    {
+      "apply": {
+        "model": "fogged:block/fog_eye_base",
+        "uvlock": true
+      },
+      "when": {
+        "facing": "up"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head"
+        },
+        {
+          "model": "fogged:block/fog_eye_head",
+          "y": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head",
+          "y": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head",
+          "y": 270
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean"
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean",
+          "y": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean",
+          "y": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean",
+          "y": 270
+        }
+      ],
+      "when": {
+        "facing": "up",
+        "open": "true"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head_closed"
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed",
+          "y": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed",
+          "y": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed",
+          "y": 270
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean"
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean",
+          "y": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean",
+          "y": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean",
+          "y": 270
+        }
+      ],
+      "when": {
+        "facing": "up",
+        "open": "false"
+      }
+    },
+    {
+      "apply": {
+        "model": "fogged:block/fog_eye_base",
+        "uvlock": true,
+        "x": 90
+      },
+      "when": {
+        "facing": "north"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head",
+          "x": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean",
+          "x": 90
+        }
+      ],
+      "when": {
+        "facing": "north",
+        "open": "true"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head_closed",
+          "x": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean",
+          "x": 90
+        }
+      ],
+      "when": {
+        "facing": "north",
+        "open": "false"
+      }
+    },
+    {
+      "apply": {
+        "model": "fogged:block/fog_eye_base",
+        "uvlock": true,
+        "x": 90,
+        "y": 180
+      },
+      "when": {
+        "facing": "south"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head",
+          "x": 90,
+          "y": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean",
+          "x": 90,
+          "y": 180
+        }
+      ],
+      "when": {
+        "facing": "south",
+        "open": "true"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head_closed",
+          "x": 90,
+          "y": 180
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean",
+          "x": 90,
+          "y": 180
+        }
+      ],
+      "when": {
+        "facing": "south",
+        "open": "false"
+      }
+    },
+    {
+      "apply": {
+        "model": "fogged:block/fog_eye_base",
+        "uvlock": true,
+        "x": 90,
+        "y": 270
+      },
+      "when": {
+        "facing": "west"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head",
+          "x": 90,
+          "y": 270
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean",
+          "x": 90,
+          "y": 270
+        }
+      ],
+      "when": {
+        "facing": "west",
+        "open": "true"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head_closed",
+          "x": 90,
+          "y": 270
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean",
+          "x": 90,
+          "y": 270
+        }
+      ],
+      "when": {
+        "facing": "west",
+        "open": "false"
+      }
+    },
+    {
+      "apply": {
+        "model": "fogged:block/fog_eye_base",
+        "uvlock": true,
+        "x": 90,
+        "y": 90
+      },
+      "when": {
+        "facing": "east"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head",
+          "x": 90,
+          "y": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head_lean",
+          "x": 90,
+          "y": 90
+        }
+      ],
+      "when": {
+        "facing": "east",
+        "open": "true"
+      }
+    },
+    {
+      "apply": [
+        {
+          "model": "fogged:block/fog_eye_head_closed",
+          "x": 90,
+          "y": 90
+        },
+        {
+          "model": "fogged:block/fog_eye_head_closed_lean",
+          "x": 90,
+          "y": 90
+        }
+      ],
+      "when": {
+        "facing": "east",
+        "open": "false"
+      }
+    }
+  ]
+}

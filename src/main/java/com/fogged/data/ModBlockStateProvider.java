@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.fogged.Fogged;
 import com.fogged.block.FogDetectorBlock;
+import com.fogged.block.FogEyeBlock;
 import com.fogged.block.FoggyGrassBlock;
 import com.fogged.block.NozzleFilterBlock;
 import com.fogged.registry.ModBlocks;
@@ -12,11 +13,14 @@ import net.minecraft.core.Direction;
 import net.minecraft.data.PackOutput;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.PipeBlock;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
 import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
 import net.neoforged.neoforge.client.model.generators.ModelFile;
+import net.neoforged.neoforge.client.model.generators.MultiPartBlockStateBuilder;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
 
 /**
@@ -39,6 +43,12 @@ public class ModBlockStateProvider extends BlockStateProvider {
     private static final int GRASS_MODELS = 5;
     private static final int GRASS_TEXTURES = 3;
 
+    /** Randomised end-cap models on a fog eye stem's unconnected faces (vanilla ships the same four). */
+    private static final int STEM_CAPS = 4;
+
+    /** Quarter turns a fog eye head is randomly spun by, for the upright model and the leaning one. */
+    private static final int EYE_SPINS = 4;
+
     /** The temperature variants of fog moss; all share the same randomised cube_all texture set. */
     private static final List<DeferredBlock<Block>> MOSS_BLOCKS = List.of(
             ModBlocks.FOG_MOSS,
@@ -53,6 +63,8 @@ public class ModBlockStateProvider extends BlockStateProvider {
             ModBlocks.SOFT_FOG_MOSS,
             ModBlocks.HARSH_FOG_MOSS,
             ModBlocks.FOGGY_GRASS,
+            ModBlocks.FOG_EYE_STEM,
+            ModBlocks.FOG_EYE,
             ModBlocks.NOZZLE_FILTER);
 
     @Override
@@ -81,6 +93,14 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // Foggy grass: per AGE stage, randomly pick one of 5 authored stump models, each randomly
         // textured with one of 3 shared textures. The item icon reuses a shared tuft texture.
         foggyGrass();
+
+        // Fog eye + its stem: vanilla's chorus models, retextured. The stem is a six-way multipart
+        // like chorus_plant. The eye picks its model from OPEN alone -- open at the fog surface, shut
+        // anywhere below it; AGE and REST are growth bookkeeping and REST is left out of the blockstate
+        // entirely (64 timer values times the rest would be 640 pointless variants). Both item icons
+        // reuse the block models, as vanilla does.
+        fogEyeStem();
+        fogEye();
 
         // Nozzle filter: single supplied model rotated by FACING (matching Create's own nozzle
         // blockstate orientations). No item model -- it has no BlockItem.
@@ -118,6 +138,96 @@ public class ModBlockStateProvider extends BlockStateProvider {
         }
         itemModels().withExistingParent("foggy_grass", mcLoc("item/generated"))
                 .texture("layer0", modLoc("block/foggy_grass_2"));
+    }
+
+    // Fog eye: a base and a head, both turned to point away from the stem the eye grew off (FACING),
+    // with the head randomised on top of that so a stand of eyes never looks stamped out.
+    //
+    // The base is the part that meets the stem, so it only ever takes the FACING rotation -- no random
+    // spin, or it would tear away from the plant it plugs into. The head takes FACING too, and then as
+    // much randomness as the rotation still has room for: a head pointing UP leaves the Y rotation free,
+    // so it gets EYE_SPINS spins of both an upright and a leaning model; a head pointing sideways has
+    // already spent Y on the direction, so it only picks between upright and leaning. Which pair of
+    // models is offered comes from OPEN. AGE is growth bookkeeping and is never drawn.
+    private void fogEye() {
+        MultiPartBlockStateBuilder builder = getMultipartBuilder(ModBlocks.FOG_EYE.get());
+        ModelFile base = models().getExistingFile(modLoc("block/fog_eye_base"));
+        for (Direction facing : Direction.values()) {
+            int[] rot = upModelRotation(facing);
+            builder.part().modelFile(base).rotationX(rot[0]).rotationY(rot[1]).uvLock(true)
+                    .addModel().condition(FogEyeBlock.FACING, facing).end();
+            fogEyeHeads(builder, facing, true, "fog_eye_head", "fog_eye_head_lean");
+            fogEyeHeads(builder, facing, false, "fog_eye_head_closed", "fog_eye_head_closed_lean");
+        }
+        itemModels().withExistingParent("fog_eye", modLoc("block/fog_eye"));
+    }
+
+    // One head part: the upright and leaning models, spun as often as FACING leaves the Y rotation
+    // free, as equal-weight random variants. No uvlock -- letting the texture turn with the head is
+    // half of what makes the spins read as different heads rather than the same head.
+    private void fogEyeHeads(MultiPartBlockStateBuilder builder, Direction facing, boolean open,
+            String upright, String leaning) {
+        int[] rot = upModelRotation(facing);
+        int spins = facing.getAxis().isVertical() ? EYE_SPINS : 1;
+        var part = builder.part();
+        boolean first = true;
+        for (String name : List.of(upright, leaning)) {
+            ModelFile model = models().getExistingFile(modLoc("block/" + name));
+            for (int i = 0; i < spins; i++) {
+                part = first ? part : part.nextModel();
+                part = part.modelFile(model).rotationX(rot[0]).rotationY((rot[1] + i * (360 / EYE_SPINS)) % 360);
+                first = false;
+            }
+        }
+        part.addModel().condition(FogEyeBlock.FACING, facing).condition(FogEyeBlock.OPEN, open).end();
+    }
+
+    // {x, y} rotation that points an UP-authored model along `facing`. Same mapping the nozzle filter
+    // uses below, which is the one Create's nozzle blockstate uses.
+    private static int[] upModelRotation(Direction facing) {
+        return switch (facing) {
+            case DOWN -> new int[] {180, 0};
+            case NORTH -> new int[] {90, 0};
+            case SOUTH -> new int[] {90, 180};
+            case EAST -> new int[] {90, 90};
+            case WEST -> new int[] {90, 270};
+            default -> new int[] {0, 0}; // UP
+        };
+    }
+
+    // Fog eye stem: vanilla's chorus_plant blockstate, block for block. Every face that connects gets
+    // an arm model rotated onto it; every face that does not gets one of four randomised end-cap models
+    // (the plain one at double weight, as vanilla weights it), which is what gives the plant its knobbly
+    // silhouette. The item icon is the authored whole-block model, again as vanilla does it.
+    private void fogEyeStem() {
+        ModelFile side = models().getExistingFile(modLoc("block/fog_eye_stem_side"));
+        ModelFile[] caps = new ModelFile[STEM_CAPS];
+        caps[0] = models().getExistingFile(modLoc("block/fog_eye_stem_noside"));
+        for (int i = 1; i < STEM_CAPS; i++) {
+            caps[i] = models().getExistingFile(modLoc("block/fog_eye_stem_noside" + i));
+        }
+        MultiPartBlockStateBuilder builder = getMultipartBuilder(ModBlocks.FOG_EYE_STEM.get());
+        for (Direction dir : Direction.values()) {
+            int x = dir.getAxis().isVertical() ? (dir == Direction.UP ? 270 : 90) : 0;
+            int y = dir.getAxis().isHorizontal() ? ((int) dir.toYRot() + 180) % 360 : 0;
+            BooleanProperty connected = PipeBlock.PROPERTY_BY_DIRECTION.get(dir);
+
+            builder.part().modelFile(side).rotationX(x).rotationY(y).uvLock(true)
+                    .addModel().condition(connected, true).end();
+
+            // nextModel() hands back a fresh builder carrying the ones already configured, so each
+            // cap has to be threaded through it rather than piled onto the same builder.
+            var cap = builder.part();
+            for (int i = 0; i < STEM_CAPS; i++) {
+                cap = cap.modelFile(caps[i]).rotationX(x).rotationY(y).uvLock(true)
+                        .weight(i == 0 ? 2 : 1); // the plain cap twice as often, as vanilla weights it
+                if (i < STEM_CAPS - 1) {
+                    cap = cap.nextModel();
+                }
+            }
+            cap.addModel().condition(connected, false).end();
+        }
+        itemModels().withExistingParent("fog_eye_stem", modLoc("block/fog_eye_stem"));
     }
 
     // Rotate the supplied block/nozzle_filter model by FACING, using the same X/Y rotations Create's

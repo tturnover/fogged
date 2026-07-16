@@ -6,6 +6,8 @@ import java.util.function.Supplier;
 import com.fogged.Fogged;
 import com.fogged.block.FogDetectorBlock;
 import com.fogged.block.FogDetectorExtensionBlock;
+import com.fogged.block.FogEyeBlock;
+import com.fogged.block.FogEyeStemBlock;
 import com.fogged.block.FoggyGrassBlock;
 import com.fogged.block.NozzleFilterBlock;
 
@@ -15,6 +17,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -97,6 +100,26 @@ public final class ModBlocks {
                     .noOcclusion()
                     .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)
                     .offsetType(BlockBehaviour.OffsetType.XZ));
+
+    // The fog eye and the stem it rides: a rare plant seeded on warm fog-moss puddles that races the
+    // murk, growing a stem fast enough to keep its eye at the fog surface and eating the stem back
+    // down when the plane sinks. The eye carries all the logic; the stem is its trail. See FogEyeBlock.
+    public static final DeferredBlock<FogEyeStemBlock> FOG_EYE_STEM =
+            register("fog_eye_stem", FogEyeStemBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.PLANT)
+                    .strength(0.4F)
+                    .sound(SoundType.MOSS)
+                    .noOcclusion()
+                    .pushReaction(PushReaction.DESTROY));
+
+    public static final DeferredBlock<FogEyeBlock> FOG_EYE =
+            register("fog_eye", FogEyeBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_LIGHT_GREEN)
+                    .strength(0.4F)
+                    .randomTicks()
+                    .sound(SoundType.MOSS)
+                    .noOcclusion()
+                    .pushReaction(PushReaction.DESTROY));
 
     // ------------------------------------------------------------------------
 

@@ -5,6 +5,7 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.fogged.block.FogEyeBlock;
 import com.fogged.block.FoggyGrassBlock;
 import com.fogged.registry.ModBlocks;
 
@@ -12,6 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -54,6 +56,22 @@ public final class FogMoss {
         return state.is(ModBlocks.FOG_MOSS.get())
                 || state.is(ModBlocks.SOFT_FOG_MOSS.get())
                 || state.is(ModBlocks.HARSH_FOG_MOSS.get());
+    }
+
+    /**
+     * Interpolate between a cold-biome and a warm-biome value from the biome's base temperature, using
+     * the same [coldMax, warmMin] anchors that pick the moss variant. Shared by everything that grows
+     * more thickly in the warmth: foggy-grass density, fog-eye seeding.
+     */
+    public static double tempLerp(Level level, BlockPos pos, double cold, double warm) {
+        double temp = level.getBiome(pos).value().getBaseTemperature();
+        double coldMax = Config.fogMossColdMax();
+        double warmMin = Config.fogMossWarmMin();
+        if (warmMin <= coldMax) {
+            return warm; // misconfigured thresholds: fall back to the warm end
+        }
+        double t = Mth.clamp((temp - coldMax) / (warmMin - coldMax), 0.0, 1.0);
+        return Mth.lerp(t, cold, warm);
     }
 
     /** A block the puddle is allowed to overrun: natural worldgen ground, never fog moss itself. */
@@ -134,7 +152,10 @@ public final class FogMoss {
                 continue; // terrain changed under us / not eligible
             }
             level.setBlock(pos, moss, Block.UPDATE_ALL);
-            FoggyGrassBlock.trySeed(level, pos, level.random);
+            // The rare fog eye gets first refusal on the block; grass only fills what it leaves.
+            if (!FogEyeBlock.trySeed(level, pos, level.random)) {
+                FoggyGrassBlock.trySeed(level, pos, level.random);
+            }
             placed++;
             for (Direction dir : Direction.Plane.HORIZONTAL) {
                 BlockPos neighbour = pos.relative(dir);

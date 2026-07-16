@@ -1,6 +1,8 @@
 {
   "block.fogged.fog_detector": "Fog Detector",
   "block.fogged.fog_detector_extension": "Fog Detector Extension",
+  "block.fogged.fog_eye": "Fog Eye",
+  "block.fogged.fog_eye_stem": "Fog Eye Stem",
   "block.fogged.fog_moss": "Fog Moss",
   "block.fogged.foggy_grass": "Foggy Grass",
   "block.fogged.harsh_fog_moss": "Harsh Fog Moss",

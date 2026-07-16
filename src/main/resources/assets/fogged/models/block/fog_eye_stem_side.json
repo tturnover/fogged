@@ -1,0 +1,41 @@
+{
+  "__comment": "Ported from vanilla chorus_plant_side.json: same geometry, fog eye textures. Keep the texture vars (#texture/#inside/#bottom) so datagen and any reskin keep working.",
+  "ambientocclusion": false,
+  "textures": {
+    "texture": "fogged:block/fog_eye_stem",
+    "inside": "fogged:block/fog_eye_stem",
+    "particle": "fogged:block/fog_eye_stem"
+  },
+  "elements": [
+    {
+      "from": [
+        4,
+        4,
+        0
+      ],
+      "to": [
+        12,
+        12,
+        4
+      ],
+      "faces": {
+        "down": {
+          "texture": "#texture"
+        },
+        "up": {
+          "texture": "#texture"
+        },
+        "north": {
+          "texture": "#texture",
+          "cullface": "north"
+        },
+        "west": {
+          "texture": "#texture"
+        },
+        "east": {
+          "texture": "#texture"
+        }
+      }
+    }
+  ]
+}

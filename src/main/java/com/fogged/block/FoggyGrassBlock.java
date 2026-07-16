@@ -8,7 +8,6 @@ import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.BushBlock;
@@ -172,15 +171,6 @@ public class FoggyGrassBlock extends BushBlock {
     // Density fraction (0..1) of moss this biome's temperature supports, interpolated between the cold
     // and warm anchors that also pick the moss variant (fogMossTempBand = [coldMax, warmMin]).
     private static double density(ServerLevel level, BlockPos pos) {
-        double temp = level.getBiome(pos).value().getBaseTemperature();
-        double cold = Config.fogMossColdMax();
-        double warm = Config.fogMossWarmMin();
-        double lo = Config.foggyGrassColdDensity();
-        double hi = Config.foggyGrassWarmDensity();
-        if (warm <= cold) {
-            return hi; // misconfigured thresholds: fall back to the dense end
-        }
-        double t = Mth.clamp((temp - cold) / (warm - cold), 0.0, 1.0);
-        return Mth.lerp(t, lo, hi);
+        return FogMoss.tempLerp(level, pos, Config.foggyGrassColdDensity(), Config.foggyGrassWarmDensity());
     }
 }
