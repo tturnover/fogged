@@ -7,8 +7,6 @@ import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.particles.SculkChargeParticleOptions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -33,7 +31,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * the puddle runs up against (a cliff, a cellar, a player's build) grow this one. {@link #FACING} is the
  * direction the tuft points, i.e. away from the face holding it, so the block behind it is always at
  * {@code pos.relative(FACING.getOpposite())}. Growth through {@link FoggyGrassBlock#AGE} works exactly as
- * it does upright, sharing that block's age/cap properties and its models (tipped on their side).
+ * it does upright, sharing that block's age/cap properties and the roll that sets them; the models,
+ * though, are its own — one per age stage, authored against a wall.
  */
 public class FoggyGrassSideBlock extends HorizontalDirectionalBlock {
     public static final MapCodec<FoggyGrassSideBlock> CODEC = simpleCodec(FoggyGrassSideBlock::new);
@@ -49,8 +48,8 @@ public class FoggyGrassSideBlock extends HorizontalDirectionalBlock {
     private static final VoxelShape WEST = Block.box(8.0, 2.0, 2.0, 16.0, 14.0, 14.0);
     private static final VoxelShape EAST = Block.box(0.0, 2.0, 2.0, 8.0, 14.0, 14.0);
 
-    private static final Direction[] WALLS = {
-        Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+    // Direction.values() clones its array on every call; the spread loop runs per random tick.
+    private static final Direction[] ALL_DIRECTIONS = Direction.values();
 
     public FoggyGrassSideBlock(Properties properties) {
         super(properties);
@@ -82,24 +81,29 @@ public class FoggyGrassSideBlock extends HorizontalDirectionalBlock {
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
+        BlockPos pos = context.getClickedPos();
+        LevelReader level = context.getLevel();
+        if (!level.getFluidState(pos).isEmpty()) {
+            return null;
+        }
         BlockState state = defaultBlockState();
         // Prefer the face actually clicked; failing that, any wall around the spot will do.
         Direction clicked = context.getClickedFace();
-        if (clicked.getAxis().isHorizontal()
-                && canAttachTo(context.getLevel(), context.getClickedPos(), clicked)) {
+        if (clicked.getAxis().isHorizontal() && canAttachTo(level, pos, clicked)) {
             return state.setValue(FACING, clicked);
         }
         for (Direction dir : context.getNearestLookingDirections()) {
-            if (dir.getAxis().isHorizontal() && canAttachTo(context.getLevel(), context.getClickedPos(), dir)) {
+            if (dir.getAxis().isHorizontal() && canAttachTo(level, pos, dir)) {
                 return state.setValue(FACING, dir);
             }
         }
         return null;
     }
 
+    /** As the upright tuft: needs its support, and drops if it ends up submerged. */
     @Override
     public boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
-        return canAttachTo(level, pos, state.getValue(FACING));
+        return level.getFluidState(pos).isEmpty() && canAttachTo(level, pos, state.getValue(FACING));
     }
 
     @Override
@@ -124,9 +128,9 @@ public class FoggyGrassSideBlock extends HorizontalDirectionalBlock {
         }
         // Creep along the wall it is already on, one neighbouring face at a time.
         if (random.nextDouble() < Config.FOGGY_GRASS_SPREAD_CHANCE.get()) {
-            for (Direction dir : Direction.values()) {
-                BlockPos next = pos.relative(dir);
-                if (dir != state.getValue(FACING) && tryPlantSide(level, next, random, true)) {
+            Direction facing = state.getValue(FACING);
+            for (Direction dir : ALL_DIRECTIONS) {
+                if (dir != facing && tryPlantSide(level, pos.relative(dir), random, true)) {
                     break;
                 }
             }
@@ -141,25 +145,23 @@ public class FoggyGrassSideBlock extends HorizontalDirectionalBlock {
      * starts it part-grown, as spread (rather than freshly seeded) growth does. Returns whether it planted.
      */
     public static boolean tryPlantSide(ServerLevel level, BlockPos at, RandomSource random, boolean randomBase) {
-        if (!isFree(level, at)) {
+        if (!FoggyGrassBlock.isFree(level, at)) {
+            return false;
+        }
+        // Find the wall before rolling: the roll costs a biome lookup, and on the randomTick path most
+        // candidate spots have no wall at all.
+        Direction facing = pickWall(level, at, random);
+        if (facing == null) {
             return false;
         }
         double chance = Config.FOGGY_GRASS_SIDE_CHANCE.get() * FoggyGrassBlock.density(level, at);
         if (random.nextDouble() >= chance) {
             return false;
         }
-        Direction facing = pickWall(level, at, random);
-        if (facing == null) {
-            return false;
-        }
-        int cap = 1 + random.nextInt(FoggyGrassBlock.MAX_AGE);
-        int age = randomBase ? random.nextInt(cap + 1) : 0;
-        level.setBlock(at, ModBlocks.FOGGY_GRASS_SIDE.get().defaultBlockState()
-                .setValue(FACING, facing).setValue(CAP, cap).setValue(AGE, age), UPDATE_CLIENTS);
-        level.sendParticles(new SculkChargeParticleOptions(0.0F),
-                at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 2, 0.2, 0.2, 0.2, 0.0);
-        level.sendParticles(ParticleTypes.SCULK_CHARGE_POP,
-                at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 2, 0.2, 0.2, 0.2, 0.0);
+        BlockState planted = FoggyGrassBlock.rollAgeAndCap(
+                ModBlocks.FOGGY_GRASS_SIDE.get().defaultBlockState(), random, randomBase);
+        level.setBlock(at, planted.setValue(FACING, facing), UPDATE_CLIENTS);
+        FoggyGrassBlock.plantedEffects(level, at, random, 0.5, 0.5);
         return true;
     }
 
@@ -169,38 +171,19 @@ public class FoggyGrassSideBlock extends HorizontalDirectionalBlock {
      * are skipped — those belong to the upright grass, which the moss wave plants itself.
      */
     public static BlockPos fringeSpotNear(ServerLevel level, BlockPos col, int refY) {
-        for (int dy : new int[] {0, 1, -1}) {
-            BlockPos at = new BlockPos(col.getX(), refY + dy, col.getZ());
-            if (FogMoss.isFogMoss(level.getBlockState(at.below()))) {
-                continue;
-            }
-            if (isFree(level, at) && hasWall(level, at)) {
-                return at;
-            }
-        }
-        return null;
-    }
-
-    private static boolean isFree(ServerLevel level, BlockPos at) {
-        BlockState here = level.getBlockState(at);
-        return (here.isAir() || here.canBeReplaced()) && level.getFluidState(at).isEmpty();
-    }
-
-    private static boolean hasWall(ServerLevel level, BlockPos at) {
-        for (Direction dir : Direction.Plane.HORIZONTAL) {
-            if (canAttachTo(level, at, dir)) {
-                return true;
-            }
-        }
-        return false;
+        return FoggyGrassBlock.columnNear(col, refY, at ->
+                !FogMoss.isFogMoss(level.getBlockState(at.below()))
+                        && FoggyGrassBlock.isFree(level, at)
+                        && pickWall(level, at, level.random) != null);
     }
 
     // One of the walls around `at`, chosen at random so a run of tufts along a corner does not all
-    // pick the same face. Null when nothing there will hold a tuft.
+    // pick the same face. Null when nothing there will hold a tuft. Walking the four horizontals from a
+    // random start beats shuffledCopy() here: same effect, no list allocated per call.
     private static Direction pickWall(ServerLevel level, BlockPos at, RandomSource random) {
-        int start = random.nextInt(WALLS.length);
-        for (int i = 0; i < WALLS.length; i++) {
-            Direction dir = WALLS[(start + i) % WALLS.length];
+        int start = random.nextInt(4);
+        for (int i = 0; i < 4; i++) {
+            Direction dir = Direction.from2DDataValue((start + i) & 3);
             if (canAttachTo(level, at, dir)) {
                 return dir;
             }
@@ -208,11 +191,9 @@ public class FoggyGrassSideBlock extends HorizontalDirectionalBlock {
         return null;
     }
 
-    // Whether a tuft at `pos` pointing `facing` has a solid face behind it to grow out of.
+    // Whether a tuft at `pos` pointing `facing` has a solid face behind it to grow out of. The fluid at
+    // `pos` is the caller's business -- checking it here would re-read the same position once per face.
     private static boolean canAttachTo(LevelReader level, BlockPos pos, Direction facing) {
-        if (!level.getFluidState(pos).isEmpty()) {
-            return false;
-        }
         BlockPos support = pos.relative(facing.getOpposite());
         return level.getBlockState(support).isFaceSturdy(level, support, facing);
     }

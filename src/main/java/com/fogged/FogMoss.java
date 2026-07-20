@@ -75,6 +75,16 @@ public final class FogMoss {
         return Mth.lerp(t, cold, warm);
     }
 
+    /**
+     * Anything the mod's flora will root in: fog moss, or the soil a vanilla sapling takes. Kept here,
+     * beside {@link #isNatural}, so the grass, the puff bush and the fog eye all read the rule from one
+     * place — the eye extends plain {@link net.minecraft.world.level.block.Block} and so cannot inherit
+     * {@code BushBlock}'s version of it the way the other two could.
+     */
+    public static boolean isFloraSoil(BlockState state) {
+        return isFogMoss(state) || state.is(BlockTags.DIRT) || state.is(Blocks.FARMLAND);
+    }
+
     /** A block the puddle is allowed to overrun: natural worldgen ground, never fog moss itself. */
     public static boolean isNatural(BlockState state) {
         if (isFogMoss(state)) {
@@ -202,8 +212,8 @@ public final class FogMoss {
         return null;
     }
 
-    // Pack the (x, z) column into a long so the flood-fill visits each column at most once.
-    private static long column(BlockPos pos) {
+    /** Pack the (x, z) column into a long, so a flood-fill or wave visits each column at most once. */
+    public static long column(BlockPos pos) {
         return (pos.getX() & 0xFFFFFFFFL) | ((long) pos.getZ() << 32);
     }
 }

@@ -34,10 +34,9 @@ public class PuffBushSaplingBlock extends BushBlock {
         return CODEC;
     }
 
-    /** Stands on fog moss, or on anything a sapling would take (BushBlock's dirt/farmland rule). */
     @Override
     protected boolean mayPlaceOn(BlockState state, BlockGetter level, BlockPos pos) {
-        return FogMoss.isFogMoss(state) || super.mayPlaceOn(state, level, pos);
+        return FogMoss.isFloraSoil(state);
     }
 
     @Override

@@ -1,5 +1,7 @@
 package com.fogged.block;
 
+import java.util.function.Predicate;
+
 import com.fogged.Config;
 import com.fogged.FogMoss;
 import com.fogged.FoggyGrassWave;
@@ -41,6 +43,9 @@ public class FoggyGrassBlock extends BushBlock {
 
     public static final MapCodec<FoggyGrassBlock> CODEC = simpleCodec(FoggyGrassBlock::new);
 
+    /** The vertical steps a column scan tries, in order: level, then one up, then one down. */
+    private static final int[] DY = {0, 1, -1};
+
     public FoggyGrassBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(AGE, 0).setValue(CAP, MAX_AGE));
@@ -56,10 +61,9 @@ public class FoggyGrassBlock extends BushBlock {
         builder.add(AGE, CAP);
     }
 
-    /** Stands on fog moss, or on anything a sapling would take (BushBlock's dirt/farmland rule). */
     @Override
     protected boolean mayPlaceOn(BlockState state, BlockGetter level, BlockPos pos) {
-        return FogMoss.isFogMoss(state) || super.mayPlaceOn(state, level, pos);
+        return FogMoss.isFloraSoil(state);
     }
 
     /** As BushBlock, but also drops if the tuft itself ends up submerged in fluid. */
@@ -95,13 +99,27 @@ public class FoggyGrassBlock extends BushBlock {
      * surface the wave walks along, whether or not it plants there. Null if no fog moss is near {@code refY}.
      */
     public static BlockPos mossTopNear(ServerLevel level, BlockPos col, int refY) {
-        for (int dy : new int[] {0, 1, -1}) {
-            BlockPos top = new BlockPos(col.getX(), refY + dy, col.getZ());
-            if (FogMoss.isFogMoss(level.getBlockState(top.below()))) {
-                return top;
+        return columnNear(col, refY, at -> FogMoss.isFogMoss(level.getBlockState(at.below())));
+    }
+
+    /**
+     * The first position in this column, at {@code refY} or one step either side of it, that {@code accept}
+     * takes — the one-block step being how every wave here follows sloping terrain. Null if none does.
+     */
+    public static BlockPos columnNear(BlockPos col, int refY, Predicate<BlockPos> accept) {
+        for (int dy : DY) {
+            BlockPos at = new BlockPos(col.getX(), refY + dy, col.getZ());
+            if (accept.test(at)) {
+                return at;
             }
         }
         return null;
+    }
+
+    /** Free space a tuft could occupy: air or replaceable, and not flooded. */
+    public static boolean isFree(ServerLevel level, BlockPos at) {
+        BlockState here = level.getBlockState(at);
+        return (here.isAir() || here.canBeReplaced()) && here.getFluidState().isEmpty();
     }
 
     /**
@@ -155,24 +173,36 @@ public class FoggyGrassBlock extends BushBlock {
     }
 
     private static boolean isPlantable(ServerLevel level, BlockPos top) {
-        BlockState here = level.getBlockState(top);
-        return (here.isAir() || here.canBeReplaced())
-                && level.getFluidState(top).isEmpty()
-                && FogMoss.isFogMoss(level.getBlockState(top.below()));
+        return isFree(level, top) && FogMoss.isFogMoss(level.getBlockState(top.below()));
     }
 
     // A spread tuft starts part-grown (random age up to its cap) so it doesn't creep in as bare sprouts.
     private static void sprout(ServerLevel level, BlockPos top, RandomSource random, boolean randomBase) {
+        level.setBlock(top, rollAgeAndCap(ModBlocks.FOGGY_GRASS.get().defaultBlockState(), random, randomBase),
+                UPDATE_CLIENTS);
+        plantedEffects(level, top, random, 0.15, 0.2);
+    }
+
+    /**
+     * Roll this tuft's own maximum height and its starting height onto {@code base}. {@code randomBase}
+     * starts it part-grown, which is what keeps spread growth from creeping in as a rank of bare sprouts.
+     * Shared with {@link FoggyGrassSideBlock} so both variants come up with the same raggedness.
+     */
+    public static BlockState rollAgeAndCap(BlockState base, RandomSource random, boolean randomBase) {
         int cap = 1 + random.nextInt(MAX_AGE);
         int age = randomBase ? random.nextInt(cap + 1) : 0;
-        level.setBlock(top, ModBlocks.FOGGY_GRASS.get().defaultBlockState()
-                .setValue(CAP, cap).setValue(AGE, age), UPDATE_CLIENTS);
+        return base.setValue(CAP, cap).setValue(AGE, age);
+    }
+
+    /** The sculk-charge puff and occasional spread sound a freshly planted tuft makes. */
+    public static void plantedEffects(ServerLevel level, BlockPos at, RandomSource random,
+            double chargeY, double popY) {
         level.sendParticles(new SculkChargeParticleOptions(0.0F),
-                top.getX() + 0.5, top.getY() + 0.15, top.getZ() + 0.5, 2, 0.2, 0.1, 0.2, 0.0);
+                at.getX() + 0.5, at.getY() + chargeY, at.getZ() + 0.5, 2, 0.2, 0.1, 0.2, 0.0);
         level.sendParticles(ParticleTypes.SCULK_CHARGE_POP,
-                top.getX() + 0.5, top.getY() + 0.2, top.getZ() + 0.5, 3, 0.2, 0.1, 0.2, 0.0);
+                at.getX() + 0.5, at.getY() + popY, at.getZ() + 0.5, 3, 0.2, 0.1, 0.2, 0.0);
         if (random.nextInt(6) == 0) {
-            level.playSound(null, top, SoundEvents.SCULK_BLOCK_SPREAD, SoundSource.BLOCKS,
+            level.playSound(null, at, SoundEvents.SCULK_BLOCK_SPREAD, SoundSource.BLOCKS,
                     0.4F, 0.8F + random.nextFloat() * 0.4F);
         }
     }

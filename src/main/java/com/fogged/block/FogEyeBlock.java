@@ -10,7 +10,6 @@ import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -18,7 +17,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LevelEvent;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -126,12 +124,9 @@ public class FogEyeBlock extends Block {
         return Direction.UP;
     }
 
-    /** What an eye can sit upright on: its own stem, fog moss, or any soil a sapling would take. */
+    /** What an eye can sit upright on: its own stem, or any soil the flora roots in. */
     private static boolean isSeat(BlockState state) {
-        return state.is(ModBlocks.FOG_EYE_STEM.get())
-                || FogMoss.isFogMoss(state)
-                || state.is(BlockTags.DIRT)
-                || state.is(Blocks.FARMLAND);
+        return state.is(ModBlocks.FOG_EYE_STEM.get()) || FogMoss.isFloraSoil(state);
     }
 
     /**

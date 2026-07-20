@@ -97,7 +97,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // Foggy grass: per AGE stage, randomly pick one of 5 authored stump models, each randomly
         // textured with one of 3 shared textures. The item icon reuses a shared tuft texture.
         foggyGrass();
-        // The wall-clinging variant reuses those same models, rotated onto the face it grows out of.
+        // The wall-clinging variant: its own model per age stage, yawed onto the face it grows out of.
         foggyGrassSide();
 
         // Fog eye + its stem: vanilla's chorus models, retextured. The stem is a six-way multipart
@@ -159,7 +159,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
         for (int age = 0; age <= FoggyGrassBlock.MAX_AGE; age++) {
             ModelFile model = models().getExistingFile(modLoc("block/foggy_grass_side_age" + age));
             for (Direction facing : Direction.Plane.HORIZONTAL) {
-                int y = ((int) facing.toYRot() + 180) % 360;
+                int y = northModelYaw(facing);
                 builder.partialState()
                         .with(FoggyGrassSideBlock.FACING, facing)
                         .with(FoggyGrassSideBlock.AGE, age)
@@ -208,6 +208,11 @@ public class ModBlockStateProvider extends BlockStateProvider {
             }
         }
         part.addModel().condition(FogEyeBlock.FACING, facing).condition(FogEyeBlock.OPEN, open).end();
+    }
+
+    // Y rotation that turns a model authored facing NORTH onto `facing`.
+    private static int northModelYaw(Direction facing) {
+        return ((int) facing.toYRot() + 180) % 360;
     }
 
     // {x, y} rotation that points an UP-authored model along `facing`. Same mapping the nozzle filter
