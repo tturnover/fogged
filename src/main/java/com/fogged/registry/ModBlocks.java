@@ -1,5 +1,6 @@
 package com.fogged.registry;
 
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -9,11 +10,14 @@ import com.fogged.block.FogDetectorExtensionBlock;
 import com.fogged.block.FogEyeBlock;
 import com.fogged.block.FogEyeStemBlock;
 import com.fogged.block.FoggyGrassBlock;
+import com.fogged.block.FoggyGrassSideBlock;
 import com.fogged.block.NozzleFilterBlock;
 import com.fogged.block.PuffBushSaplingBlock;
 
+import net.minecraft.core.Direction;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.StandingAndWallBlockItem;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.RotatedPillarBlock;
@@ -93,16 +97,32 @@ public final class ModBlocks {
 
     // The wispy tuft that grows on top of fog moss. It is seeded as moss puddles and then grows
     // taller and spreads across the patch over time, capped by biome temperature. See FoggyGrassBlock.
+    //
+    // The same tuft grown sideways out of a block face. Planted on the fringe rings the grass wave throws
+    // past the edge of a moss puddle, so growth climbs the walls it runs into. See FoggyGrassSideBlock.
+    // Declared FIRST so the upright grass's item can name it below. No BlockItem of its own: the one
+    // foggy_grass item places whichever variant fits where you aim it (see FOGGY_GRASS).
+    public static final DeferredBlock<FoggyGrassSideBlock> FOGGY_GRASS_SIDE =
+            registerNoItem("foggy_grass_side", FoggyGrassSideBlock::new, grassProps());
+
+    // One item for both: StandingAndWallBlockItem places the upright tuft on a floor and the side variant
+    // when you aim at a wall, exactly as vanilla's torch/sign items pick between their two blocks.
     public static final DeferredBlock<FoggyGrassBlock> FOGGY_GRASS =
-            register("foggy_grass", FoggyGrassBlock::new, BlockBehaviour.Properties.of()
-                    .mapColor(MapColor.PLANT)
-                    .noCollission()
-                    .instabreak()
-                    .randomTicks()
-                    .sound(SoundType.GRASS)
-                    .noOcclusion()
-                    .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)
-                    .offsetType(BlockBehaviour.OffsetType.XZ));
+            register("foggy_grass", FoggyGrassBlock::new,
+                    grassProps().offsetType(BlockBehaviour.OffsetType.XZ),
+                    (block, props) -> new StandingAndWallBlockItem(
+                            block.get(), FOGGY_GRASS_SIDE.get(), props, Direction.DOWN));
+
+    private static BlockBehaviour.Properties grassProps() {
+        return BlockBehaviour.Properties.of()
+                .mapColor(MapColor.PLANT)
+                .noCollission()
+                .instabreak()
+                .randomTicks()
+                .sound(SoundType.GRASS)
+                .noOcclusion()
+                .pushReaction(PushReaction.DESTROY);
+    }
 
     // The fog eye and the stem it rides: a rare plant seeded on warm fog-moss puddles that races the
     // murk, growing a stem fast enough to keep its eye at the fog surface and eating the stem back
@@ -168,6 +188,19 @@ public final class ModBlocks {
             String name, Function<BlockBehaviour.Properties, T> factory, BlockBehaviour.Properties props) {
         DeferredBlock<T> block = BLOCKS.registerBlock(name, factory, props);
         registerBlockItem(name, block);
+        return block;
+    }
+
+    /**
+     * As {@link #register}, but with a custom item instead of a plain {@link BlockItem} — for a block
+     * whose item does more than place that one block. The factory is handed the block holder (so it can
+     * be used before the field it is assigned to is initialised) and the item properties.
+     */
+    public static <T extends Block> DeferredBlock<T> register(
+            String name, Function<BlockBehaviour.Properties, T> factory, BlockBehaviour.Properties props,
+            BiFunction<Supplier<T>, Item.Properties, ? extends Item> itemFactory) {
+        DeferredBlock<T> block = BLOCKS.registerBlock(name, factory, props);
+        ModItems.ITEMS.registerItem(name, itemProps -> itemFactory.apply(block, itemProps), new Item.Properties());
         return block;
     }
 

@@ -298,6 +298,18 @@ public class Config {
             .defineList("foggyGrassDensity", List.of(0.05, 0.6), () -> 0.0,
                     o -> o instanceof Number n && n.doubleValue() >= 0.0 && n.doubleValue() <= 1.0);
 
+    public static final ModConfigSpec.DoubleValue FOGGY_GRASS_SIDE_CHANCE = BUILDER
+            .comment("Base chance that a spot on the wave's fringe (see foggyGrassFringeRings) grows a",
+                    "wall-clinging tuft on a block face beside it. As with the upright grass, the actual",
+                    "chance is this times the local temperature density.")
+            .defineInRange("foggyGrassSideChance", 0.25, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue FOGGY_GRASS_FRINGE_RINGS = BUILDER
+            .comment("How many blocks past the edge of the fog moss the planting wave keeps walking. Those",
+                    "extra rings plant only the wall-clinging variant, so growth climbs the cliff or wall a",
+                    "puddle runs up against instead of stopping dead at the moss. 0 disables the fringe.")
+            .defineInRange("foggyGrassFringeRings", 2, 0, 8);
+
     public static final ModConfigSpec.IntValue FOGGY_GRASS_WAVE_STEP = BUILDER
             .comment("Ticks between rings of the sculk-catalyst-style planting wave that ripples grass across",
                     "the moss (both the one-shot bloom when a puddle forms and the sparks mature tufts throw",

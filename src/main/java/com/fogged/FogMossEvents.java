@@ -172,6 +172,13 @@ public final class FogMossEvents {
             return;
         }
 
+        // Grass blocks die back to coarse dirt: the sward is the first thing the murk takes, and coarse
+        // dirt will not spread or regrow the way plain dirt re-grasses from a lit neighbour.
+        if (state.is(Blocks.GRASS_BLOCK)) {
+            level.setBlock(pos, Blocks.COARSE_DIRT.defaultBlockState(), Block.UPDATE_ALL);
+            return;
+        }
+
         if (state.is(Blocks.FARMLAND)) {
             level.setBlock(pos, Blocks.DIRT.defaultBlockState(), Block.UPDATE_ALL);
             BlockPos above = pos.above();

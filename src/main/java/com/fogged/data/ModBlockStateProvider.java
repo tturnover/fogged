@@ -6,6 +6,7 @@ import com.fogged.Fogged;
 import com.fogged.block.FogDetectorBlock;
 import com.fogged.block.FogEyeBlock;
 import com.fogged.block.FoggyGrassBlock;
+import com.fogged.block.FoggyGrassSideBlock;
 import com.fogged.block.NozzleFilterBlock;
 import com.fogged.registry.ModBlocks;
 
@@ -63,6 +64,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
             ModBlocks.SOFT_FOG_MOSS,
             ModBlocks.HARSH_FOG_MOSS,
             ModBlocks.FOGGY_GRASS,
+            ModBlocks.FOGGY_GRASS_SIDE,
             ModBlocks.FOG_EYE_STEM,
             ModBlocks.FOG_EYE,
             ModBlocks.NOZZLE_FILTER,
@@ -95,6 +97,8 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // Foggy grass: per AGE stage, randomly pick one of 5 authored stump models, each randomly
         // textured with one of 3 shared textures. The item icon reuses a shared tuft texture.
         foggyGrass();
+        // The wall-clinging variant reuses those same models, rotated onto the face it grows out of.
+        foggyGrassSide();
 
         // Fog eye + its stem: vanilla's chorus models, retextured. The stem is a six-way multipart
         // like chorus_plant. The eye picks its model from OPEN alone -- open at the fog surface, shut
@@ -144,6 +148,24 @@ public class ModBlockStateProvider extends BlockStateProvider {
         }
         itemModels().withExistingParent("foggy_grass", mcLoc("item/generated"))
                 .texture("layer0", modLoc("block/foggy_grass_2"));
+    }
+
+    // Side foggy grass: one authored model per AGE stage and nothing more -- no shape or texture
+    // randomising, unlike the upright grass. Each model is authored rooted on the south face growing
+    // north, so the other three walls are just a yaw of it. No item model -- the side variant has no
+    // BlockItem; the upright grass's item places it (see ModBlocks#FOGGY_GRASS).
+    private void foggyGrassSide() {
+        var builder = getVariantBuilder(ModBlocks.FOGGY_GRASS_SIDE.get());
+        for (int age = 0; age <= FoggyGrassBlock.MAX_AGE; age++) {
+            ModelFile model = models().getExistingFile(modLoc("block/foggy_grass_side_age" + age));
+            for (Direction facing : Direction.Plane.HORIZONTAL) {
+                int y = ((int) facing.toYRot() + 180) % 360;
+                builder.partialState()
+                        .with(FoggyGrassSideBlock.FACING, facing)
+                        .with(FoggyGrassSideBlock.AGE, age)
+                        .setModels(new ConfiguredModel(model, 0, y, false));
+            }
+        }
     }
 
     // Fog eye: a base and a head, both turned to point away from the stem the eye grew off (FACING),

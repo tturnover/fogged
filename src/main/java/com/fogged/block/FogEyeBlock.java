@@ -10,6 +10,7 @@ import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -17,6 +18,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LevelEvent;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -113,8 +115,7 @@ public class FogEyeBlock extends Block {
      * away from the single stem it hangs off. Falls back to UP, which is what a seeded head gets.
      */
     private static Direction facingFor(BlockGetter level, BlockPos pos) {
-        BlockState below = level.getBlockState(pos.below());
-        if (below.is(ModBlocks.FOG_EYE_STEM.get()) || FogMoss.isFogMoss(below)) {
+        if (isSeat(level.getBlockState(pos.below()))) {
             return Direction.UP;
         }
         for (Direction dir : Direction.Plane.HORIZONTAL) {
@@ -123,6 +124,14 @@ public class FogEyeBlock extends Block {
             }
         }
         return Direction.UP;
+    }
+
+    /** What an eye can sit upright on: its own stem, fog moss, or any soil a sapling would take. */
+    private static boolean isSeat(BlockState state) {
+        return state.is(ModBlocks.FOG_EYE_STEM.get())
+                || FogMoss.isFogMoss(state)
+                || state.is(BlockTags.DIRT)
+                || state.is(Blocks.FARMLAND);
     }
 
     /**
@@ -136,7 +145,7 @@ public class FogEyeBlock extends Block {
             return false;
         }
         BlockState below = level.getBlockState(pos.below());
-        if (below.is(ModBlocks.FOG_EYE_STEM.get()) || FogMoss.isFogMoss(below)) {
+        if (isSeat(below)) {
             return true;
         }
         if (!below.isAir()) {

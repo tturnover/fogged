@@ -56,10 +56,10 @@ public class FoggyGrassBlock extends BushBlock {
         builder.add(AGE, CAP);
     }
 
-    /** Foggy grass only clings to fog moss — that is the one surface it may stand on. */
+    /** Stands on fog moss, or on anything a sapling would take (BushBlock's dirt/farmland rule). */
     @Override
     protected boolean mayPlaceOn(BlockState state, BlockGetter level, BlockPos pos) {
-        return FogMoss.isFogMoss(state);
+        return FogMoss.isFogMoss(state) || super.mayPlaceOn(state, level, pos);
     }
 
     /** As BushBlock, but also drops if the tuft itself ends up submerged in fluid. */
@@ -216,9 +216,12 @@ public class FoggyGrassBlock extends BushBlock {
         return (int) Math.ceil(moss * density(level, centre));
     }
 
-    // Density fraction (0..1) of moss this biome's temperature supports, interpolated between the cold
-    // and warm anchors that also pick the moss variant (fogMossTempBand = [coldMax, warmMin]).
-    private static double density(ServerLevel level, BlockPos pos) {
+    /**
+     * Density fraction (0..1) of moss this biome's temperature supports, interpolated between the cold
+     * and warm anchors that also pick the moss variant (fogMossTempBand = [coldMax, warmMin]). Shared
+     * with {@link FoggyGrassSideBlock} so the wall tufts thin out in the cold along with the upright ones.
+     */
+    public static double density(ServerLevel level, BlockPos pos) {
         return FogMoss.tempLerp(level, pos, Config.foggyGrassColdDensity(), Config.foggyGrassWarmDensity());
     }
 }

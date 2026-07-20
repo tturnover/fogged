@@ -32,6 +32,9 @@ public class ModBlockLoot extends BlockLootSubProvider {
             Block block = holder.get();
             if (block == ModBlocks.FOG_DETECTOR_EXTENSION.get()) {
                 add(block, createSingleItemTable(ModBlocks.FOG_DETECTOR.get()));
+            } else if (block == ModBlocks.FOGGY_GRASS_SIDE.get()) {
+                // Has no item of its own -- it drops the one foggy_grass that places either variant.
+                add(block, createSingleItemTable(ModBlocks.FOGGY_GRASS.get()));
             } else if (block == ModBlocks.FOG_EYE_STEM.get()) {
                 // Unobtainable: the stem has no item and drops nothing when broken.
                 add(block, LootTable.lootTable());

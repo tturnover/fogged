@@ -1,0 +1,96 @@
+{
+  "__comment": "PLACEHOLDER cross for side foggy grass age 2. Two quads crossed 45 degrees about the outward (z) axis, rooted on the south face and growing north -- the blockstate yaws this one model onto the other three walls. Replace with a BlockBench model; keep texture var #0 and render_type cutout.",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "0": "fogged:block/foggy_grass_side",
+    "particle": "fogged:block/foggy_grass_side"
+  },
+  "elements": [
+    {
+      "from": [
+        8,
+        3,
+        6
+      ],
+      "to": [
+        8,
+        13,
+        16
+      ],
+      "rotation": {
+        "origin": [
+          8,
+          8,
+          16
+        ],
+        "axis": "z",
+        "angle": 45,
+        "rescale": true
+      },
+      "shade": false,
+      "faces": {
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#0"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#0"
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        8,
+        6
+      ],
+      "to": [
+        13,
+        8,
+        16
+      ],
+      "rotation": {
+        "origin": [
+          8,
+          8,
+          16
+        ],
+        "axis": "z",
+        "angle": 45,
+        "rescale": true
+      },
+      "shade": false,
+      "faces": {
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#0"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#0"
+        }
+      }
+    }
+  ]
+}
