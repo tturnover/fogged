@@ -36,7 +36,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
     /** Fan speed (RPM magnitude) at which the sphere saturates at {@link #MAX_RADIUS} -- half of Create's
      *  256 RPM top tier. */
     private static final float FULL_SPEED = 128.0F;
-    /** Above this fan speed the filter overloads: it reverts to a plain nozzle and drops its fluff. */
+    /** Above this fan speed the filter overloads: it reverts to a plain nozzle and drops its puff. */
     private static final float OVERLOAD_SPEED = 128.0F;
     /** Recompute cadence. The fan's speed changes rarely, so a coarse interval is plenty. */
     private static final int UPDATE_INTERVAL = 10;
@@ -61,7 +61,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
         CreateFan.FanState fan = CreateFan.attachedFan(level, pos, facing.getOpposite());
 
         if (isBlowing(fan, facing)) {
-            // Fan pushing air out through the filter blows the fluff straight off: revert to a nozzle.
+            // Fan pushing air out through the filter blows the puff straight off: revert to a nozzle.
             NozzleFilterEvents.revertToNozzle(level, pos, facing);
             return;
         }
@@ -74,7 +74,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
         }
 
         if (fan.speed() > OVERLOAD_SPEED) {
-            // Too much airflow: the filter blows out, reverting to a plain nozzle and shedding its fluff.
+            // Too much airflow: the filter blows out, reverting to a plain nozzle and shedding its puff.
             NozzleFilterEvents.revertToNozzle(level, pos, facing);
             return;
         }
@@ -103,7 +103,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
 
     /**
      * True when the fan is actively pushing air out through the filter (airflow along the filter's
-     * FACING, away from the fan). This blows the fluff off, so the filter reverts to a bare nozzle. An
+     * FACING, away from the fan). This blows the puff off, so the filter reverts to a bare nozzle. An
      * idle fan (speed 0, no airflow) is neither sucking nor blowing and leaves the filter alone.
      */
     private static boolean isBlowing(CreateFan.FanState fan, Direction facing) {

@@ -14,7 +14,7 @@ import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 /**
  * Client-side tooltip additions, all in the same Create-style format via {@link FoggedTooltip}:
  * <ul>
- *   <li>Create's nozzle — appends the "apply 3 fluff balls" conversion note under Create's own
+ *   <li>Create's nozzle — appends the "apply 3 puff balls" conversion note under Create's own
  *       Shift description (Create supplies its own prompt, so we add none).</li>
  *   <li>Our fog detector — a full Fogged section with its own "Hold [Shift]" prompt.</li>
  * </ul>

@@ -10,6 +10,10 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.data.loot.BlockLootSubProvider;
 import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.LootPool;
+import net.minecraft.world.level.storage.loot.entries.LootItem;
+import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition;
 import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
 
 /**
@@ -28,10 +32,22 @@ public class ModBlockLoot extends BlockLootSubProvider {
             Block block = holder.get();
             if (block == ModBlocks.FOG_DETECTOR_EXTENSION.get()) {
                 add(block, createSingleItemTable(ModBlocks.FOG_DETECTOR.get()));
+            } else if (block == ModBlocks.FOG_EYE_STEM.get()) {
+                // Unobtainable: the stem has no item and drops nothing when broken.
+                add(block, LootTable.lootTable());
             } else if (block == ModBlocks.NOZZLE_FILTER.get()) {
-                // Breaking a filter returns the fluff balls that made it (the nozzle itself is gone).
-                add(block, createSingleItemTable(ModItems.FLUFF_BALL.get(),
+                // Breaking a filter returns the puff balls that made it (the nozzle itself is gone).
+                add(block, createSingleItemTable(ModItems.PUFF_BALL.get(),
                         ConstantValue.exactly(NozzleFilterEvents.REQUIRED)));
+            } else if (block == ModBlocks.PUFF_BUSH_LEAVES.get()) {
+                // Standard leaves drops (sapling + sticks), plus a rare puff ball when broken by hand.
+                add(block, createLeavesDrops(block, ModBlocks.PUFF_BUSH_SAPLING.get(), NORMAL_LEAVES_SAPLING_CHANCES)
+                        .withPool(LootPool.lootPool()
+                                .setRolls(ConstantValue.exactly(1.0F))
+                                .when(HAS_SHEARS.invert())
+                                .when(doesNotHaveSilkTouch())
+                                .add(applyExplosionCondition(block, LootItem.lootTableItem(ModItems.PUFF_BALL.get()))
+                                        .when(LootItemRandomChanceCondition.randomChance(0.02F)))));
             } else {
                 dropSelf(block);
             }

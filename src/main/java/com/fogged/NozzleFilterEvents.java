@@ -23,8 +23,8 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 /**
  * Turns a {@code create:nozzle} into a {@code fogged:nozzle_filter}: right-click the nozzle while
- * holding at least {@link #REQUIRED} fluff balls and the nozzle block is replaced in place (inheriting
- * its facing) and the fluff balls consumed. Replacing the block outright -- rather than layering on top
+ * holding at least {@link #REQUIRED} puff balls and the nozzle block is replaced in place (inheriting
+ * its facing) and the puff balls consumed. Replacing the block outright -- rather than layering on top
  * -- is deliberate: it drops Create's own nozzle behaviour so the two air sources never conflict.
  *
  * <p>Soft integration only: the nozzle is matched by registry id, so this compiles and runs whether or
@@ -33,7 +33,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class NozzleFilterEvents {
 
-    /** Fluff balls consumed per conversion. */
+    /** Puff balls consumed per conversion. */
     public static final int REQUIRED = 3;
 
     private static final ResourceLocation CREATE_NOZZLE =
@@ -45,7 +45,7 @@ public final class NozzleFilterEvents {
             return;
         }
         ItemStack stack = event.getItemStack();
-        if (!stack.is(ModItems.FLUFF_BALL.get()) || stack.getCount() < REQUIRED) {
+        if (!stack.is(ModItems.PUFF_BALL.get()) || stack.getCount() < REQUIRED) {
             return;
         }
         Level level = event.getLevel();
@@ -80,7 +80,7 @@ public final class NozzleFilterEvents {
     }
 
     /**
-     * Breaking a filter returns the {@code create:nozzle} it was made from. The {@link #REQUIRED} fluff
+     * Breaking a filter returns the {@code create:nozzle} it was made from. The {@link #REQUIRED} puff
      * balls come back via the block's loot table ({@code ModBlockLoot}); the nozzle is dropped here
      * instead because Create is a soft dependency, so its item can only be resolved by id at runtime.
      * Creative breaks drop nothing (matching how loot tables skip creative), and non-player breaks
@@ -112,7 +112,7 @@ public final class NozzleFilterEvents {
 
     /**
      * Revert a nozzle filter back into a plain {@code create:nozzle}, keeping {@code facing}, and drop
-     * the {@link #REQUIRED} fluff balls that made it. Used when the attached fan spins too fast and the
+     * the {@link #REQUIRED} puff balls that made it. Used when the attached fan spins too fast and the
      * filter overloads (see {@link com.fogged.block.NozzleFilterBlockEntity}). Server-side only.
      */
     public static void revertToNozzle(Level level, BlockPos pos, Direction facing) {
@@ -127,7 +127,7 @@ public final class NozzleFilterEvents {
         } else {
             level.setBlockAndUpdate(pos, withFacing(nozzle.defaultBlockState(), facing));
         }
-        Block.popResource(level, pos, new ItemStack(ModItems.FLUFF_BALL.get(), REQUIRED));
+        Block.popResource(level, pos, new ItemStack(ModItems.PUFF_BALL.get(), REQUIRED));
     }
 
     /** Read the nozzle's {@code facing} generically (no compile dependency on Create's block class). */

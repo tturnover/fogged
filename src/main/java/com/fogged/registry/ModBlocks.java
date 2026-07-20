@@ -10,10 +10,13 @@ import com.fogged.block.FogEyeBlock;
 import com.fogged.block.FogEyeStemBlock;
 import com.fogged.block.FoggyGrassBlock;
 import com.fogged.block.NozzleFilterBlock;
+import com.fogged.block.PuffBushSaplingBlock;
 
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
@@ -69,7 +72,7 @@ public final class ModBlocks {
     public static final DeferredBlock<Block> HARSH_FOG_MOSS =
             register("harsh_fog_moss", Block::new, mossProps());
 
-    // Nozzle filter: a create:nozzle converted by right-clicking it with 3 fluff balls. Not obtainable
+    // Nozzle filter: a create:nozzle converted by right-clicking it with 3 puff balls. Not obtainable
     // as an item (registerNoItem) -- it only exists by replacing an in-world nozzle. It carries a block
     // entity that reads the attached fan's speed each tick and opens a breathing sphere (radius 3..16,
     // maxing at half fan power) that lets players/entities breathe under the fog. Too much airflow
@@ -104,8 +107,9 @@ public final class ModBlocks {
     // The fog eye and the stem it rides: a rare plant seeded on warm fog-moss puddles that races the
     // murk, growing a stem fast enough to keep its eye at the fog surface and eating the stem back
     // down when the plane sinks. The eye carries all the logic; the stem is its trail. See FogEyeBlock.
+    // No BlockItem: the stem is not obtainable; it exists only as the trail an eye leaves as it climbs.
     public static final DeferredBlock<FogEyeStemBlock> FOG_EYE_STEM =
-            register("fog_eye_stem", FogEyeStemBlock::new, BlockBehaviour.Properties.of()
+            registerNoItem("fog_eye_stem", FogEyeStemBlock::new, BlockBehaviour.Properties.of()
                     .mapColor(MapColor.PLANT)
                     .strength(0.4F)
                     .sound(SoundType.MOSS)
@@ -119,6 +123,36 @@ public final class ModBlocks {
                     .randomTicks()
                     .sound(SoundType.MOSS)
                     .noOcclusion()
+                    .pushReaction(PushReaction.DESTROY));
+
+    // The puff bush: a rare little tree seeded (as a sapling) where the flora would otherwise plant grass;
+    // it grows into a small jungle-bush blob whose leaves rarely shed a puff ball. See PuffBushSaplingBlock.
+    public static final DeferredBlock<PuffBushSaplingBlock> PUFF_BUSH_SAPLING =
+            register("puff_bush_sapling", PuffBushSaplingBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.PLANT)
+                    .noCollission()
+                    .instabreak()
+                    .randomTicks()
+                    .sound(SoundType.GRASS)
+                    .noOcclusion()
+                    .pushReaction(PushReaction.DESTROY));
+
+    public static final DeferredBlock<RotatedPillarBlock> PUFF_BUSH_LOG =
+            register("puff_bush_log", RotatedPillarBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.WOOD)
+                    .strength(2.0F)
+                    .sound(SoundType.WOOD));
+
+    public static final DeferredBlock<LeavesBlock> PUFF_BUSH_LEAVES =
+            register("puff_bush_leaves", LeavesBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.PLANT)
+                    .strength(0.2F)
+                    .randomTicks()
+                    .sound(SoundType.GRASS)
+                    .noOcclusion()
+                    .isValidSpawn((state, level, pos, type) -> false)
+                    .isSuffocating((state, level, pos) -> false)
+                    .isViewBlocking((state, level, pos) -> false)
                     .pushReaction(PushReaction.DESTROY));
 
     // ------------------------------------------------------------------------

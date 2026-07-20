@@ -500,24 +500,67 @@ public class FogEyeBlock extends Block {
      * Rarely seed an eye on a freshly-placed moss block, with a probability scaled by biome
      * temperature (warm puddles sprout far more). Called by {@link FogMoss} as a puddle spreads.
      *
-     * @return true if an eye was placed, so the caller does not also seed grass on that block
+     * @return the position of the seeded eye, or null if none was placed (so the caller knows whether it
+     *         has a plant to fast-forward)
      */
-    public static boolean trySeed(ServerLevel level, BlockPos mossPos, RandomSource random) {
+    @Nullable
+    public static BlockPos trySeed(ServerLevel level, BlockPos mossPos, RandomSource random) {
         if (!Config.FLORA_ENABLED.get()) {
-            return false;
+            return null;
         }
         BlockPos top = mossPos.above();
         BlockState above = level.getBlockState(top);
         if ((!above.isAir() && !above.canBeReplaced()) || !level.getFluidState(top).isEmpty()) {
-            return false; // occupied, or submerged in water
+            return null; // occupied, or submerged in water
         }
         double chance = Config.FOG_EYE_SEED_CHANCE.get()
                 * FogMoss.tempLerp(level, mossPos, Config.fogEyeColdChance(), Config.fogEyeWarmChance());
         if (random.nextDouble() >= chance) {
-            return false;
+            return null;
         }
         // onPlace arms the growth schedule from here.
         level.setBlock(top, ModBlocks.FOG_EYE.get().defaultBlockState(), UPDATE_ALL);
-        return true;
+        return top;
+    }
+
+    /**
+     * Fast-forward a just-seeded eye to an established plant by running its growth steps in a loop until
+     * every head reaches the fog surface (and opens) or can climb no further — used when a chunk is first
+     * revealed. A step budget bounds it; anything unfinished carries on via its own scheduled ticks.
+     */
+    public static void simulateGrowth(ServerLevel level, BlockPos seedHead) {
+        if (!Config.FLORA_ENABLED.get()) {
+            return;
+        }
+        int target = targetY(level);
+        java.util.ArrayDeque<BlockPos> heads = new java.util.ArrayDeque<>();
+        heads.add(seedHead);
+        int budget = 4096;
+        while (!heads.isEmpty() && budget-- > 0) {
+            BlockPos pos = heads.poll();
+            BlockState state = level.getBlockState(pos);
+            if (!(state.getBlock() instanceof FogEyeBlock eye) || !eye.canSurvive(state, level, pos)) {
+                continue; // became stem, folded away, or cannot stand
+            }
+            if (pos.getY() >= target) {
+                if (state.getValue(FACING) == Direction.UP && !state.getValue(OPEN)) {
+                    level.setBlock(pos, state.setValue(OPEN, true), UPDATE_CLIENTS);
+                }
+                continue;
+            }
+            BlockPos next = eye.grow(level, pos, state, level.random);
+            if (next == null) {
+                // Branched into stem: the arms it threw carry on as new heads.
+                for (Direction dir : Direction.Plane.HORIZONTAL) {
+                    BlockPos arm = pos.relative(dir);
+                    if (level.getBlockState(arm).getBlock() instanceof FogEyeBlock) {
+                        heads.add(arm);
+                    }
+                }
+            } else if (!next.equals(pos)) {
+                heads.add(next);
+            }
+            // next == pos: stuck this step; leave it for its own scheduled ticks.
+        }
     }
 }

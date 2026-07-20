@@ -65,7 +65,9 @@ public class ModBlockStateProvider extends BlockStateProvider {
             ModBlocks.FOGGY_GRASS,
             ModBlocks.FOG_EYE_STEM,
             ModBlocks.FOG_EYE,
-            ModBlocks.NOZZLE_FILTER);
+            ModBlocks.NOZZLE_FILTER,
+            ModBlocks.PUFF_BUSH_SAPLING,
+            ModBlocks.PUFF_BUSH_LOG);
 
     @Override
     protected void registerStatesAndModels() {
@@ -105,6 +107,10 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // Nozzle filter: single supplied model rotated by FACING (matching Create's own nozzle
         // blockstate orientations). No item model -- it has no BlockItem.
         nozzleFilter();
+
+        // Puff bush: a pillar log (axis states + item) and a cross-shaped sapling (cutout, item from the
+        // same texture). The leaves fall to the auto cube_all pass below like any other full block.
+        puffBush();
 
         // Everything else: auto cube_all, blockstate + block model + item model.
         ModBlocks.BLOCKS.getEntries().forEach(holder -> {
@@ -227,7 +233,20 @@ public class ModBlockStateProvider extends BlockStateProvider {
             }
             cap.addModel().condition(connected, false).end();
         }
-        itemModels().withExistingParent("fog_eye_stem", modLoc("block/fog_eye_stem"));
+        // No item model: the stem has no BlockItem (it is unobtainable).
+    }
+
+    // Puff bush: an axis-pillar log and a cutout-cross sapling (item a flat icon of the same texture).
+    private void puffBush() {
+        logBlock((net.minecraft.world.level.block.RotatedPillarBlock) ModBlocks.PUFF_BUSH_LOG.get());
+        itemModels().withExistingParent("puff_bush_log", modLoc("block/puff_bush_log"));
+
+        ModelFile sapling = models().cross("puff_bush_sapling", modLoc("block/puff_bush_sapling"))
+                .renderType("cutout");
+        getVariantBuilder(ModBlocks.PUFF_BUSH_SAPLING.get())
+                .partialState().setModels(new ConfiguredModel(sapling));
+        itemModels().withExistingParent("puff_bush_sapling", mcLoc("item/generated"))
+                .texture("layer0", modLoc("block/puff_bush_sapling"));
     }
 
     // Rotate the supplied block/nozzle_filter model by FACING, using the same X/Y rotations Create's

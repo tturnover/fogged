@@ -2,8 +2,8 @@
   "__comment": "Placeholder 'for now' filter model: the lower half reuses Create's nozzle net texture as a stub body, with a plain white box capping the upper half. Authored facing UP; the blockstate rotates it per FACING (see ModBlockStateProvider#nozzleFilter).",
   "textures": {
     "net": "create:block/net",
-    "white": "fogged:block/fluff",
-    "particle": "fogged:block/fluff"
+    "white": "fogged:block/puff",
+    "particle": "fogged:block/puff"
   },
   "elements": [
     {

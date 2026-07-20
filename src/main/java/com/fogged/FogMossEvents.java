@@ -59,6 +59,8 @@ public final class FogMossEvents {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
+        // Advance any in-flight foggy-grass bloom / spark waves for this level.
+        FoggyGrassWave.tick(level);
         // Sweep one x-stripe of the area this tick; over SCAN_PERIOD ticks every column is covered.
         int phase = (int) (level.getGameTime() % SCAN_PERIOD);
         int top = FogMoss.activeTopY(level);
@@ -74,7 +76,7 @@ public final class FogMossEvents {
             int x1 = Math.min(cx + radius, x0 + stripe - 1);
             for (int x = x0; x <= x1; x++) {
                 for (int z = cz - radius; z <= cz + radius; z++) {
-                    rotColumn(level, pos, x, z, top, bottom);
+                    rotColumn(level, pos, x, z, top, bottom, false);
                 }
             }
         }
@@ -83,7 +85,7 @@ public final class FogMossEvents {
         // moss — moss only puddles on the world ground. Run once per sweep to keep it cheap.
         if (SABLE && phase == 0) {
             double activeSurfaceY = FogMoss.surfaceY(level) - Config.FOG_MOSS_SKIP.getAsInt();
-            SableFoam.rotSubLevels(level, activeSurfaceY, (subLevel, p) -> rot(subLevel, p, false));
+            SableFoam.rotSubLevels(level, activeSurfaceY, (subLevel, p) -> rot(subLevel, p, false, false));
         }
     }
 
@@ -105,14 +107,16 @@ public final class FogMossEvents {
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int x = cp.getMinBlockX(); x <= cp.getMaxBlockX(); x++) {
             for (int z = cp.getMinBlockZ(); z <= cp.getMaxBlockZ(); z++) {
-                rotColumn(level, pos, x, z, top, bottom);
+                // Instant: a chunk coming into view arrives already overgrown, not seeding in front of you.
+                rotColumn(level, pos, x, z, top, bottom, true);
             }
         }
     }
 
-    // Rot the active fog band of a single x/z column, top down. World blocks leave a moss puddle.
+    // Rot the active fog band of a single x/z column, top down. World blocks leave a moss puddle; when
+    // `instant`, that puddle's grass and eyes are grown out on the spot instead of over the next ticks.
     private static void rotColumn(ServerLevel level, BlockPos.MutableBlockPos pos,
-                                  int x, int z, int top, int bottom) {
+                                  int x, int z, int top, int bottom, boolean instant) {
         // Load state is per-CHUNK, so check the column once instead of every block in the deep band --
         // this is the hottest loop of the per-tick sweep. If the chunk is absent, the whole column is.
         if (!level.hasChunkAt(x, z)) {
@@ -120,7 +124,7 @@ public final class FogMossEvents {
         }
         for (int y = top; y >= bottom; y--) {
             pos.set(x, y, z);
-            rot(level, pos, true);
+            rot(level, pos, true, instant);
         }
     }
 
@@ -135,7 +139,7 @@ public final class FogMossEvents {
      * Apply the under-fog rot to one block. {@code spawnMoss} leaves a fog-moss puddle when vegetation
      * is killed (world ground); sub-level blocks pass {@code false} so ships are scoured but not mossed.
      */
-    private static void rot(Level level, BlockPos pos, boolean spawnMoss) {
+    private static void rot(Level level, BlockPos pos, boolean spawnMoss, boolean instant) {
         BlockState state = level.getBlockState(pos);
         boolean submerge = Config.SUBMERGE_WORLD.get();
         boolean flora = Config.FLORA_ENABLED.get();
@@ -180,7 +184,7 @@ public final class FogMossEvents {
         if (state.is(BlockTags.LEAVES)) {
             level.destroyBlock(pos, false);
             if (moss && level instanceof ServerLevel server) {
-                FogMoss.puddleAt(server, pos.below(), Config.FOG_MOSS_STRENGTH_LEAVES);
+                FogMoss.puddleAt(server, pos.below(), Config.FOG_MOSS_STRENGTH_LEAVES, instant);
             }
             return;
         }
@@ -188,7 +192,7 @@ public final class FogMossEvents {
         if (isPlant(state)) {
             level.destroyBlock(pos, false);
             if (moss && level instanceof ServerLevel server) {
-                FogMoss.puddleAt(server, pos.below(), Config.FOG_MOSS_STRENGTH_PLANT);
+                FogMoss.puddleAt(server, pos.below(), Config.FOG_MOSS_STRENGTH_PLANT, instant);
             }
         }
     }
@@ -211,13 +215,14 @@ public final class FogMossEvents {
         FogMoss.puddleAt(level, mob.blockPosition().below(), Config.FOG_MOSS_STRENGTH_MOB);
     }
 
-    // Flowers, ferns and tall/short grass that the murk wilts into a puddle.
+    // Flowers, ferns, tall/short grass and sweet berry bushes that the murk wilts into a puddle.
     private static boolean isPlant(BlockState state) {
         return state.is(BlockTags.FLOWERS)
                 || state.is(Blocks.SHORT_GRASS)
                 || state.is(Blocks.TALL_GRASS)
                 || state.is(Blocks.FERN)
-                || state.is(Blocks.LARGE_FERN);
+                || state.is(Blocks.LARGE_FERN)
+                || state.is(Blocks.SWEET_BERRY_BUSH);
     }
 
     // Anything growing on tilled soil: crops, stems and other small plants/bushes.

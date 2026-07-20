@@ -1,12 +1,13 @@
 package com.fogged;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.fogged.block.FogEyeBlock;
-import com.fogged.block.FoggyGrassBlock;
 import com.fogged.registry.ModBlocks;
 
 import net.minecraft.core.BlockPos;
@@ -93,6 +94,14 @@ public final class FogMoss {
      * no natural surface there or the strength rounds to zero blocks.
      */
     public static void puddleAt(ServerLevel level, BlockPos from, double strength) {
+        puddleAt(level, from, strength, false);
+    }
+
+    /**
+     * As {@link #puddleAt(ServerLevel, BlockPos, double)}, but {@code instant} fast-forwards the flora to an
+     * established state at once — grass planted and eyes grown to the surface — for a chunk first revealed.
+     */
+    public static void puddleAt(ServerLevel level, BlockPos from, double strength, boolean instant) {
         int budget = (int) Math.round(strength * Config.FOG_MOSS_SIZE_PER_STRENGTH.getAsInt());
         if (budget <= 0) {
             return;
@@ -101,7 +110,7 @@ public final class FogMoss {
         if (seed == null) {
             return;
         }
-        spread(level, seed, budget, mossFor(level, seed));
+        spread(level, seed, budget, mossFor(level, seed), instant);
     }
 
     // Pick the fog-moss variant for where the puddle grows, by the biome's base temperature:
@@ -139,10 +148,12 @@ public final class FogMoss {
     }
 
     // Surface-hugging flood-fill: replace natural surface blocks with fog moss until the budget runs out.
-    private static void spread(ServerLevel level, BlockPos seed, int budget, Block mossBlock) {
+    private static void spread(ServerLevel level, BlockPos seed, int budget, Block mossBlock, boolean instant) {
         BlockState moss = mossBlock.defaultBlockState();
         Deque<BlockPos> queue = new ArrayDeque<>();
         Set<Long> seenColumns = new HashSet<>();
+        // For an instant puddle, collect the eyes it seeds so they can be grown out once the moss is down.
+        List<BlockPos> eyes = instant ? new ArrayList<>() : null;
         queue.add(seed);
         seenColumns.add(column(seed));
         int placed = 0;
@@ -152,9 +163,10 @@ public final class FogMoss {
                 continue; // terrain changed under us / not eligible
             }
             level.setBlock(pos, moss, Block.UPDATE_ALL);
-            // The rare fog eye gets first refusal on the block; grass only fills what it leaves.
-            if (!FogEyeBlock.trySeed(level, pos, level.random)) {
-                FoggyGrassBlock.trySeed(level, pos, level.random);
+            // Grass is seeded afterwards by the bloom wave below; the rare eye seeds per-block here.
+            BlockPos eye = FogEyeBlock.trySeed(level, pos, level.random);
+            if (eyes != null && eye != null) {
+                eyes.add(eye);
             }
             placed++;
             for (Direction dir : Direction.Plane.HORIZONTAL) {
@@ -168,6 +180,13 @@ public final class FogMoss {
                     seenColumns.add(col);
                     queue.add(surface);
                 }
+            }
+        }
+        // Grass follows the moss as a bloom wave — instant on a revealed chunk, a ripple in play.
+        FoggyGrassWave.bloom(level, seed, placed, instant);
+        if (eyes != null) {
+            for (BlockPos eye : eyes) {
+                FogEyeBlock.simulateGrowth(level, eye);
             }
         }
     }

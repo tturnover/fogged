@@ -1,8 +1,8 @@
 {
-  "__comment": "Hand-authored so the fluff ball is a flat white square in the GUI (viewed face-on) but a small 3D cube everywhere else (hand/ground/frame). Datagen skips this item; see ModItemModelProvider.",
+  "__comment": "Hand-authored so the puff ball is a flat white square in the GUI (viewed face-on) but a small 3D cube everywhere else (hand/ground/frame). Datagen skips this item; see ModItemModelProvider.",
   "textures": {
-    "all": "fogged:item/fluff_ball",
-    "particle": "fogged:item/fluff_ball"
+    "all": "fogged:item/puff_ball",
+    "particle": "fogged:item/puff_ball"
   },
   "elements": [
     {

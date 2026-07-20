@@ -25,7 +25,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 
 /**
- * The block a Create nozzle becomes once 3 fluff balls are applied to it (see
+ * The block a Create nozzle becomes once 3 puff balls are applied to it (see
  * {@code com.fogged.NozzleFilterEvents}). It is never placed from an item -- it only ever replaces an
  * in-world {@code create:nozzle}, inheriting that nozzle's {@code FACING} so it points away from the
  * fan it is attached to (the fan therefore sits on the {@code FACING.getOpposite()} side).
@@ -79,7 +79,7 @@ public class NozzleFilterBlock extends BaseEntityBlock {
     protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
             LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
         if (!canSurvive(state, level, pos)) {
-            // Fan gone -> pop off. The fluff comes back via the loot table; drop the nozzle here too.
+            // Fan gone -> pop off. The puff comes back via the loot table; drop the nozzle here too.
             if (level instanceof Level lvl) {
                 NozzleFilterEvents.dropNozzle(lvl, pos);
             }

@@ -298,6 +298,12 @@ public class Config {
             .defineList("foggyGrassDensity", List.of(0.05, 0.6), () -> 0.0,
                     o -> o instanceof Number n && n.doubleValue() >= 0.0 && n.doubleValue() <= 1.0);
 
+    public static final ModConfigSpec.IntValue FOGGY_GRASS_WAVE_STEP = BUILDER
+            .comment("Ticks between rings of the sculk-catalyst-style planting wave that ripples grass across",
+                    "the moss (both the one-shot bloom when a puddle forms and the sparks mature tufts throw",
+                    "onto their neighbours). Higher = a slower, more visible ripple; 1 = near-instant.")
+            .defineInRange("foggyGrassWaveStep", 1, 1, 40);
+
     static { BUILDER.pop(); }   // [flora.grass]
 
     // ---- [flora.eye] : the fog eye + the stem it climbs to the fog surface on ----
@@ -348,6 +354,28 @@ public class Config {
             .defineInRange("fogEyeTopOffset", 0, 0, 64);
 
     static { BUILDER.pop(); }   // [flora.eye]
+
+    // ---- [flora.bush] : the puff bush, a rare little tree that grows where grass would ----
+    static { BUILDER.push("bush"); }
+
+    public static final ModConfigSpec.DoubleValue PUFF_BUSH_SEED_CHANCE = BUILDER
+            .comment("Chance that a spot the flora would plant grass on sprouts a puff-bush sapling instead.",
+                    "Kept low -- the bush is meant to be an occasional accent among the grass, not a forest.")
+            .defineInRange("puffBushSeedChance", 0.02, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue PUFF_BUSH_GROW_CHANCE = BUILDER
+            .comment("Per random-tick chance a live puff-bush sapling grows out into a bush. Lower = the",
+                    "sapling lingers longer before it fills in.")
+            .defineInRange("puffBushGrowChance", 0.1, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue PUFF_BUSH_KEEP_SAPLING_CHANCE = BUILDER
+            .comment("On a freshly-revealed (simulated) chunk, puff bushes are grown out on the spot rather",
+                    "than left as saplings -- except this fraction, which stay saplings so the odd unsprung",
+                    "one still dots the established growth.")
+            .defineInRange("puffBushKeepSaplingChance", 0.03, 0.0, 1.0);
+
+    static { BUILDER.pop(); }   // [flora.bush]
+
     static { BUILDER.pop(); }   // [flora]
 
     static final ModConfigSpec SPEC = BUILDER.build();
@@ -554,7 +582,8 @@ public class Config {
 
     // --- allowed-mob set ---
 
-    // Default allow-list: only the warden belongs in the murk.
+    // Default allow-list: only the warden belongs in the murk (the mod's own mobs are auto-allowed by
+    // namespace in mobAllowedUnderFog, so they need no listing here).
     private static List<String> defaultAllowedMobs() {
         return new ArrayList<>(List.of("minecraft:warden"));
     }
@@ -584,11 +613,16 @@ public class Config {
         allowedMobIds = ids;
     }
 
-    // True if the given entity type may live under the fog. Unregistered types are never allowed.
+    // True if the given entity type may live under the fog. The mod's own mobs (fogged: namespace) are
+    // always allowed -- they belong in the murk and shouldn't need listing (or a config edit to survive).
+    // Everything else must be on the allowedMobs list; unregistered types are never allowed.
     public static boolean mobAllowedUnderFog(EntityType<?> type) {
         ensureAllowedMobs();
         ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
-        return allowedMobIds.contains(id);
+        if (id == null) {
+            return false;
+        }
+        return id.getNamespace().equals(Fogged.MODID) || allowedMobIds.contains(id);
     }
 
     // Whether the murk suffocates non-allowed mobs: needs both the mobs master switch and its own toggle.

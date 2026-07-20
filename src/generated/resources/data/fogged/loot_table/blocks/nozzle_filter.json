@@ -16,7 +16,7 @@
               "function": "minecraft:explosion_decay"
             }
           ],
-          "name": "fogged:fluff_ball"
+          "name": "fogged:puff_ball"
         }
       ],
       "rolls": 1.0
