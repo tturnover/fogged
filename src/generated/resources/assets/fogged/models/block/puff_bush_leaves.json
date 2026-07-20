@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "fogged:block/puff_bush_leaves"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "fogged:block/puff_bush_log_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=y": {
+      "model": "fogged:block/puff_bush_log"
+    },
+    "axis=z": {
+      "model": "fogged:block/puff_bush_log_horizontal",
+      "x": 90
+    }
+  }
+}

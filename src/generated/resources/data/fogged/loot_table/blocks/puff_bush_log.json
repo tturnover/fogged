@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "fogged:puff_bush_log"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "fogged:blocks/puff_bush_log"
+}
