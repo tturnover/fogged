@@ -1,4 +1,5 @@
 {
+  "__placeholder": "art to replace -- models + textures",
   "__comment": "Ported from vanilla template_chorus_flower: same geometry, fog eye textures. The head faces use #texture, the base uses #bottom (the stem). Children below set #texture to the open or the closed eye.",
   "parent": "minecraft:block/block",
   "textures": {

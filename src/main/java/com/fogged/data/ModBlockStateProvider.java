@@ -69,7 +69,8 @@ public class ModBlockStateProvider extends BlockStateProvider {
             ModBlocks.FOG_EYE,
             ModBlocks.NOZZLE_FILTER,
             ModBlocks.PUFF_BUSH_SAPLING,
-            ModBlocks.PUFF_BUSH_LOG);
+            ModBlocks.PUFF_BUSH_LOG,
+            ModBlocks.PUFF_BUSH_LEAVES);
 
     @Override
     protected void registerStatesAndModels() {
@@ -264,6 +265,8 @@ public class ModBlockStateProvider extends BlockStateProvider {
     }
 
     // Puff bush: an axis-pillar log and a cutout-cross sapling (item a flat icon of the same texture).
+    // PLACEHOLDER art (replace models + textures): puff_bush_log, puff_bush_log_top, puff_bush_leaves,
+    // puff_bush_sapling, and the hand-authored block/puff_bush_leaves_rare fluff-tuft model.
     private void puffBush() {
         logBlock((net.minecraft.world.level.block.RotatedPillarBlock) ModBlocks.PUFF_BUSH_LOG.get());
         itemModels().withExistingParent("puff_bush_log", modLoc("block/puff_bush_log"));
@@ -274,6 +277,17 @@ public class ModBlockStateProvider extends BlockStateProvider {
                 .partialState().setModels(new ConfiguredModel(sapling));
         itemModels().withExistingParent("puff_bush_sapling", mcLoc("item/generated"))
                 .texture("layer0", modLoc("block/puff_bush_sapling"));
+
+        // Leaves: mostly the plain leaf block, but 1 in 4 (weight 3:1) uses the hand-authored fluff-tuft
+        // model so a canopy shows the odd standout leaf. Item icon is the plain model.
+        ModelFile leaves = models().cubeAll("puff_bush_leaves", modLoc("block/puff_bush_leaves"));
+        ModelFile leavesRare = models().getExistingFile(modLoc("block/puff_bush_leaves_rare"));
+        getVariantBuilder(ModBlocks.PUFF_BUSH_LEAVES.get()).partialState().setModels(
+                ConfiguredModel.builder()
+                        .modelFile(leaves).weight(3).nextModel()
+                        .modelFile(leavesRare).weight(1)
+                        .build());
+        itemModels().withExistingParent("puff_bush_leaves", modLoc("block/puff_bush_leaves"));
     }
 
     // Rotate the supplied block/nozzle_filter model by FACING, using the same X/Y rotations Create's

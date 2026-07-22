@@ -1,4 +1,5 @@
 {
+  "__placeholder": "art to replace -- models + textures",
   "__comment": "As fog_eye_head_template but tilted 22.5 degrees off upright, hinged where it meets the base. Blockstate rotations are 90-degree only, so the lean is baked in here and the blockstate turns it to lean whichever way.",
   "parent": "minecraft:block/block",
   "textures": {

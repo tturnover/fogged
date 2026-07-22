@@ -1,4 +1,5 @@
 {
+  "__placeholder": "art to replace -- models + textures",
   "__comment": "Ported from vanilla chorus_plant_side.json: same geometry, fog eye textures. Keep the texture vars (#texture/#inside/#bottom) so datagen and any reskin keep working.",
   "ambientocclusion": false,
   "textures": {

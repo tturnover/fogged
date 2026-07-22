@@ -1,4 +1,5 @@
 {
+  "__placeholder": "art to replace -- models + textures",
   "__comment": "The fog eye head, upright: vanilla chorus flower geometry above the base line. The blockstate turns it to point away from the stem it grew from, and spins it at random when that is straight up. Its up face is the red #mark: a DEBUG marker for reading the orientation -- drop the mark texture var and put the up face back on #texture to remove it.",
   "parent": "minecraft:block/block",
   "textures": {

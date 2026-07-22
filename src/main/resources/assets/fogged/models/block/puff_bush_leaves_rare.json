@@ -1,0 +1,44 @@
+{
+  "__placeholder": "art to replace -- models + textures",
+  "__comment": "PLACEHOLDER rare puff-bush leaf: a full leaf cube with two 45-crossed fluffy tufts (puff texture) poking out the top, so the 1-in-4 standout reads at a glance. Replace with a BlockBench model; keep render_type cutout for the tuft transparency.",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "leaf": "fogged:block/puff_bush_leaves",
+    "tuft": "fogged:block/puff",
+    "particle": "fogged:block/puff_bush_leaves"
+  },
+  "elements": [
+    {
+      "from": [0, 0, 0],
+      "to": [16, 16, 16],
+      "faces": {
+        "north": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "north"},
+        "south": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "south"},
+        "west": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "west"},
+        "east": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "east"},
+        "up": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "up"},
+        "down": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "down"}
+      }
+    },
+    {
+      "from": [3, 16, 8],
+      "to": [13, 24, 8],
+      "rotation": {"origin": [8, 16, 8], "axis": "y", "angle": 45, "rescale": true},
+      "shade": false,
+      "faces": {
+        "north": {"uv": [0, 0, 16, 16], "texture": "#tuft"},
+        "south": {"uv": [0, 0, 16, 16], "texture": "#tuft"}
+      }
+    },
+    {
+      "from": [8, 16, 3],
+      "to": [8, 24, 13],
+      "rotation": {"origin": [8, 16, 8], "axis": "y", "angle": 45, "rescale": true},
+      "shade": false,
+      "faces": {
+        "east": {"uv": [0, 0, 16, 16], "texture": "#tuft"},
+        "west": {"uv": [0, 0, 16, 16], "texture": "#tuft"}
+      }
+    }
+  ]
+}

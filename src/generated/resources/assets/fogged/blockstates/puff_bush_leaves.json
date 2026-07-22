@@ -1,7 +1,13 @@
 {
   "variants": {
-    "": {
-      "model": "fogged:block/puff_bush_leaves"
-    }
+    "": [
+      {
+        "model": "fogged:block/puff_bush_leaves",
+        "weight": 3
+      },
+      {
+        "model": "fogged:block/puff_bush_leaves_rare"
+      }
+    ]
   }
 }

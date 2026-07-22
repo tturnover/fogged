@@ -1,4 +1,5 @@
 {
+  "__placeholder": "art to replace -- models + textures",
   "__comment": "Static base of the fog eye: the bottom slice of vanilla's chorus flower core, the part that meets the stem. The blockstate turns it with FACING so it always points at the stem the eye grew off, but never spins or leans it with the head -- the base has to stay plugged into the plant.",
   "parent": "minecraft:block/block",
   "textures": {
