@@ -1,5 +1,9 @@
 package com.fogged;
 
+import org.joml.Vector3f;
+
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
@@ -11,6 +15,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The puff ball. Right-click to breathe: refills the player's air to full, then puts every puff ball on a
@@ -21,6 +26,9 @@ import net.minecraft.world.level.Level;
 public class PuffBallItem extends Item {
     private static final int USE_TICKS = 32;
     private static final int COOLDOWN_TICKS = 20 * 15;
+    // Placeholder use effect: plain white dust. TODO replace with a bespoke particle.
+    private static final DustParticleOptions BREATH_DUST =
+            new DustParticleOptions(new Vector3f(1.0F, 1.0F, 1.0F), 1.0F);
 
     public PuffBallItem(Properties properties) {
         super(properties);
@@ -47,11 +55,27 @@ public class PuffBallItem extends Item {
             player.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
             player.awardStat(Stats.ITEM_USED.get(this));
             level.playSound(player, player, SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 1.0F, 1.0F);
+            if (level instanceof ServerLevel server) {
+                spawnBreathDust(server, player);
+            }
             if (!player.getAbilities().instabuild) {
                 stack.shrink(1);
             }
         }
         return stack;
+    }
+
+    // A column of white dust falling from the face down to the player's feet, spawned server-side so
+    // every nearby player sees the one burst.
+    private static void spawnBreathDust(ServerLevel level, Player player) {
+        Vec3 look = player.getLookAngle();
+        double x = player.getX() + look.x * 0.3;
+        double z = player.getZ() + look.z * 0.3;
+        for (double y = player.getEyeY(); y >= player.getY(); y -= 0.2) {
+            double jx = (level.random.nextDouble() - 0.5) * 0.2;
+            double jz = (level.random.nextDouble() - 0.5) * 0.2;
+            level.sendParticles(BREATH_DUST, x + jx, y, z + jz, 1, 0.0, 0.0, 0.0, 0.0);
+        }
     }
 
     @Override
