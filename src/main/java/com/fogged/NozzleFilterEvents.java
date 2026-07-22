@@ -17,6 +17,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -99,6 +101,23 @@ public final class NozzleFilterEvents {
             return;
         }
         dropNozzle(level, event.getPos());
+    }
+
+    /**
+     * True when this right-click is a nozzle_filter conversion (aiming at a {@code create:nozzle} with at
+     * least {@link #REQUIRED} puff balls). {@link com.fogged.PuffBallItem#use} yields the click so the
+     * conversion wins over breathing. Mirrors {@link #onRightClickBlock}'s gating.
+     */
+    public static boolean isConversionTarget(Player player, ItemStack stack) {
+        if (!Config.ITEMS_ENABLED.get() || !stack.is(ModItems.PUFF_BALL.get()) || stack.getCount() < REQUIRED) {
+            return false;
+        }
+        HitResult hit = player.pick(player.blockInteractionRange(), 1.0F, false);
+        if (hit.getType() != HitResult.Type.BLOCK) {
+            return false;
+        }
+        BlockState state = player.level().getBlockState(((BlockHitResult) hit).getBlockPos());
+        return CREATE_NOZZLE.equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()));
     }
 
     /** Drop a single {@code create:nozzle} item at {@code pos} (no-op when Create is absent). */

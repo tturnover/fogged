@@ -3,6 +3,7 @@ package com.fogged.registry;
 import java.util.function.Function;
 
 import com.fogged.Fogged;
+import com.fogged.PuffBallItem;
 
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
@@ -28,11 +29,12 @@ public final class ModItems {
     public static final DeferredItem<Item> LURKER_DEBUG =
             register("lurker_debug", Item::new, new Item.Properties());
 
-    // Puff ball: 3 of these convert a create:nozzle into a nozzle_filter. Flat icon, 3D cube in hand, from
-    // a hand-authored model (models/item/puff_ball.json), so datagen skips it (see ModItemModelProvider).
+    // Puff ball: right-click to breathe (refills air to full on a shared cooldown; see PuffBallItem), and
+    // 3 of them convert a create:nozzle into a nozzle_filter. Flat icon in the GUI, 3D in hand, from a
+    // hand-authored model (models/item/puff_ball.json), so datagen skips it (see ModItemModelProvider).
     // The puff bush's leaves rarely shed one when broken, making the bush a renewable source.
-    public static final DeferredItem<Item> PUFF_BALL =
-            register("puff_ball", Item::new, new Item.Properties());
+    public static final DeferredItem<PuffBallItem> PUFF_BALL =
+            register("puff_ball", PuffBallItem::new, new Item.Properties());
 
     // ------------------------------------------------------------------------
 

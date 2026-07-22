@@ -1,63 +1,390 @@
 {
-  "__comment": "Hand-authored so the puff ball is a flat white square in the GUI (viewed face-on) but a small 3D cube everywhere else (hand/ground/frame). Datagen skips this item; see ModItemModelProvider.",
+  "__comment": "3D fur ball shown in hand/ground/frame/head. In the GUI it is swapped for the flat item/puff_ball_gui model (see PuffBallModel + FoggedClient). Datagen skips this item; see ModItemModelProvider. Display transforms come from the Blockbench export (models/items/puff_ball_model.json).",
   "textures": {
-    "all": "fogged:item/puff_ball",
+    "0": "fogged:item/puff_ball",
     "particle": "fogged:item/puff_ball"
   },
   "elements": [
     {
-      "from": [3, 3, 3],
-      "to": [13, 13, 13],
+      "from": [
+        6,
+        8,
+        6
+      ],
+      "to": [
+        10,
+        12,
+        10
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          8,
+          8,
+          8
+        ]
+      },
       "faces": {
-        "north": {"uv": [0, 0, 16, 16], "texture": "#all"},
-        "east":  {"uv": [0, 0, 16, 16], "texture": "#all"},
-        "south": {"uv": [0, 0, 16, 16], "texture": "#all"},
-        "west":  {"uv": [0, 0, 16, 16], "texture": "#all"},
-        "up":    {"uv": [0, 0, 16, 16], "texture": "#all"},
-        "down":  {"uv": [0, 0, 16, 16], "texture": "#all"}
+        "north": {
+          "uv": [
+            4,
+            11,
+            8,
+            15
+          ],
+          "texture": "#0"
+        },
+        "east": {
+          "uv": [
+            0,
+            11,
+            4,
+            15
+          ],
+          "texture": "#0"
+        },
+        "south": {
+          "uv": [
+            12,
+            11,
+            16,
+            15
+          ],
+          "texture": "#0"
+        },
+        "west": {
+          "uv": [
+            8,
+            11,
+            12,
+            15
+          ],
+          "texture": "#0"
+        },
+        "up": {
+          "uv": [
+            8,
+            11,
+            4,
+            7
+          ],
+          "texture": "#0"
+        },
+        "down": {
+          "uv": [
+            12,
+            7,
+            8,
+            11
+          ],
+          "texture": "#0"
+        }
+      }
+    },
+    {
+      "name": "fur",
+      "from": [
+        4,
+        6,
+        7
+      ],
+      "to": [
+        12,
+        13,
+        7
+      ],
+      "rotation": {
+        "angle": -45,
+        "axis": "y",
+        "origin": [
+          8,
+          8,
+          8
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            8,
+            7
+          ],
+          "texture": "#0"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            0,
+            7
+          ],
+          "texture": "#0"
+        },
+        "south": {
+          "uv": [
+            8,
+            0,
+            16,
+            7
+          ],
+          "texture": "#0"
+        },
+        "west": {
+          "uv": [
+            8,
+            0,
+            8,
+            7
+          ],
+          "texture": "#0"
+        },
+        "up": {
+          "uv": [
+            8,
+            0,
+            0,
+            0
+          ],
+          "texture": "#0"
+        },
+        "down": {
+          "uv": [
+            16,
+            0,
+            8,
+            0
+          ],
+          "texture": "#0"
+        }
+      }
+    },
+    {
+      "name": "fur",
+      "from": [
+        5,
+        5.84853,
+        5.30294
+      ],
+      "to": [
+        11,
+        11.84853,
+        5.30294
+      ],
+      "rotation": {
+        "angle": 45,
+        "axis": "x",
+        "origin": [
+          8,
+          8,
+          8
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            7,
+            1,
+            1,
+            7
+          ],
+          "texture": "#0"
+        },
+        "east": {
+          "uv": [
+            7,
+            1,
+            7,
+            7
+          ],
+          "texture": "#0"
+        },
+        "south": {
+          "uv": [
+            13,
+            1,
+            7,
+            7
+          ],
+          "texture": "#0"
+        },
+        "west": {
+          "uv": [
+            1,
+            1,
+            1,
+            7
+          ],
+          "texture": "#0"
+        },
+        "up": {
+          "uv": [
+            1,
+            1,
+            7,
+            1
+          ],
+          "texture": "#0"
+        },
+        "down": {
+          "uv": [
+            7,
+            1,
+            13,
+            1
+          ],
+          "texture": "#0"
+        }
+      }
+    },
+    {
+      "name": "fur",
+      "from": [
+        5.23223,
+        5.91924,
+        4
+      ],
+      "to": [
+        5.23223,
+        12.91924,
+        12
+      ],
+      "rotation": {
+        "angle": -45,
+        "axis": "z",
+        "origin": [
+          8,
+          8,
+          8
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            8,
+            0,
+            8,
+            7
+          ],
+          "texture": "#0"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            8,
+            7
+          ],
+          "texture": "#0"
+        },
+        "south": {
+          "uv": [
+            16,
+            0,
+            16,
+            7
+          ],
+          "texture": "#0"
+        },
+        "west": {
+          "uv": [
+            8,
+            0,
+            16,
+            7
+          ],
+          "rotation": 180,
+          "texture": "#0"
+        },
+        "up": {
+          "uv": [
+            8,
+            0,
+            8,
+            -8
+          ],
+          "texture": "#0"
+        },
+        "down": {
+          "uv": [
+            8,
+            -8,
+            8,
+            0
+          ],
+          "texture": "#0"
+        }
       }
     }
   ],
   "display": {
-    "gui": {
-      "rotation": [0, 0, 0],
-      "translation": [0, 0, 0],
-      "scale": [1.6, 1.6, 1.6]
-    },
-    "fixed": {
-      "rotation": [0, 0, 0],
-      "translation": [0, 0, 0],
-      "scale": [1, 1, 1]
-    },
-    "ground": {
-      "rotation": [0, 0, 0],
-      "translation": [0, 2, 0],
-      "scale": [0.5, 0.5, 0.5]
-    },
-    "head": {
-      "rotation": [0, 0, 0],
-      "translation": [0, 13, 0],
-      "scale": [1, 1, 1]
-    },
     "thirdperson_righthand": {
-      "rotation": [70, 45, 0],
-      "translation": [0, 2.5, 0],
-      "scale": [0.7, 0.7, 0.7]
+      "translation": [
+        -0.75,
+        -2.25,
+        0.25
+      ]
     },
     "thirdperson_lefthand": {
-      "rotation": [70, 45, 0],
-      "translation": [0, 2.5, 0],
-      "scale": [0.7, 0.7, 0.7]
+      "translation": [
+        -0.75,
+        -2.25,
+        0.25
+      ]
     },
     "firstperson_righthand": {
-      "rotation": [0, 45, 0],
-      "translation": [0, 0, 0],
-      "scale": [0.8, 0.8, 0.8]
+      "rotation": [
+        0,
+        0,
+        -24
+      ],
+      "translation": [
+        0.75,
+        -0.25,
+        1
+      ]
     },
     "firstperson_lefthand": {
-      "rotation": [0, 45, 0],
-      "translation": [0, 0, 0],
-      "scale": [0.8, 0.8, 0.8]
+      "rotation": [
+        24.61,
+        -52.65,
+        29.28
+      ],
+      "translation": [
+        2.25,
+        -0.25,
+        0.75
+      ]
+    },
+    "ground": {
+      "translation": [
+        0,
+        -2.25,
+        0
+      ],
+      "scale": [
+        1.1,
+        1.1,
+        1.1
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        45,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        -4.25,
+        -2.5
+      ],
+      "scale": [
+        2.5,
+        2.5,
+        2.5
+      ]
     }
   }
 }
