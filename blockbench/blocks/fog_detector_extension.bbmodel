@@ -1,0 +1,142 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "model_format_id": "java_block",
+    "box_uv": false
+  },
+  "name": "fog_detector_extension",
+  "model_identifier": "",
+  "visible_box": [
+    1,
+    1,
+    0
+  ],
+  "variable_placeholders": "",
+  "variable_placeholders_buttons": [],
+  "unhandled_root_fields": {},
+  "_fogged_notes": "Already-finished hand-modeled geometry (has format_version/credit -- built in Blockbench originally), rebuilt here 1:1 since the source .bbmodel project file wasn't kept. Edit freely, re-export into fog_detector_extension.json.",
+  "resolution": {
+    "width": 32,
+    "height": 32
+  },
+  "elements": [
+    {
+      "name": "cube",
+      "box_uv": false,
+      "type": "cube",
+      "uuid": "bfac0acd-7a3a-4ddf-971f-0b0c8ac277bb",
+      "rescale": false,
+      "locked": false,
+      "light_emission": 0,
+      "render_order": "default",
+      "allow_mirror_modeling": true,
+      "from": [
+        6.5,
+        3,
+        4
+      ],
+      "to": [
+        9.5,
+        19,
+        12
+      ],
+      "autouv": 0,
+      "color": 0,
+      "shade": true,
+      "origin": [
+        6.5,
+        2,
+        4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            0,
+            5.5,
+            8
+          ],
+          "texture": "0"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            4,
+            8
+          ],
+          "texture": "0"
+        },
+        "south": {
+          "uv": [
+            9.5,
+            0,
+            11,
+            8
+          ],
+          "texture": "0"
+        },
+        "west": {
+          "uv": [
+            5.5,
+            0,
+            9.5,
+            8
+          ],
+          "texture": "0"
+        },
+        "up": {
+          "uv": [
+            1.5,
+            12,
+            0,
+            8
+          ],
+          "texture": "0"
+        },
+        "down": {
+          "uv": [
+            3,
+            8,
+            1.5,
+            12
+          ],
+          "texture": "0"
+        }
+      },
+      "rotation": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "outliner": [
+    "bfac0acd-7a3a-4ddf-971f-0b0c8ac277bb"
+  ],
+  "textures": [
+    {
+      "path": "",
+      "name": "fog_detector_extension_0.png",
+      "folder": "block",
+      "namespace": "minecraft",
+      "id": "0",
+      "particle": true,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "frame_time": 1,
+      "frame_order_type": "loop",
+      "frame_order": "",
+      "frame_interpolate": false,
+      "sync_to_project_fps": false,
+      "visible": true,
+      "internal": false,
+      "mode": "bitmap",
+      "saved": true,
+      "uuid": "6400c179-58a4-4a76-916b-5792337d8d3d",
+      "relative_path": "",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABUklEQVR4AeyUsUoDQRCGZ7cxkBOsNCCIIuIjnIWkiKaVdCJ2WlgpqN09wHUqaK2diF2wTUwRLLxHEBFFEKKtCWh1yQxME4a7KbIEwh733Sw7P7c/M7trNzpnaRa7zW7KdOM4zeLv7SRlQPlY1K3NzYIE5pDFUhEDUVxaAAlKDj5T86uDr/4lA3r56JVk4Pn7ByR4uY9Oj4fQe/8UYcH/1wsPVZEMqJSORGRA6j/O8ZqTvQd+t+6hEV6JYO41qkBjLwSMlXodwotLEcyVd54gLF8DRq5eXqQW5Ilc5u30wzZUk0MRzK3ELajeJICxVatBcnwkgrn23Tok7X3AqDVttUJXOjIg3QE4x4v6e2Ds94DzFmC/JXgPuIy2ORMA81g6NcPcbgaGCaLIZFFYPjeM1jSdAq3Yhc4b8BXwFbCmcGAYF8cs75++Bb4CvgLOK5B3DPsAAAD//waPrV4AAAAGSURBVAMAWAUYUFdgR2UAAAAASUVORK5CYII="
+    }
+  ]
+}

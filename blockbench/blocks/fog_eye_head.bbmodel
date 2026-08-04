@@ -1,0 +1,611 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "model_format_id": "java_block",
+    "box_uv": false
+  },
+  "name": "fog_eye_head",
+  "model_identifier": "",
+  "visible_box": [
+    1,
+    1,
+    0
+  ],
+  "variable_placeholders": "",
+  "variable_placeholders_buttons": [],
+  "unhandled_root_fields": {},
+  "_fogged_notes": "Upright fog-eye head. Up face uses #mark (red DEBUG orientation marker -- drop it and point the up face back at #texture when done). fog_eye_head.json / fog_eye_head_closed.json reuse this shape and swap #texture between fog_eye.png / fog_eye_closed.png. Re-export into fog_eye_head_template.json.",
+  "resolution": {
+    "width": 16,
+    "height": 16
+  },
+  "elements": [
+    {
+      "name": "cube",
+      "box_uv": false,
+      "type": "cube",
+      "uuid": "25a0a92a-29d2-42ec-bf25-0fb168234a6d",
+      "rescale": false,
+      "locked": false,
+      "light_emission": 0,
+      "render_order": "default",
+      "allow_mirror_modeling": true,
+      "from": [
+        2,
+        14,
+        2
+      ],
+      "to": [
+        14,
+        16,
+        14
+      ],
+      "autouv": 0,
+      "color": 0,
+      "shade": true,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ],
+          "texture": "0"
+        },
+        "east": {
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ],
+          "texture": "0"
+        },
+        "south": {
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ],
+          "texture": "0"
+        },
+        "west": {
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ],
+          "texture": "0"
+        },
+        "up": {
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ],
+          "texture": "1"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "cube",
+      "box_uv": false,
+      "type": "cube",
+      "uuid": "0f46b2ad-8177-49fb-9ddf-97a611a2004e",
+      "rescale": false,
+      "locked": false,
+      "light_emission": 0,
+      "render_order": "default",
+      "allow_mirror_modeling": true,
+      "from": [
+        0,
+        2,
+        2
+      ],
+      "to": [
+        2,
+        14,
+        14
+      ],
+      "autouv": 0,
+      "color": 1,
+      "shade": true,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            14,
+            2,
+            16,
+            14
+          ],
+          "texture": "0"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            2,
+            2,
+            14
+          ],
+          "texture": "0"
+        },
+        "west": {
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ],
+          "texture": "2"
+        },
+        "up": {
+          "uv": [
+            0,
+            2,
+            2,
+            14
+          ],
+          "texture": "0"
+        },
+        "down": {
+          "uv": [
+            16,
+            14,
+            14,
+            2
+          ],
+          "texture": "0"
+        }
+      }
+    },
+    {
+      "name": "cube",
+      "box_uv": false,
+      "type": "cube",
+      "uuid": "94423549-f056-4e4a-9dae-621c1ded7ec5",
+      "rescale": false,
+      "locked": false,
+      "light_emission": 0,
+      "render_order": "default",
+      "allow_mirror_modeling": true,
+      "from": [
+        2,
+        2,
+        0
+      ],
+      "to": [
+        14,
+        14,
+        2
+      ],
+      "autouv": 0,
+      "color": 2,
+      "shade": true,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ],
+          "texture": "2"
+        },
+        "east": {
+          "uv": [
+            14,
+            2,
+            16,
+            14
+          ],
+          "texture": "0"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            2,
+            2,
+            14
+          ],
+          "texture": "0"
+        },
+        "up": {
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ],
+          "texture": "0"
+        },
+        "down": {
+          "uv": [
+            14,
+            2,
+            2,
+            0
+          ],
+          "texture": "0"
+        }
+      }
+    },
+    {
+      "name": "cube",
+      "box_uv": false,
+      "type": "cube",
+      "uuid": "8a142da1-17fa-4c0a-bfac-89212ce144ba",
+      "rescale": false,
+      "locked": false,
+      "light_emission": 0,
+      "render_order": "default",
+      "allow_mirror_modeling": true,
+      "from": [
+        2,
+        2,
+        14
+      ],
+      "to": [
+        14,
+        14,
+        16
+      ],
+      "autouv": 0,
+      "color": 3,
+      "shade": true,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            2,
+            2,
+            14
+          ],
+          "texture": "0"
+        },
+        "south": {
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ],
+          "texture": "2"
+        },
+        "west": {
+          "uv": [
+            14,
+            2,
+            16,
+            14
+          ],
+          "texture": "0"
+        },
+        "up": {
+          "uv": [
+            2,
+            14,
+            14,
+            16
+          ],
+          "texture": "0"
+        },
+        "down": {
+          "uv": [
+            14,
+            16,
+            2,
+            14
+          ],
+          "texture": "0"
+        }
+      }
+    },
+    {
+      "name": "cube",
+      "box_uv": false,
+      "type": "cube",
+      "uuid": "451cf530-6586-4070-93a3-08b59b201ebe",
+      "rescale": false,
+      "locked": false,
+      "light_emission": 0,
+      "render_order": "default",
+      "allow_mirror_modeling": true,
+      "from": [
+        14,
+        2,
+        2
+      ],
+      "to": [
+        16,
+        14,
+        14
+      ],
+      "autouv": 0,
+      "color": 4,
+      "shade": true,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            2,
+            2,
+            14
+          ],
+          "texture": "0"
+        },
+        "east": {
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ],
+          "texture": "2"
+        },
+        "south": {
+          "uv": [
+            14,
+            2,
+            16,
+            14
+          ],
+          "texture": "0"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            14,
+            2,
+            16,
+            14
+          ],
+          "texture": "0"
+        },
+        "down": {
+          "uv": [
+            2,
+            14,
+            0,
+            2
+          ],
+          "texture": "0"
+        }
+      }
+    },
+    {
+      "name": "cube",
+      "box_uv": false,
+      "type": "cube",
+      "uuid": "403c2bec-389e-43c9-af8b-26aef52aef60",
+      "rescale": false,
+      "locked": false,
+      "light_emission": 0,
+      "render_order": "default",
+      "allow_mirror_modeling": true,
+      "from": [
+        2,
+        2,
+        2
+      ],
+      "to": [
+        14,
+        14,
+        14
+      ],
+      "autouv": 0,
+      "color": 5,
+      "shade": true,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            2,
+            14,
+            16
+          ],
+          "texture": "0"
+        },
+        "east": {
+          "uv": [
+            2,
+            2,
+            14,
+            16
+          ],
+          "texture": "0"
+        },
+        "south": {
+          "uv": [
+            2,
+            2,
+            14,
+            16
+          ],
+          "texture": "0"
+        },
+        "west": {
+          "uv": [
+            2,
+            2,
+            14,
+            16
+          ],
+          "texture": "0"
+        },
+        "up": {
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ],
+          "texture": "0"
+        },
+        "down": {
+          "uv": [
+            14,
+            14,
+            2,
+            2
+          ],
+          "texture": "0"
+        }
+      }
+    }
+  ],
+  "outliner": [
+    "25a0a92a-29d2-42ec-bf25-0fb168234a6d",
+    "0f46b2ad-8177-49fb-9ddf-97a611a2004e",
+    "94423549-f056-4e4a-9dae-621c1ded7ec5",
+    "8a142da1-17fa-4c0a-bfac-89212ce144ba",
+    "451cf530-6586-4070-93a3-08b59b201ebe",
+    "403c2bec-389e-43c9-af8b-26aef52aef60"
+  ],
+  "textures": [
+    {
+      "path": "",
+      "name": "fog_eye_stem.png",
+      "folder": "block",
+      "namespace": "minecraft",
+      "id": "0",
+      "particle": false,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "frame_time": 1,
+      "frame_order_type": "loop",
+      "frame_order": "",
+      "frame_interpolate": false,
+      "sync_to_project_fps": false,
+      "visible": true,
+      "internal": false,
+      "mode": "bitmap",
+      "saved": true,
+      "uuid": "be7986c9-3e2a-4b38-98df-abcf6c2efb20",
+      "relative_path": "",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACM0lEQVR4nFWSu47cOBBFD9+SWuoOJjAcTLB/4WC/Zn/dwSQGPD1qUhIfxQ3aLcBpEYVbPPeoH//923PODMPAx88Pbm83lFLklEkp8f7POyklSimsv1e+v38H4OPnB2/f3tD7vjOOIzFGtNY45xARlFIAbNtGKQVjDCGEc6aUQmuNNcaQUsI5xzAM1FpRShFjPGfee1prVPd8CyHgvUdEsADWWkopiAjLstB7J6eMtZacM8dxnIm9d3LOKKVoraGnacJ7T++d4zjIOVNKQSmFUgrnHAC9d/Z9R2tNa41t23DOoXvv1Fq5XC6M40hKCWstACklYoznVSJCzhmtNd57jDFoEcF7T0qJnDPX6xURobVG751pmjiOg3mecc5hjMEYQ2vtGXYcB7335zla8/X1xe12o7WGtZZaK/u+U2s9GRhjALher+haK9M04ZzDOcc8z7TWEBFCCBhjToAxRkopWGtRSrGuK3YcR9Z1RWvN4/HAT0+gwzBwv99R7gnSe4/W+oTovWee5+cXtNbP5KNxuVwA+PX49deCiGCtJYRwenO/39HGGJZlodZKSumZ+sfClyPLspy9v1gATNOEVUqRUkIpxTAMZ8LLNmMMn5+fABhjsNaeDYzLiA4h4JzDWktKCeAUBaCUwku2EAL3+53XzrZt6BgjSilKKSzLgogwTRPGGNZ1xXuPtRbvPeu64pwjpcRxHIgI+lWRiADgvWfbNnLOiAiPx4MYI9ZatNYMw3DWCvA/DcdK9VkPYS4AAAAASUVORK5CYII="
+    },
+    {
+      "path": "",
+      "name": "fog_eye_mark.png",
+      "folder": "block",
+      "namespace": "minecraft",
+      "id": "1",
+      "particle": false,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "frame_time": 1,
+      "frame_order_type": "loop",
+      "frame_order": "",
+      "frame_interpolate": false,
+      "sync_to_project_fps": false,
+      "visible": true,
+      "internal": false,
+      "mode": "bitmap",
+      "saved": true,
+      "uuid": "0af35fd4-00de-4f58-b2d5-5b24bbf24a8e",
+      "relative_path": "",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAHUlEQVR4nGO8o6Hxn4ECwESJ5lEDRg0YNWAwGQAADqcCS0agyUcAAAAASUVORK5CYII="
+    },
+    {
+      "path": "",
+      "name": "fog_eye.png",
+      "folder": "block",
+      "namespace": "minecraft",
+      "id": "2",
+      "particle": true,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "frame_time": 1,
+      "frame_order_type": "loop",
+      "frame_order": "",
+      "frame_interpolate": false,
+      "sync_to_project_fps": false,
+      "visible": true,
+      "internal": false,
+      "mode": "bitmap",
+      "saved": true,
+      "uuid": "28972eef-68a1-46f3-8bfd-2df66cdb7df1",
+      "relative_path": "",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACJ0lEQVR4nHWTPYocSRSEv/ytymxqqvsaAwNCIBhjjbVl6xwy5OxaYtEBBBpTZ1jJlClLDDLnJENRv5mdlVlriC52Z5mwX+SLiJch/vx6t5VSUEpRVRXLsnA4HAghUErBOce6rizLQs4Z7z1KKbTWlFKQxhi896SUEEKQc6aUgrWWEAI5Z0IItG3Ltm3EGFmWhb7v2bYNaa1lGAaapqHrOqy1XHA6nRBCUEqhlIIQAqUUQgi01vR9j+y6jqZpyDlzPB6Z55m+7ymlEGNEa03TNEgpdxVSSqy1tG2Lvrq6+uVFSuZ55ng8cv/9HoD3b98B8OHuIwA3r25wziGlZF1XQgiIP7582qy1TNOE1pqHnw878Sk+3H3k9vdbYoys64pzDl3XNfM8Y4yhlLIPv/nt9X/If//4BsA4jjjniDFelEucc1RVRUrp2e0XS8YYQghIKSmloJdl2cOq6/pZ8gV1XZNSIoQAgPw3+Xw+74E9l8EwDPtJrbXobdswxqC15nA4/M/zU1hrd8UhBLRzDu890zRRVRUvbl/sKp6e8frl9f5QSgkA8de3z5sQgmma8N6zbRshBKqqYpomTqcTMUaklEgpSSmhtSbGSM4ZeQkRQGvNNE0YY/ZOdF3HMAwMw4BSinVdyTmzrispJWRKCSnlbqNtW1JK+5/w3mOMQSnFOI5cuqOUwnuPrOsaYwzn85lSCo+Pj0gp9+ouy0JKaQ96HEfatgXAGMM/g9447inK+pEAAAAASUVORK5CYII="
+    }
+  ]
+}

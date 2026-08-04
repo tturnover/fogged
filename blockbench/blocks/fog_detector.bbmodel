@@ -1,0 +1,319 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "model_format_id": "java_block",
+    "box_uv": false
+  },
+  "name": "fog_detector",
+  "model_identifier": "",
+  "visible_box": [
+    1,
+    1,
+    0
+  ],
+  "variable_placeholders": "",
+  "variable_placeholders_buttons": [],
+  "unhandled_root_fields": {},
+  "_fogged_notes": "Already-finished hand-modeled geometry (has format_version/credit -- built in Blockbench originally), rebuilt here 1:1 since the source .bbmodel project file wasn't kept. Edit freely, re-export into fog_detector.json.",
+  "resolution": {
+    "width": 64,
+    "height": 64
+  },
+  "elements": [
+    {
+      "name": "cube",
+      "box_uv": false,
+      "type": "cube",
+      "uuid": "c5ed3230-94bb-4183-a4ce-1a12f618103b",
+      "rescale": false,
+      "locked": false,
+      "light_emission": 0,
+      "render_order": "default",
+      "allow_mirror_modeling": true,
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        2,
+        16
+      ],
+      "autouv": 0,
+      "color": 0,
+      "shade": true,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6.75,
+            0,
+            10.75,
+            0.5
+          ],
+          "texture": "0"
+        },
+        "east": {
+          "uv": [
+            6.75,
+            0.5,
+            10.75,
+            1
+          ],
+          "texture": "0"
+        },
+        "south": {
+          "uv": [
+            6.75,
+            1,
+            10.75,
+            1.5
+          ],
+          "texture": "0"
+        },
+        "west": {
+          "uv": [
+            6.75,
+            1.5,
+            10.75,
+            2
+          ],
+          "texture": "0"
+        },
+        "up": {
+          "uv": [
+            4,
+            4,
+            0,
+            0
+          ],
+          "texture": "0"
+        },
+        "down": {
+          "uv": [
+            4,
+            4,
+            0,
+            8
+          ],
+          "texture": "0"
+        }
+      }
+    },
+    {
+      "name": "cube",
+      "box_uv": false,
+      "type": "cube",
+      "uuid": "f86855a1-8021-4592-a3ab-12c035472088",
+      "rescale": false,
+      "locked": false,
+      "light_emission": 0,
+      "render_order": "default",
+      "allow_mirror_modeling": true,
+      "from": [
+        6.5,
+        2,
+        4
+      ],
+      "to": [
+        9.5,
+        19,
+        12
+      ],
+      "autouv": 0,
+      "color": 1,
+      "shade": true,
+      "origin": [
+        6.5,
+        2,
+        4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6,
+            0,
+            6.75,
+            4.25
+          ],
+          "texture": "0"
+        },
+        "east": {
+          "uv": [
+            4,
+            0,
+            6,
+            4.25
+          ],
+          "texture": "0"
+        },
+        "south": {
+          "uv": [
+            6,
+            4.25,
+            6.75,
+            8.5
+          ],
+          "texture": "0"
+        },
+        "west": {
+          "uv": [
+            4,
+            4.25,
+            6,
+            8.5
+          ],
+          "texture": "0"
+        },
+        "up": {
+          "uv": [
+            7.5,
+            4,
+            6.75,
+            2
+          ],
+          "texture": "0"
+        },
+        "down": {
+          "uv": [
+            7.5,
+            4,
+            6.75,
+            6
+          ],
+          "texture": "0"
+        }
+      },
+      "rotation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "cube",
+      "box_uv": false,
+      "type": "cube",
+      "uuid": "396b2945-1255-4299-a906-c123d982094f",
+      "rescale": false,
+      "locked": false,
+      "light_emission": 0,
+      "render_order": "default",
+      "allow_mirror_modeling": true,
+      "from": [
+        2.5,
+        2,
+        3
+      ],
+      "to": [
+        6.5,
+        6,
+        7
+      ],
+      "autouv": 0,
+      "color": 2,
+      "shade": true,
+      "origin": [
+        2.5,
+        2,
+        3
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6.75,
+            6,
+            7.75,
+            7
+          ],
+          "texture": "0"
+        },
+        "east": {
+          "uv": [
+            6.75,
+            7,
+            7.75,
+            8
+          ],
+          "texture": "0"
+        },
+        "south": {
+          "uv": [
+            7.5,
+            2,
+            8.5,
+            3
+          ],
+          "texture": "0"
+        },
+        "west": {
+          "uv": [
+            7.5,
+            3,
+            8.5,
+            4
+          ],
+          "texture": "0"
+        },
+        "up": {
+          "uv": [
+            8.5,
+            5,
+            7.5,
+            4
+          ],
+          "texture": "0"
+        },
+        "down": {
+          "uv": [
+            8.5,
+            5,
+            7.5,
+            6
+          ],
+          "texture": "0"
+        }
+      },
+      "rotation": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "outliner": [
+    "c5ed3230-94bb-4183-a4ce-1a12f618103b",
+    "f86855a1-8021-4592-a3ab-12c035472088",
+    "396b2945-1255-4299-a906-c123d982094f"
+  ],
+  "textures": [
+    {
+      "path": "",
+      "name": "fog_detector.png",
+      "folder": "block",
+      "namespace": "minecraft",
+      "id": "0",
+      "particle": true,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "frame_time": 1,
+      "frame_order_type": "loop",
+      "frame_order": "",
+      "frame_interpolate": false,
+      "sync_to_project_fps": false,
+      "visible": true,
+      "internal": false,
+      "mode": "bitmap",
+      "saved": true,
+      "uuid": "b09bfa28-80eb-42d4-a9e0-7d81d87fffd8",
+      "relative_path": "",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAADF0lEQVR4AexZPWgUQRR+uwoeRLtgDiJiULGxvxSSIpI2pAtyndYKaiFcIVZWRsFUFklKSSFE0SoaJFjkehtR8AcPLmKXHCQQuPCOe7As7+525r2dnSxz8PH2Zt6b9803b2fnbuP3X393JbjZXuoOQ/3jflcLkMMnxjGnr1wAG0D/Mz1xHjj0u+FSdYwuvbM9AVyxal9/BRLkwVNFgJ3df8CBCP9qd+jSO6siQNZZfei0QIKseUz8VATg7n9sIyJhD+grcbQ+DhL0h1E14grYm1+HzdoyC+z73piFzds1QKvKXGkwsQAmPA4ePALC6cX/kMTZRiMaBZNcWX3FApx7twhzzbsssO/q0y2YW20C2jSpM5PXAJFud/ldLIBLsnnkUhGAOwNgGxEedA44bH0DBPkVYVUEsCGefhrYjKERoyIAPvM5EMFB54CxqYuAIL8irIoARRDXytkTYOfHX7ABkcD7nQP1D9oDOj//AIL8XNh0jnhtaRkkSA847Pt45VRE+DxfhySGxeXZ16uAyYkq2ACJvV09hGFYmXoMBPRPgv6DSLa5vu4JIE2KGxkHGrfoww7x4KyKANzAWdpo38nim5ePigC4kXEg0txhJ73vkK9rqyKALWnad2zjNeJUBODuf2wjgmEPICVStrXbBkSq2elXcQXMbmxA7cVLFtg3c+sL1GZWAG3y/UCl/gTerD2LCE5nnUgmFiAxVqZL/F2AyOTswEkswNbCAjTv32OBfduvb0Bz+w6gdTAf4xSxcYQwAH8XIITDqIWrCMCdAbCNWNI5IP1WiPqLtCoCmEyA/jcwicnTV0UAfOZzIOLenwPwWWwDmqCJpf8NTGIkvqNiY3oO21pMgPc7B+xD0B7wqfowSgL7iobKLVD0JCT5xQKMeptTufw8IkiI5hUrFiAvYq7GDQK4UtrXPKECfF0ZV7xCBbhS2tc8oQJ8XRlXvEIFuFLa1zyhAnxdGVtepnGhAkwVK5t/qICyrajpfEIFmCpWNv9QAWVbUdP5hAowVaxs/qECyraipvMJFWCqWNn8QwWc9BWV8j8GAAD//3yBiGcAAAAGSURBVAMAUv+6nxdkUE0AAAAASUVORK5CYII="
+    }
+  ]
+}

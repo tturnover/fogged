@@ -1,0 +1,159 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "model_format_id": "java_block",
+    "box_uv": false
+  },
+  "name": "fog_eye_stem_noside",
+  "model_identifier": "",
+  "visible_box": [
+    1,
+    1,
+    0
+  ],
+  "variable_placeholders": "",
+  "variable_placeholders_buttons": [],
+  "unhandled_root_fields": {},
+  "_fogged_notes": "Stem segment with no side nub (just the inner core, visible face lets you see 'into' the plant). noside1.json/noside2.json/noside3.json add a small nub of varying size to this same core for random visual variety per vanilla chorus_plant_noside1/2/3 -- reshape the core here; nub variants get re-derived proportionally when plugged back in. Re-export into fog_eye_stem_noside.json.",
+  "resolution": {
+    "width": 16,
+    "height": 16
+  },
+  "elements": [
+    {
+      "name": "cube",
+      "box_uv": true,
+      "type": "cube",
+      "uuid": "4d2917b6-04ad-4818-980a-90fa6bf9bbf2",
+      "rescale": false,
+      "locked": false,
+      "light_emission": 0,
+      "render_order": "default",
+      "allow_mirror_modeling": true,
+      "from": [
+        4,
+        4,
+        4
+      ],
+      "to": [
+        12,
+        12,
+        12
+      ],
+      "autouv": 0,
+      "color": 0,
+      "shade": true,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "1"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "texture": null
+        }
+      }
+    }
+  ],
+  "outliner": [
+    "4d2917b6-04ad-4818-980a-90fa6bf9bbf2"
+  ],
+  "textures": [
+    {
+      "path": "",
+      "name": "fog_eye_stem.png",
+      "folder": "block",
+      "namespace": "minecraft",
+      "id": "0",
+      "particle": true,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "frame_time": 1,
+      "frame_order_type": "loop",
+      "frame_order": "",
+      "frame_interpolate": false,
+      "sync_to_project_fps": false,
+      "visible": true,
+      "internal": false,
+      "mode": "bitmap",
+      "saved": true,
+      "uuid": "48617426-c5c2-4f9b-9466-87c3850836df",
+      "relative_path": "",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACM0lEQVR4nFWSu47cOBBFD9+SWuoOJjAcTLB/4WC/Zn/dwSQGPD1qUhIfxQ3aLcBpEYVbPPeoH//923PODMPAx88Pbm83lFLklEkp8f7POyklSimsv1e+v38H4OPnB2/f3tD7vjOOIzFGtNY45xARlFIAbNtGKQVjDCGEc6aUQmuNNcaQUsI5xzAM1FpRShFjPGfee1prVPd8CyHgvUdEsADWWkopiAjLstB7J6eMtZacM8dxnIm9d3LOKKVoraGnacJ7T++d4zjIOVNKQSmFUgrnHAC9d/Z9R2tNa41t23DOoXvv1Fq5XC6M40hKCWstACklYoznVSJCzhmtNd57jDFoEcF7T0qJnDPX6xURobVG751pmjiOg3mecc5hjMEYQ2vtGXYcB7335zla8/X1xe12o7WGtZZaK/u+U2s9GRhjALher+haK9M04ZzDOcc8z7TWEBFCCBhjToAxRkopWGtRSrGuK3YcR9Z1RWvN4/HAT0+gwzBwv99R7gnSe4/W+oTovWee5+cXtNbP5KNxuVwA+PX49deCiGCtJYRwenO/39HGGJZlodZKSumZ+sfClyPLspy9v1gATNOEVUqRUkIpxTAMZ8LLNmMMn5+fABhjsNaeDYzLiA4h4JzDWktKCeAUBaCUwku2EAL3+53XzrZt6BgjSilKKSzLgogwTRPGGNZ1xXuPtRbvPeu64pwjpcRxHIgI+lWRiADgvWfbNnLOiAiPx4MYI9ZatNYMw3DWCvA/DcdK9VkPYS4AAAAASUVORK5CYII="
+    },
+    {
+      "path": "",
+      "name": "fog_eye_stem.png",
+      "folder": "block",
+      "namespace": "minecraft",
+      "id": "1",
+      "particle": false,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "frame_time": 1,
+      "frame_order_type": "loop",
+      "frame_order": "",
+      "frame_interpolate": false,
+      "sync_to_project_fps": false,
+      "visible": true,
+      "internal": false,
+      "mode": "bitmap",
+      "saved": true,
+      "uuid": "73d3aad5-b81f-4b88-b17d-6693e39856b8",
+      "relative_path": "",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACM0lEQVR4nFWSu47cOBBFD9+SWuoOJjAcTLB/4WC/Zn/dwSQGPD1qUhIfxQ3aLcBpEYVbPPeoH//923PODMPAx88Pbm83lFLklEkp8f7POyklSimsv1e+v38H4OPnB2/f3tD7vjOOIzFGtNY45xARlFIAbNtGKQVjDCGEc6aUQmuNNcaQUsI5xzAM1FpRShFjPGfee1prVPd8CyHgvUdEsADWWkopiAjLstB7J6eMtZacM8dxnIm9d3LOKKVoraGnacJ7T++d4zjIOVNKQSmFUgrnHAC9d/Z9R2tNa41t23DOoXvv1Fq5XC6M40hKCWstACklYoznVSJCzhmtNd57jDFoEcF7T0qJnDPX6xURobVG751pmjiOg3mecc5hjMEYQ2vtGXYcB7335zla8/X1xe12o7WGtZZaK/u+U2s9GRhjALher+haK9M04ZzDOcc8z7TWEBFCCBhjToAxRkopWGtRSrGuK3YcR9Z1RWvN4/HAT0+gwzBwv99R7gnSe4/W+oTovWee5+cXtNbP5KNxuVwA+PX49deCiGCtJYRwenO/39HGGJZlodZKSumZ+sfClyPLspy9v1gATNOEVUqRUkIpxTAMZ8LLNmMMn5+fABhjsNaeDYzLiA4h4JzDWktKCeAUBaCUwku2EAL3+53XzrZt6BgjSilKKSzLgogwTRPGGNZ1xXuPtRbvPeu64pwjpcRxHIgI+lWRiADgvWfbNnLOiAiPx4MYI9ZatNYMw3DWCvA/DcdK9VkPYS4AAAAASUVORK5CYII="
+    }
+  ]
+}
