@@ -170,6 +170,7 @@ public final class ModBlocks {
                     .randomTicks()
                     .sound(SoundType.GRASS)
                     .noOcclusion()
+                    .noCollission()
                     .isValidSpawn((state, level, pos, type) -> false)
                     .isSuffocating((state, level, pos) -> false)
                     .isViewBlocking((state, level, pos) -> false)

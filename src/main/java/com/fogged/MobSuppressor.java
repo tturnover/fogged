@@ -48,7 +48,8 @@ public class MobSuppressor {
         Level level = mob.level();
         boolean inMurk = Config.fogged(level, mob.getEyeY())
                 && !Config.mobAllowedUnderFog(mob.getType())
-                && !BreatheSpheres.isBreathable(level, mob.getEyePosition()); // nozzle-filter sphere shelters mobs too
+                && !BreatheSpheres.isBreathable(level, mob.getEyePosition()) // nozzle-filter sphere shelters mobs too
+                && !PuffLeafAir.isBreathable(level, mob.getEyePosition()); // puff bush leaf pocket shelters mobs too
         if (!inMurk) {
             if (mob.getPersistentData().contains(SUBMERGED_TICKS)) {
                 mob.getPersistentData().remove(SUBMERGED_TICKS);

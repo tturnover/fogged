@@ -43,7 +43,8 @@ public class BreathHandler {
                 || MobEffectUtil.hasWaterBreathing(player)
                 || player.isEyeInFluid(FluidTags.WATER)
                 || player.getEyeY() >= Config.breathHeight(player.level()) + Config.PLANE_SURFACE_OFFSET
-                || BreatheSpheres.isBreathable(player.level(), player.getEyePosition()); // inside a nozzle-filter sphere
+                || BreatheSpheres.isBreathable(player.level(), player.getEyePosition()) // nozzle-filter sphere
+                || PuffLeafAir.isBreathable(player.level(), player.getEyePosition()); // puff bush leaf pocket
         if (handledElsewhere) {
             return;
         }

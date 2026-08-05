@@ -8,6 +8,8 @@ import dev.ryanhcode.sable.sublevel.plot.LevelPlot;
 
 import org.joml.Vector3d;
 
+import com.fogged.registry.ModBlocks;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
@@ -144,6 +146,33 @@ final class SableFoam {
         }
         return sub.logicalPose()
                 .transformPosition(new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
+    }
+
+    // World-space point -> true if it lands inside a puff_bush_leaves block riding a Sable sub-level
+    // (ship / contraption). Sub-levels sit at far-off plot coordinates, so a plain world-space block
+    // lookup at `point` would miss them entirely; walk each sub-level whose bounds contain the point
+    // and test the block there in its own local space instead.
+    static boolean isPuffLeaves(Level level, Vec3 point) {
+        SubLevelContainer container = SubLevelContainer.getContainer(level);
+        if (container == null) {
+            return false;
+        }
+        Vector3d src = new Vector3d(point.x, point.y, point.z);
+        Vector3d local = new Vector3d();
+        for (SubLevel sub : container.getAllSubLevels()) {
+            BoundingBox3dc bb = sub.boundingBox();
+            if (point.x < bb.minX() || point.x > bb.maxX()
+                    || point.y < bb.minY() || point.y > bb.maxY()
+                    || point.z < bb.minZ() || point.z > bb.maxZ()) {
+                continue; // point isn't even in this sub-level's world footprint
+            }
+            sub.logicalPose().transformPositionInverse(src, local);
+            BlockPos localPos = BlockPos.containing(local.x, local.y, local.z);
+            if (sub.getLevel().getBlockState(localPos).is(ModBlocks.PUFF_BUSH_LEAVES.get())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static void stampSubLevels(Level level, int boundaryY, int originX, int originZ,
