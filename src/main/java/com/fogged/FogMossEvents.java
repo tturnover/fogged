@@ -85,7 +85,7 @@ public final class FogMossEvents {
         // moss — moss only puddles on the world ground. Run once per sweep to keep it cheap.
         if (SABLE && phase == 0) {
             double activeSurfaceY = FogMoss.surfaceY(level) - Config.FOG_MOSS_SKIP.getAsInt();
-            SableFoam.rotSubLevels(level, activeSurfaceY, (subLevel, p) -> rot(subLevel, p, false, false));
+            SableCompatibility.rotSubLevels(level, activeSurfaceY, (subLevel, p) -> rot(subLevel, p, false, false));
         }
     }
 

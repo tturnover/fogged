@@ -2,7 +2,7 @@ package com.fogged.block;
 
 import com.fogged.BreatheSpheres;
 import com.fogged.Config;
-import com.fogged.CreateFan;
+import com.fogged.CreateCompatibility;
 import com.fogged.NozzleFilterEvents;
 import com.fogged.PlaneSensor;
 import com.fogged.registry.ModBlockEntities;
@@ -25,7 +25,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Drives the breathing sphere for a {@link NozzleFilterBlock}. Every {@link #UPDATE_INTERVAL} ticks it
- * reads the attached fan's speed (via the reflection-only {@link CreateFan}) and maps it to a sphere
+ * reads the attached fan's speed (via the reflection-only {@link CreateCompatibility}) and maps it to a sphere
  * radius, which it publishes to {@link BreatheSpheres}. A stopped/absent fan yields radius 0 (no sphere).
  */
 public class NozzleFilterBlockEntity extends BlockEntity {
@@ -58,7 +58,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
         }
         // The nozzle points away from its fan, so the fan sits on the opposite side.
         Direction facing = state.getValue(NozzleFilterBlock.FACING);
-        CreateFan.FanState fan = CreateFan.attachedFan(level, pos, facing.getOpposite());
+        CreateCompatibility.FanState fan = CreateCompatibility.attachedFan(level, pos, facing.getOpposite());
 
         if (isBlowing(fan, facing)) {
             // Fan pushing air out through the filter blows the puff straight off: revert to a nozzle.
@@ -97,7 +97,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
      * fan (out the nozzle mouth), so air flowing toward the fan -- i.e. in the {@code FACING.opposite()}
      * direction -- means it is being pulled inward. A blowing fan flows the other way and is ignored.
      */
-    private static boolean isSucking(CreateFan.FanState fan, Direction facing) {
+    private static boolean isSucking(CreateCompatibility.FanState fan, Direction facing) {
         return fan.speed() > 0.0F && fan.airFlow() == facing.getOpposite();
     }
 
@@ -106,7 +106,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
      * FACING, away from the fan). This blows the puff off, so the filter reverts to a bare nozzle. An
      * idle fan (speed 0, no airflow) is neither sucking nor blowing and leaves the filter alone.
      */
-    private static boolean isBlowing(CreateFan.FanState fan, Direction facing) {
+    private static boolean isBlowing(CreateCompatibility.FanState fan, Direction facing) {
         return fan.speed() > 0.0F && fan.airFlow() == facing;
     }
 
@@ -135,7 +135,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
             return;
         }
         Direction facing = state.getValue(NozzleFilterBlock.FACING);
-        CreateFan.FanState fan = CreateFan.attachedFan(level, pos, facing.getOpposite());
+        CreateCompatibility.FanState fan = CreateCompatibility.attachedFan(level, pos, facing.getOpposite());
         if (!isSucking(fan, facing) || fan.speed() > OVERLOAD_SPEED) {
             return;
         }

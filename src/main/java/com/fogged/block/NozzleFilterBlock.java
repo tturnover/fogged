@@ -1,6 +1,6 @@
 package com.fogged.block;
 
-import com.fogged.CreateFan;
+import com.fogged.CreateCompatibility;
 import com.fogged.NozzleFilterEvents;
 import com.fogged.registry.ModBlockEntities;
 import com.mojang.serialization.MapCodec;
@@ -68,11 +68,11 @@ public class NozzleFilterBlock extends BaseEntityBlock {
      */
     @Override
     protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
-        if (!CreateFan.installed()) {
+        if (!CreateCompatibility.installed()) {
             return true; // no Create to validate against: leave the block be
         }
         Direction facing = state.getValue(FACING);
-        return CreateFan.fanFacing(level, pos.relative(facing.getOpposite())) == facing;
+        return CreateCompatibility.fanFacing(level, pos.relative(facing.getOpposite())) == facing;
     }
 
     @Override

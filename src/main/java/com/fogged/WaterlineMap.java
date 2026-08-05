@@ -176,7 +176,7 @@ public final class WaterlineMap {
 
         // Sable sub-levels (ships / contraptions) that cross the boundary also seed the full field.
         if (SABLE && Config.SABLE_FOAM.getAsBoolean()) {
-            SableFoam.stampSubLevels(level, boundaryY, originX, originZ, size, C,
+            SableCompatibility.stampSubLevels(level, boundaryY, originX, originZ, size, C,
                     (cellX, cellZ) -> target[cellZ * cells + cellX] = 0.0F);
         }
 

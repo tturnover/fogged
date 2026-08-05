@@ -17,8 +17,9 @@ import net.neoforged.fml.ModList;
  * entity's eye is in a real water fluid, so a leaves block that happens to be submerged still drowns
  * normally.
  *
- * <p>Also checks Sable sub-levels (ships / contraptions) via {@link SableFoam}, since a leaves block
- * riding one lives at far-off plot coordinates that an ordinary world-space lookup would miss.
+ * <p>Also checks Sable sub-levels (ships / contraptions) via {@link SableCompatibility}, since a
+ * leaves block riding one lives at far-off plot coordinates that an ordinary world-space lookup would
+ * miss.
  */
 final class PuffLeafAir {
     private static final boolean SABLE = ModList.get().isLoaded("sable");
@@ -28,7 +29,7 @@ final class PuffLeafAir {
         if (level.getBlockState(pos).is(ModBlocks.PUFF_BUSH_LEAVES.get())) {
             return true;
         }
-        return SABLE && SableFoam.isPuffLeaves(level, point);
+        return SABLE && SableCompatibility.isPuffLeaves(level, point);
     }
 
     private PuffLeafAir() {}

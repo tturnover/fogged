@@ -10,7 +10,7 @@ import net.neoforged.fml.ModList;
  * sub-levels (ships / contraptions). For an ordinary world block this is just the block centre; for
  * a block riding a sub-level it is the centre mapped through the sub-level's physics pose.
  *
- * <p>All Sable types are kept behind {@link SableFoam} and only reached when Sable is loaded, so the
+ * <p>All Sable types are kept behind {@link SableCompatibility} and only reached when Sable is loaded, so the
  * mod still runs without it (same isolation pattern as the foam map).
  */
 public final class PlaneSensor {
@@ -21,7 +21,7 @@ public final class PlaneSensor {
     /** World-space Y of the centre of the block at {@code pos}. */
     public static double worldY(Level level, BlockPos pos) {
         if (SABLE) {
-            double y = SableFoam.worldY(level, pos);
+            double y = SableCompatibility.worldY(level, pos);
             if (!Double.isNaN(y)) {
                 return y; // block rides a sub-level: use its transformed world height
             }
@@ -36,7 +36,7 @@ public final class PlaneSensor {
      */
     public static Vec3 worldCenter(Level level, BlockPos pos) {
         if (SABLE) {
-            Vec3 c = SableFoam.worldCenter(level, pos);
+            Vec3 c = SableCompatibility.worldCenter(level, pos);
             if (c != null) {
                 return c; // block rides a sub-level: use its transformed world centre
             }

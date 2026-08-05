@@ -1,9 +1,13 @@
 package com.fogged;
 
+import java.lang.reflect.Method;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -12,20 +16,146 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 
-// Create's diving-gear HUD (RemainingAirOverlay) bails whenever the eye is in air, so it never shows
-// at our dry breathing boundary even though the backtank is feeding the player air server-side. This
-// draws a look-alike indicator in exactly that case (below the boundary, in air, wearing a Create
-// diving helmet over a backtank with air), alongside the normal vanilla air bubbles.
-// Reads the backtank's air via the registered data component, so there is no compile dependency on
-// Create -- if Create isn't installed the component is absent and nothing renders.
+/**
+ * All soft (no compile-time dependency) integration with Create lives here: reading an Encased Fan's
+ * state by name at runtime for the nozzle filter, and drawing a look-alike HUD indicator for a Create
+ * backtank feeding air at our dry breathing boundary. If Create is absent, or its internals change,
+ * every call here degrades harmlessly (empty fan state / nothing drawn) rather than throwing.
+ *
+ * <p>Fan: an Encased Fan is a {@code KineticBlockEntity} ({@code getSpeed()} -> signed RPM) and an
+ * {@code IAirCurrentSource} ({@code getAirFlowDirection()} -> which way it moves air). We read both:
+ * the speed magnitude drives the breathing radius, and the flow direction tells suck from blow.
+ *
+ * <p>Backtank HUD: Create's diving-gear overlay (RemainingAirOverlay) bails whenever the eye is in air,
+ * so it never shows at our dry boundary even though the backtank is feeding the player air server-side.
+ * {@link #onRenderGui} draws a look-alike in exactly that case, alongside fake air bubbles (vanilla
+ * won't draw its own unless the eye is in real water). Reads the backtank's air via its registered data
+ * component, so there is no compile dependency on Create -- if it isn't installed the component is
+ * absent and nothing renders.
+ */
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
-public final class BacktankAirOverlay {
+public final class CreateCompatibility {
+
+    // Create is optional at runtime (no required dependency, no compile-time reference). When it is
+    // absent every fan lookup below is skipped and the nozzle filter simply stays inert -- same
+    // isolation pattern SableCompatibility uses for Sable.
+    private static final boolean CREATE = ModList.get().isLoaded("create");
+
+    private static final ResourceLocation ENCASED_FAN = ResourceLocation.fromNamespaceAndPath("create", "encased_fan");
+
+    // Cached reflective handles, resolved lazily off the first fan BE encountered.
+    private static volatile Method getSpeed;
+    private static volatile Method getAirFlowDirection;
+    private static volatile boolean resolveFailed;
+
+    /** A fan's readout: speed magnitude (RPM) and the direction it currently moves air (null if idle). */
+    public record FanState(float speed, Direction airFlow) {
+        public static final FanState NONE = new FanState(0.0F, null);
+    }
+
+    /**
+     * The attached fan's state, checking the block on {@code attachSide} first (a Create nozzle only
+     * attaches to a fan, so that is where it should be) then the remaining neighbours as a fallback.
+     * Returns {@link FanState#NONE} when no running fan is found or Create is not present.
+     */
+    public static FanState attachedFan(Level level, BlockPos pos, Direction attachSide) {
+        if (!CREATE) {
+            return FanState.NONE; // Create not installed: no fans exist.
+        }
+        FanState best = fanAt(level, pos.relative(attachSide));
+        if (best.speed() > 0.0F) {
+            return best;
+        }
+        for (Direction d : Direction.values()) {
+            if (d == attachSide) {
+                continue;
+            }
+            FanState other = fanAt(level, pos.relative(d));
+            if (other.speed() > 0.0F) {
+                return other;
+            }
+        }
+        return FanState.NONE;
+    }
+
+    /** Whether Create is installed at all. Callers can skip fan-dependent behaviour when it isn't. */
+    public static boolean installed() {
+        return CREATE;
+    }
+
+    /** True when the block at {@code pos} is a Create Encased Fan. */
+    public static boolean isFan(BlockGetter level, BlockPos pos) {
+        return CREATE && ENCASED_FAN.equals(net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                .getKey(level.getBlockState(pos).getBlock()));
+    }
+
+    /**
+     * The direction a Create Encased Fan at {@code pos} faces (the way it blows / where its nozzle
+     * attaches), or {@code null} if it is not a fan. Read generically off the block's {@code facing}
+     * property, so there is still no compile dependency on Create's block class.
+     */
+    public static Direction fanFacing(BlockGetter level, BlockPos pos) {
+        if (!isFan(level, pos)) {
+            return null;
+        }
+        BlockState state = level.getBlockState(pos);
+        for (Property<?> property : state.getProperties()) {
+            if (property.getName().equals("facing") && state.getValue(property) instanceof Direction dir) {
+                return dir;
+            }
+        }
+        return null;
+    }
+
+    private static FanState fanAt(Level level, BlockPos pos) {
+        if (!level.isLoaded(pos) || !isFan(level, pos)) {
+            return FanState.NONE;
+        }
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be == null || !resolve(be)) {
+            return FanState.NONE;
+        }
+        try {
+            float speed = getSpeed.invoke(be) instanceof Float f ? Math.abs(f) : 0.0F;
+            Direction flow = getAirFlowDirection.invoke(be) instanceof Direction d ? d : null;
+            return new FanState(speed, flow);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return FanState.NONE;
+        }
+    }
+
+    /** Resolve (once) the reflective handles off a real fan BE. False if Create's API doesn't match. */
+    private static boolean resolve(BlockEntity fanBe) {
+        if (getSpeed != null && getAirFlowDirection != null) {
+            return true;
+        }
+        if (resolveFailed) {
+            return false;
+        }
+        try {
+            getSpeed = fanBe.getClass().getMethod("getSpeed");
+            getAirFlowDirection = fanBe.getClass().getMethod("getAirFlowDirection");
+            return true;
+        } catch (NoSuchMethodException e) {
+            resolveFailed = true;
+            Fogged.LOGGER.warn("Create fan present but expected methods not found; nozzle filter stays inert", e);
+            return false;
+        }
+    }
+
+    // --- Backtank HUD overlay ------------------------------------------------------------------
 
     // Create registers this Integer component under "create:banktank_air" (its own spelling). It is
     // network-synchronised, so the value is present on the client.
@@ -150,6 +280,6 @@ public final class BacktankAirOverlay {
         return value instanceof Integer i ? i : 0;
     }
 
-    private BacktankAirOverlay() {
+    private CreateCompatibility() {
     }
 }

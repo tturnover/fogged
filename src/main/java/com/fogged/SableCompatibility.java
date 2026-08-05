@@ -23,7 +23,7 @@ import net.minecraft.world.phys.Vec3;
 // by a physics pose. To make foam ring them where they cross the breathing boundary, we walk the map
 // cells under each sub-level's world footprint, transform that surface point into the sub-level's
 // local space, and stamp foam wherever a solid block sits there.
-final class SableFoam {
+final class SableCompatibility {
 
     @FunctionalInterface
     interface CellStamper {
@@ -40,7 +40,7 @@ final class SableFoam {
     // stall the tick. Comfortably covers normal ships/contraptions.
     private static final long MAX_SCAN_VOLUME = 262_144L; // 64^3
 
-    private SableFoam() {
+    private SableCompatibility() {
     }
 
     /**
