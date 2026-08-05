@@ -43,9 +43,18 @@ public class BreathHandler {
                 || MobEffectUtil.hasWaterBreathing(player)
                 || player.isEyeInFluid(FluidTags.WATER)
                 || player.getEyeY() >= Config.breathHeight(player.level()) + Config.PLANE_SURFACE_OFFSET
-                || BreatheSpheres.isBreathable(player.level(), player.getEyePosition()) // nozzle-filter sphere
-                || PuffLeafAir.isBreathable(player.level(), player.getEyePosition()); // puff bush leaf pocket
+                || BreatheSpheres.isBreathable(player.level(), player.getEyePosition()); // nozzle-filter sphere
         if (handledElsewhere) {
+            return;
+        }
+
+        // A puff bush leaf pocket only pauses the clock -- it is a gap in the fog, not a source of air,
+        // so it should not actively refill the bar the way a real breathable zone (above, or a
+        // nozzle-filter sphere) does. Stay on the "can't breathe" branch (so nothing else tries to
+        // regenerate air) but consume none of it.
+        if (PuffLeafAir.isBreathable(player.level(), player.getEyePosition())) {
+            event.setCanBreathe(false);
+            event.setConsumeAirAmount(0);
             return;
         }
 
