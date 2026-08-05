@@ -13,7 +13,6 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
@@ -40,8 +39,9 @@ import net.neoforged.neoforge.client.event.RenderGuiEvent;
  *
  * <p>Backtank HUD: Create's diving-gear overlay (RemainingAirOverlay) bails whenever the eye is in air,
  * so it never shows at our dry boundary even though the backtank is feeding the player air server-side.
- * {@link #onRenderGui} draws a look-alike in exactly that case, alongside fake air bubbles (vanilla
- * won't draw its own unless the eye is in real water). Reads the backtank's air via its registered data
+ * {@link #onRenderGui} draws a look-alike in exactly that case. Vanilla's own air bubbles already show
+ * up on their own (they trigger off {@code getAirSupply() < getMaxAirSupply()}, not off real water), so
+ * there is no need to draw those ourselves. Reads the backtank's air via its registered data
  * component, so there is no compile dependency on Create -- if it isn't installed the component is
  * absent and nothing renders.
  */
@@ -165,11 +165,6 @@ public final class CreateCompatibility {
     private static final EquipmentSlot[] ARMOUR = {
             EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
 
-    // Vanilla air-bubble HUD sprites.
-    private static final ResourceLocation AIR_SPRITE = ResourceLocation.withDefaultNamespace("hud/air");
-    private static final ResourceLocation AIR_BURSTING_SPRITE =
-            ResourceLocation.withDefaultNamespace("hud/air_bursting");
-
     @SubscribeEvent
     static void onRenderGui(RenderGuiEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
@@ -181,27 +176,14 @@ public final class CreateCompatibility {
             return;
         }
 
-        // Vanilla won't draw air bubbles unless the eye is in real water, so draw them ourselves to
-        // sell the "underwater" feel below the boundary.
-        renderAirBubbles(event.getGuiGraphics(), player);
+        // Vanilla's own air bubbles already show whenever getAirSupply() < getMaxAirSupply(), regardless
+        // of whether the eye is in real water -- BreathHandler draining the air stat is enough to trigger
+        // them on its own. Drawing a second copy here only doubled up and drifted out of sync with it.
 
         // Backtank-air indicator where Create's would be (only while gear is feeding air).
         int air = feedingAir(player);
         if (air > 0) {
             renderIndicator(event.getGuiGraphics(), mc.font, displayTank(player), air);
-        }
-    }
-
-    // Mirror of vanilla Gui#renderAirLevel: a right-aligned row of up to 10 bubbles for the air supply.
-    private static void renderAirBubbles(GuiGraphics g, LocalPlayer player) {
-        int air = Math.max(0, player.getAirSupply());
-        int max = player.getMaxAirSupply();
-        int full = Mth.ceil((air - 2) * 10.0 / max);
-        int bursting = Mth.ceil(air * 10.0 / max) - full;
-        int left = g.guiWidth() / 2 + 91;
-        int top = g.guiHeight() - 49;
-        for (int i = 0; i < full + bursting; i++) {
-            g.blitSprite(i < full ? AIR_SPRITE : AIR_BURSTING_SPRITE, left - i * 8 - 9, top, 9, 9);
         }
     }
 
