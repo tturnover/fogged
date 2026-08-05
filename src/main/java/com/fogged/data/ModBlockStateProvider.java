@@ -277,19 +277,26 @@ public class ModBlockStateProvider extends BlockStateProvider {
         itemModels().withExistingParent("puff_bush_sapling", mcLoc("item/generated"))
                 .texture("layer0", modLoc("block/puff_bush_sapling"));
 
-        // Leaves: mostly the plain leaf block, but 1 in 4 (weight 12:4, i.e. still 3:1) uses the
-        // hand-authored fluff-tuft model so a canopy shows the odd standout leaf. The rare model gets a
-        // random yaw (0/90/180/270) per position so every standout leaf doesn't face the same way.
+        // Leaves: mostly the plain leaf block, but 1 in 4 (weight 24:8, still 3:1) uses the hand-authored
+        // fluff-tuft model so a canopy shows the odd standout leaf. The star is 90-degree rotationally
+        // symmetric, so a bare yaw spin never actually changes how it looks -- picking between the model
+        // and its mirrored twin (puff_bush_leaves_rare_m, different wing offsets) is what breaks a stacked
+        // pair of rare leaves from reading identical. Both get all 4 yaws for texture-facing variety too.
         // Two independent standalone 16x16 textures (leaf, tuft) -- no shared atlas, no texture_size.
         ModelFile leaves = models().cubeAll("puff_bush_leaves", modLoc("block/puff_bush_leaves"));
         ModelFile leavesRare = models().getExistingFile(modLoc("block/puff_bush_leaves_rare"));
+        ModelFile leavesRareMirrored = models().getExistingFile(modLoc("block/puff_bush_leaves_rare_m"));
         getVariantBuilder(ModBlocks.PUFF_BUSH_LEAVES.get()).partialState().setModels(
                 ConfiguredModel.builder()
-                        .modelFile(leaves).weight(12).nextModel()
+                        .modelFile(leaves).weight(24).nextModel()
                         .modelFile(leavesRare).rotationY(0).weight(1).nextModel()
                         .modelFile(leavesRare).rotationY(90).weight(1).nextModel()
                         .modelFile(leavesRare).rotationY(180).weight(1).nextModel()
-                        .modelFile(leavesRare).rotationY(270).weight(1)
+                        .modelFile(leavesRare).rotationY(270).weight(1).nextModel()
+                        .modelFile(leavesRareMirrored).rotationY(0).weight(1).nextModel()
+                        .modelFile(leavesRareMirrored).rotationY(90).weight(1).nextModel()
+                        .modelFile(leavesRareMirrored).rotationY(180).weight(1).nextModel()
+                        .modelFile(leavesRareMirrored).rotationY(270).weight(1)
                         .build());
         itemModels().withExistingParent("puff_bush_leaves", modLoc("block/puff_bush_leaves"));
     }

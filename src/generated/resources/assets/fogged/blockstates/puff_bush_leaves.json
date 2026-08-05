@@ -3,7 +3,7 @@
     "": [
       {
         "model": "fogged:block/puff_bush_leaves",
-        "weight": 12
+        "weight": 24
       },
       {
         "model": "fogged:block/puff_bush_leaves_rare"
@@ -18,6 +18,21 @@
       },
       {
         "model": "fogged:block/puff_bush_leaves_rare",
+        "y": 270
+      },
+      {
+        "model": "fogged:block/puff_bush_leaves_rare_m"
+      },
+      {
+        "model": "fogged:block/puff_bush_leaves_rare_m",
+        "y": 90
+      },
+      {
+        "model": "fogged:block/puff_bush_leaves_rare_m",
+        "y": 180
+      },
+      {
+        "model": "fogged:block/puff_bush_leaves_rare_m",
         "y": 270
       }
     ]
