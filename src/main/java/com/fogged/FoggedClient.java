@@ -45,11 +45,25 @@ public class FoggedClient {
     private static final ModelResourceLocation PUFF_BALL_GUI =
             ModelResourceLocation.standalone(ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "item/puff_ball_gui"));
 
+    // The 3 puff-bush-leaves looks (plain, rare, rare mirrored), side-loaded standalone so
+    // PuffBushLeavesModel can pick between them itself instead of via the blockstate's position hash.
+    private static final ModelResourceLocation PUFF_BUSH_LEAVES_PLAIN = ModelResourceLocation
+            .standalone(ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "block/puff_bush_leaves"));
+    private static final ModelResourceLocation PUFF_BUSH_LEAVES_RARE = ModelResourceLocation
+            .standalone(ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "block/puff_bush_leaves_rare"));
+    private static final ModelResourceLocation PUFF_BUSH_LEAVES_RARE_MIRRORED = ModelResourceLocation
+            .standalone(ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "block/puff_bush_leaves_rare_m"));
+
     private static void registerAdditionalModels(ModelEvent.RegisterAdditional event) {
         event.register(PUFF_BALL_GUI);
+        event.register(PUFF_BUSH_LEAVES_PLAIN);
+        event.register(PUFF_BUSH_LEAVES_RARE);
+        event.register(PUFF_BUSH_LEAVES_RARE_MIRRORED);
     }
 
-    // Wrap the puff ball's baked model so it renders flat in the GUI and 3D everywhere else.
+    // Wrap the puff ball's baked model so it renders flat in the GUI and 3D everywhere else, and every
+    // puff_bush_leaves blockstate combo (LeavesBlock has distance/persistent/waterlogged properties, so
+    // there are many) so it picks rare-vs-mirrored by Y parity instead of by position hash.
     private static void modifyBakingResult(ModelEvent.ModifyBakingResult event) {
         ModelResourceLocation itemModel =
                 ModelResourceLocation.inventory(ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "puff_ball"));
@@ -57,6 +71,19 @@ public class FoggedClient {
         BakedModel gui = event.getModels().get(PUFF_BALL_GUI);
         if (model3d != null && gui != null) {
             event.getModels().put(itemModel, new PuffBallModel(model3d, gui));
+        }
+
+        BakedModel leavesPlain = event.getModels().get(PUFF_BUSH_LEAVES_PLAIN);
+        BakedModel leavesRare = event.getModels().get(PUFF_BUSH_LEAVES_RARE);
+        BakedModel leavesRareMirrored = event.getModels().get(PUFF_BUSH_LEAVES_RARE_MIRRORED);
+        if (leavesPlain != null && leavesRare != null && leavesRareMirrored != null) {
+            ResourceLocation leavesBlockId = ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "puff_bush_leaves");
+            PuffBushLeavesModel wrapper = new PuffBushLeavesModel(leavesPlain, leavesRare, leavesRareMirrored);
+            for (ModelResourceLocation loc : event.getModels().keySet()) {
+                if (loc.id().equals(leavesBlockId)) {
+                    event.getModels().put(loc, wrapper);
+                }
+            }
         }
     }
 }
