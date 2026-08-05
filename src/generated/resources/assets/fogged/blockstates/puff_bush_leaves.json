@@ -3,10 +3,22 @@
     "": [
       {
         "model": "fogged:block/puff_bush_leaves",
-        "weight": 3
+        "weight": 12
       },
       {
         "model": "fogged:block/puff_bush_leaves_rare"
+      },
+      {
+        "model": "fogged:block/puff_bush_leaves_rare",
+        "y": 90
+      },
+      {
+        "model": "fogged:block/puff_bush_leaves_rare",
+        "y": 180
+      },
+      {
+        "model": "fogged:block/puff_bush_leaves_rare",
+        "y": 270
       }
     ]
   }

@@ -1,43 +1,62 @@
 {
-  "__placeholder": "art to replace -- models + textures",
-  "__comment": "PLACEHOLDER rare puff-bush leaf: a full leaf cube with two 45-crossed fluffy tufts (puff texture) poking out the top, so the 1-in-4 standout reads at a glance. Replace with a BlockBench model; keep render_type cutout for the tuft transparency.",
+  "__comment": "Rare puff-bush leaf: full leaf cube speared through by an X-cross of 4 long tuft wings (side_root group), each a single-axis Y +-45 lean. Taken directly from Blockbench's own Java Block/Item export (blockbench/blocks/puff_bush_leaves_rare.json) -- only the texture path, render_type, and ambientocclusion were added, geometry/UV untouched. One fully self-contained texture (puff_bush_leaves_rare_texture.png), not shared with the plain puff_bush_leaves block. ambientocclusion is off: the long thin wings would otherwise pick up dark AO shading at their tips/hinges from neighboring blocks.",
   "render_type": "minecraft:cutout",
+  "ambientocclusion": false,
   "textures": {
-    "leaf": "fogged:block/puff_bush_leaves",
-    "tuft": "fogged:block/puff",
-    "particle": "fogged:block/puff_bush_leaves"
+    "0": "fogged:block/puff_bush_leaves_rare_texture",
+    "particle": "fogged:block/puff_bush_leaves_rare_texture"
   },
   "elements": [
     {
       "from": [0, 0, 0],
       "to": [16, 16, 16],
       "faces": {
-        "north": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "north"},
-        "south": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "south"},
-        "west": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "west"},
-        "east": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "east"},
-        "up": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "up"},
-        "down": {"uv": [0, 0, 16, 16], "texture": "#leaf", "cullface": "down"}
+        "north": {"uv": [0, 0, 8, 8], "texture": "#0"},
+        "east": {"uv": [0, 0, 8, 8], "texture": "#0"},
+        "south": {"uv": [0, 0, 8, 8], "texture": "#0"},
+        "west": {"uv": [0, 0, 8, 8], "texture": "#0"},
+        "up": {"uv": [8, 8, 0, 0], "texture": "#0"},
+        "down": {"uv": [8, 0, 0, 8], "texture": "#0"}
       }
     },
     {
-      "from": [3, 16, 8],
-      "to": [13, 24, 8],
-      "rotation": {"origin": [8, 16, 8], "axis": "y", "angle": 45, "rescale": true},
-      "shade": false,
+      "name": "side",
+      "from": [22, -8, 8],
+      "to": [8, 20, 8],
+      "rotation": {"angle": -45, "axis": "y", "origin": [8, 0, 8]},
       "faces": {
-        "north": {"uv": [0, 0, 16, 16], "texture": "#tuft"},
-        "south": {"uv": [0, 0, 16, 16], "texture": "#tuft"}
+        "north": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"},
+        "south": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"}
       }
     },
     {
-      "from": [8, 16, 3],
-      "to": [8, 24, 13],
-      "rotation": {"origin": [8, 16, 8], "axis": "y", "angle": 45, "rescale": true},
-      "shade": false,
+      "name": "side",
+      "from": [8, -8, 8],
+      "to": [-6, 20, 8],
+      "rotation": {"angle": -45, "axis": "y", "origin": [8, 0, 8]},
       "faces": {
-        "east": {"uv": [0, 0, 16, 16], "texture": "#tuft"},
-        "west": {"uv": [0, 0, 16, 16], "texture": "#tuft"}
+        "north": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"},
+        "south": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"}
+      }
+    },
+    {
+      "name": "side",
+      "from": [22, -8, 8],
+      "to": [8, 20, 8],
+      "rotation": {"angle": 45, "axis": "y", "origin": [8, 0, 8]},
+      "faces": {
+        "north": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"},
+        "south": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"}
+      }
+    },
+    {
+      "name": "side",
+      "from": [8, -8, 8],
+      "to": [-6, 20, 8],
+      "rotation": {"angle": 45, "axis": "y", "origin": [8, 0, 8]},
+      "faces": {
+        "north": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"},
+        "south": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"}
       }
     }
   ]
