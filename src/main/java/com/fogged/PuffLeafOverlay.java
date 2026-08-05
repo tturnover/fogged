@@ -13,10 +13,10 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 
 /**
- * TEMPORARY placeholder screen overlay for standing with your head inside a puff bush leaf pocket.
- * Copies vanilla's powder-snow screen overlay (same blit call, same vanilla texture) but skips the
- * gradual fade vanilla drives off {@code getPercentFrozen()} -- this just snaps on/off at a fixed
- * alpha, per spec ("without gradual appearance just toggle on off").
+ * PLACEHOLDER screen overlay (replace texture + tune alpha/trigger) for standing with your head inside
+ * a puff bush leaf pocket. Copies vanilla's powder-snow screen overlay (same blit call, same vanilla
+ * texture) but skips the gradual fade vanilla drives off {@code getPercentFrozen()} -- this just snaps
+ * on/off at a fixed alpha, per spec ("without gradual appearance just toggle on off").
  *
  * <p><b>How to change it later:</b>
  * <ul>
