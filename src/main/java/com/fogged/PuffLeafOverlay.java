@@ -14,14 +14,18 @@ import net.neoforged.neoforge.client.event.RenderGuiEvent;
 
 /**
  * PLACEHOLDER screen overlay (replace texture + tune alpha/trigger) for standing with your head inside
- * a puff bush leaf pocket. Copies vanilla's powder-snow screen overlay (same blit call, same vanilla
- * texture) but skips the gradual fade vanilla drives off {@code getPercentFrozen()} -- this just snaps
- * on/off at a fixed alpha, per spec ("without gradual appearance just toggle on off").
+ * a puff bush leaf pocket. Copies vanilla's powder-snow screen overlay's blit call, but with our own
+ * placeholder asset ({@code textures/misc/puff_leaf_overlay.png} -- a radial vignette in the same
+ * 3-shade "puff" palette as {@code puff_bush_leaves.png}/{@code puff_bush_leaves_rare_texture.png}, so
+ * it reads as part of the same temporary-art family) and skips the gradual fade vanilla drives off
+ * {@code getPercentFrozen()} -- this just snaps on/off at a fixed alpha, per spec ("without gradual
+ * appearance just toggle on off").
  *
  * <p><b>How to change it later:</b>
  * <ul>
- *   <li>Different look entirely: replace {@link #TEXTURE} with your own {@code ResourceLocation}
- *       (any full-screen PNG works with the same blit call below).</li>
+ *   <li>Different look entirely: replace {@code puff_leaf_overlay.png} (any 256x256+ full-screen PNG
+ *       works with the same blit call below -- it gets stretched to fill the screen regardless of its
+ *       native resolution).</li>
  *   <li>Stronger/weaker tint: change {@link #ALPHA} (0..1).</li>
  *   <li>Different trigger: edit the condition in {@link #onRenderGui} -- it currently mirrors
  *       {@link BreathHandler}'s leaf-pocket exemption ({@link PuffLeafAir#isBreathable} and not
@@ -34,7 +38,7 @@ import net.neoforged.neoforge.client.event.RenderGuiEvent;
 final class PuffLeafOverlay {
 
     private static final ResourceLocation TEXTURE =
-            ResourceLocation.withDefaultNamespace("textures/misc/powder_snow_outline.png");
+            ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "textures/misc/puff_leaf_overlay.png");
     private static final float ALPHA = 1.0F;
 
     @SubscribeEvent
