@@ -1,5 +1,5 @@
 {
-  "__comment": "Rare puff-bush leaf: full leaf cube speared through by an X-cross of 4 long tuft wings (side_root group), each a single-axis Y +-45 lean. Taken directly from Blockbench's own Java Block/Item export (blockbench/blocks/puff_bush_leaves_rare.json) -- only the texture path, render_type, and ambientocclusion were added, geometry/UV untouched. One fully self-contained texture (puff_bush_leaves_rare_texture.png), not shared with the plain puff_bush_leaves block. ambientocclusion is off: the long thin wings would otherwise pick up dark AO shading at their tips/hinges from neighboring blocks.",
+  "__comment": "Rare puff-bush leaf: full leaf cube speared through by an 8-point star of long tuft wings (two side_root groups, Y +-22.5 lean each). Taken directly from Blockbench's own Java Block/Item export (blockbench/blocks/puff_bush_leaves_rare.json) -- only the texture path, render_type, and ambientocclusion were added, geometry/UV untouched. One fully self-contained texture (puff_bush_leaves_rare_texture.png), not shared with the plain puff_bush_leaves block. ambientocclusion is off: the long thin wings would otherwise pick up dark AO shading at their tips/hinges from neighboring blocks.",
   "render_type": "minecraft:cutout",
   "ambientocclusion": false,
   "textures": {
@@ -23,7 +23,7 @@
       "name": "side",
       "from": [22, -8, 7.9],
       "to": [8, 20, 7.9],
-      "rotation": {"angle": -45, "axis": "y", "origin": [8, 0, 8]},
+      "rotation": {"angle": -22.5, "axis": "y", "origin": [8, 0, 8]},
       "faces": {
         "north": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"},
         "south": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"}
@@ -33,7 +33,7 @@
       "name": "side",
       "from": [8, -8, 7.9],
       "to": [-6, 20, 7.9],
-      "rotation": {"angle": -45, "axis": "y", "origin": [8, 0, 8]},
+      "rotation": {"angle": -22.5, "axis": "y", "origin": [8, 0, 8]},
       "faces": {
         "north": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"},
         "south": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"}
@@ -43,7 +43,7 @@
       "name": "side",
       "from": [7.9, -8, 8],
       "to": [7.9, 20, -6],
-      "rotation": {"angle": -45, "axis": "y", "origin": [8, 0, 8]},
+      "rotation": {"angle": -22.5, "axis": "y", "origin": [8, 0, 8]},
       "faces": {
         "east": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"},
         "west": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"}
@@ -53,10 +53,50 @@
       "name": "side",
       "from": [7.9, -8, 22],
       "to": [7.9, 20, 8],
-      "rotation": {"angle": -45, "axis": "y", "origin": [8, 0, 8]},
+      "rotation": {"angle": -22.5, "axis": "y", "origin": [8, 0, 8]},
       "faces": {
         "east": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"},
         "west": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"}
+      }
+    },
+    {
+      "name": "side",
+      "from": [10.1, -8, 22],
+      "to": [10.1, 20, 8],
+      "rotation": {"angle": 22.5, "axis": "y", "origin": [8, 0, 8]},
+      "faces": {
+        "east": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"},
+        "west": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"}
+      }
+    },
+    {
+      "name": "side",
+      "from": [10.1, -8, 8],
+      "to": [10.1, 20, -6],
+      "rotation": {"angle": 22.5, "axis": "y", "origin": [8, 0, 8]},
+      "faces": {
+        "east": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"},
+        "west": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"}
+      }
+    },
+    {
+      "name": "side",
+      "from": [22, -8, 10.9],
+      "to": [8, 20, 10.9],
+      "rotation": {"angle": 22.5, "axis": "y", "origin": [8, 0, 8]},
+      "faces": {
+        "north": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"},
+        "south": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"}
+      }
+    },
+    {
+      "name": "side",
+      "from": [8, -8, 10.9],
+      "to": [-6, 20, 10.9],
+      "rotation": {"angle": 22.5, "axis": "y", "origin": [8, 0, 8]},
+      "faces": {
+        "north": {"uv": [8.5, 0, 15.5, 14], "texture": "#0"},
+        "south": {"uv": [15.5, 0, 8.5, 14], "texture": "#0"}
       }
     }
   ]
