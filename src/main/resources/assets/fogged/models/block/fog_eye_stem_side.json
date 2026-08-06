@@ -1,6 +1,6 @@
 {
   "__placeholder": "art to replace -- models + textures",
-  "__comment": "Ported from vanilla chorus_plant_side.json: same geometry, fog eye textures. Keep the texture vars (#texture/#inside/#bottom) so datagen and any reskin keep working.",
+  "__comment": "Ported from vanilla chorus_plant_side.json: same geometry, fog eye textures. Kept centred and unshifted on purpose -- a connected face's outer edge has to meet whatever the neighbour block picked for its own matching face, and since each block's model pick is independent, any two blocks that shifted their shared edge differently would leave a visible gap or overlap. The plant's curl comes entirely from growth (see FogEyeBlock's throwArms), which grows into genuinely separate, independently-connected blocks instead of faking a bend inside one. Keep the texture vars (#texture/#inside/#bottom) so datagen and any reskin keep working.",
   "ambientocclusion": false,
   "textures": {
     "texture": "fogged:block/fog_eye_stem",

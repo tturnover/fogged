@@ -99,7 +99,7 @@ public class FoggyGrassBlock extends BushBlock {
      * surface the wave walks along, whether or not it plants there. Null if no fog moss is near {@code refY}.
      */
     public static BlockPos mossTopNear(ServerLevel level, BlockPos col, int refY) {
-        return columnNear(col, refY, at -> FogMoss.isFogMoss(level.getBlockState(at.below())));
+        return columnNear(col, refY, at -> FogMoss.isSeedGround(level.getBlockState(at.below())));
     }
 
     /**
@@ -124,12 +124,17 @@ public class FoggyGrassBlock extends BushBlock {
 
     /**
      * Bloom planting: sparsely sprout a tuft, its chance scaled by temperature density. A substituted puff
-     * bush is grown out at once on an {@code instant} chunk rather than left as a sapling. Returns whether
-     * it planted.
+     * bush is grown out at once on an {@code instant} chunk rather than left as a sapling. A fog eye is
+     * rolled for ahead of either -- it is not a substitute tuft the way the bush is, it has its own
+     * independent chance at every spot the wave visits, seeded and spread alike. Returns whether
+     * something planted.
      */
     public static boolean tryPlantSeeded(ServerLevel level, BlockPos top, RandomSource random, boolean instant) {
         if (!isPlantable(level, top)) {
             return false;
+        }
+        if (tryPlantFogEye(level, top, random, instant)) {
+            return true;
         }
         double chance = Config.FOGGY_GRASS_SEED_CHANCE.get() * density(level, top.below());
         if (random.nextDouble() >= chance) {
@@ -148,6 +153,9 @@ public class FoggyGrassBlock extends BushBlock {
         if (!isPlantable(level, top)) {
             return false;
         }
+        if (tryPlantFogEye(level, top, random, instant)) {
+            return true;
+        }
         if (countTufts(level, top) >= densityCap(level, top)) {
             return false; // patch already as thick as this temperature allows
         }
@@ -155,6 +163,21 @@ public class FoggyGrassBlock extends BushBlock {
             plantPuffBush(level, top, random, instant);
         } else {
             sprout(level, top, random, true);
+        }
+        return true;
+    }
+
+    // The fog eye's only path into the world: it has no seeding of its own any more, it is just
+    // another thing the grass wave can plant at a spot it was already going to visit (see FogMoss and
+    // FogMossEvents, which no longer touch FogEyeBlock at all). `top.below()` is the ground the wave
+    // found -- moss or coarse dirt, see FogMoss#isSeedGround -- which is exactly what trySeed roots on.
+    private static boolean tryPlantFogEye(ServerLevel level, BlockPos top, RandomSource random, boolean instant) {
+        BlockPos eye = FogEyeBlock.trySeed(level, top.below(), random);
+        if (eye == null) {
+            return false;
+        }
+        if (instant) {
+            FogEyeBlock.simulateGrowth(level, eye);
         }
         return true;
     }
@@ -173,7 +196,7 @@ public class FoggyGrassBlock extends BushBlock {
     }
 
     private static boolean isPlantable(ServerLevel level, BlockPos top) {
-        return isFree(level, top) && FogMoss.isFogMoss(level.getBlockState(top.below()));
+        return isFree(level, top) && FogMoss.isSeedGround(level.getBlockState(top.below()));
     }
 
     // A spread tuft starts part-grown (random age up to its cap) so it doesn't creep in as bare sprouts.
@@ -236,7 +259,7 @@ public class FoggyGrassBlock extends BushBlock {
             for (int dz = -r; dz <= r; dz++) {
                 for (int dy = -1; dy <= 1; dy++) {
                     p.set(centre.getX() + dx, centre.getY() + dy, centre.getZ() + dz);
-                    if (FogMoss.isFogMoss(level.getBlockState(p))) {
+                    if (FogMoss.isSeedGround(level.getBlockState(p))) {
                         moss++;
                         break;
                     }

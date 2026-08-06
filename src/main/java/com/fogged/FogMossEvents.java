@@ -1,7 +1,5 @@
 package com.fogged;
 
-import com.fogged.registry.ModBlocks;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.server.level.ServerLevel;
@@ -173,9 +171,15 @@ public final class FogMossEvents {
         }
 
         // Grass blocks die back to coarse dirt: the sward is the first thing the murk takes, and coarse
-        // dirt will not spread or regrow the way plain dirt re-grasses from a lit neighbour.
+        // dirt will not spread or regrow the way plain dirt re-grasses from a lit neighbour. Coarse dirt
+        // is itself flora soil (FogMoss#isNatural, same as plain dirt), so the patch left behind seeds
+        // its own small puddle right there instead of only ever catching one that spreads in from a
+        // nearby leaf/plant/mob death.
         if (state.is(Blocks.GRASS_BLOCK)) {
             level.setBlock(pos, Blocks.COARSE_DIRT.defaultBlockState(), Block.UPDATE_ALL);
+            if (moss && level instanceof ServerLevel server) {
+                FogMoss.puddleAt(server, pos, Config.FOG_MOSS_STRENGTH_GRASS, instant);
+            }
             return;
         }
 

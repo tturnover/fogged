@@ -1,6 +1,6 @@
 {
   "__placeholder": "art to replace -- models + textures",
-  "parent": "fogged:block/fog_eye_head_template",
+  "parent": "fogged:block/fog_eye_head_bloom_template",
   "textures": {
     "texture": "fogged:block/fog_eye"
   }

@@ -341,9 +341,13 @@ public class Config {
                     "eye reaches the surface it stops stepping and only rechecks once a second.")
             .defineInRange("fogEyeGrowTicks", 40, 1, 200);
 
-    // Branching has no knobs on purpose: the eye grows by vanilla's chorus flower rules (segment
-    // lengths, arm counts, room checks), so the shape is whatever chorus would have done. See
-    // FogEyeBlock. What is ours is the pacing and the height it is aiming at, below.
+    public static final ModConfigSpec.DoubleValue FOG_EYE_CURL_CHANCE = BUILDER
+            .comment("Chance, per growth step, that an eye throws a short curl of arms sideways instead",
+                    "of climbing. Low by design -- the plant should read as climbing for the fog surface",
+                    "with the odd curl along the way, not curling constantly with climbing as a fallback.",
+                    "A missed roll (the common case) or a lineage out of ages (see FogEyeBlock.MAX_AGE)",
+                    "climbs straight instead.")
+            .defineInRange("fogEyeCurlChance", 0.22, 0.0, 1.0);
 
     public static final ModConfigSpec.IntValue FOG_EYE_MAX_HEIGHT = BUILDER
             .comment("Tallest a plant may grow, in blocks from its moss root. An eye that hits this cap",
@@ -364,6 +368,20 @@ public class Config {
             .comment("How many blocks below the fog surface the eye comes to rest. 0 = the topmost block",
                     "still under the plane; higher keeps the eye deeper in the murk.")
             .defineInRange("fogEyeTopOffset", 0, 0, 64);
+
+    public static final ModConfigSpec.IntValue FOG_EYE_ROOT_MIN_DISTANCE = BUILDER
+            .comment("A moss block will not sprout a new fog eye root within this many blocks (measured",
+                    "horizontally at root height) of an existing one. Keeps roots from crowding shoulder to",
+                    "shoulder while still letting separate plants grow close enough that their climbing",
+                    "stems and arms can reach each other higher up and read as one big tangled bush.")
+            .defineInRange("fogEyeRootMinDistance", 7, 0, 64);
+
+    public static final ModConfigSpec.IntValue FOG_EYE_FLOWER_MIN_DISTANCE = BUILDER
+            .comment("An eye resting at the fog surface will not open while another open eye (its own",
+                    "plant's or a neighbour's) is within this many blocks. It keeps rechecking on its idle",
+                    "heartbeat, so it opens as soon as a nearby flower closes back up. Thins out the open",
+                    "canopy without capping how densely the plants themselves can grow.")
+            .defineInRange("fogEyeFlowerMinDistance", 4, 0, 64);
 
     static { BUILDER.pop(); }   // [flora.eye]
 
@@ -396,6 +414,7 @@ public class Config {
     public static final double FOG_MOSS_STRENGTH_LEAVES = 1.0;
     public static final double FOG_MOSS_STRENGTH_MOB = 1.25;
     public static final double FOG_MOSS_STRENGTH_PLANT = 0.5;
+    public static final double FOG_MOSS_STRENGTH_GRASS = 0.5;
 
     // --- combined range accessors ---
     // Each pulls one end out of a [low, high] list config, falling back to the default if it is short.

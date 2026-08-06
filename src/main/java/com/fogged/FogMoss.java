@@ -1,13 +1,10 @@
 package com.fogged;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
-import com.fogged.block.FogEyeBlock;
 import com.fogged.registry.ModBlocks;
 
 import net.minecraft.core.BlockPos;
@@ -57,6 +54,15 @@ public final class FogMoss {
         return state.is(ModBlocks.FOG_MOSS.get())
                 || state.is(ModBlocks.SOFT_FOG_MOSS.get())
                 || state.is(ModBlocks.HARSH_FOG_MOSS.get());
+    }
+
+    /**
+     * Fog moss, or the coarse dirt a dying grass block leaves behind (see {@link FogMossEvents}). Foggy
+     * grass and the fog eye both seed on this, not just moss proper -- the murk's own dead ground is
+     * flora soil too, not only the puddle that spreads over it.
+     */
+    public static boolean isSeedGround(BlockState state) {
+        return isFogMoss(state) || state.is(Blocks.COARSE_DIRT);
     }
 
     /**
@@ -162,8 +168,6 @@ public final class FogMoss {
         BlockState moss = mossBlock.defaultBlockState();
         Deque<BlockPos> queue = new ArrayDeque<>();
         Set<Long> seenColumns = new HashSet<>();
-        // For an instant puddle, collect the eyes it seeds so they can be grown out once the moss is down.
-        List<BlockPos> eyes = instant ? new ArrayList<>() : null;
         queue.add(seed);
         seenColumns.add(column(seed));
         int placed = 0;
@@ -173,11 +177,6 @@ public final class FogMoss {
                 continue; // terrain changed under us / not eligible
             }
             level.setBlock(pos, moss, Block.UPDATE_ALL);
-            // Grass is seeded afterwards by the bloom wave below; the rare eye seeds per-block here.
-            BlockPos eye = FogEyeBlock.trySeed(level, pos, level.random);
-            if (eyes != null && eye != null) {
-                eyes.add(eye);
-            }
             placed++;
             for (Direction dir : Direction.Plane.HORIZONTAL) {
                 BlockPos neighbour = pos.relative(dir);
@@ -192,13 +191,9 @@ public final class FogMoss {
                 }
             }
         }
-        // Grass follows the moss as a bloom wave — instant on a revealed chunk, a ripple in play.
+        // Grass -- and, riding along with it, the fog eye (see FoggyGrassBlock#tryPlantFogEye) -- follows
+        // the moss as a bloom wave, instant on a revealed chunk or a ripple in play.
         FoggyGrassWave.bloom(level, seed, placed, instant);
-        if (eyes != null) {
-            for (BlockPos eye : eyes) {
-                FogEyeBlock.simulateGrowth(level, eye);
-            }
-        }
     }
 
     // Find the surface in this column near refY, allowing a one-block step to follow sloping terrain.

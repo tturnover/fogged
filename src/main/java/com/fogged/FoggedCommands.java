@@ -11,6 +11,8 @@ import com.fogged.registry.ModEntities;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,6 +30,10 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code /fogged spawnlurker} (op) -- summon a {@link FogLurker} buried in front of the source.</li>
  *   <li>{@code /fogged fogheight} -- report the current fog surface Y in this dimension.</li>
  *   <li>{@code /fogged depth [player]} -- report how far a player's eyes are below the fog surface.</li>
+ *   <li>{@code /fogged puddle [pos] [instant]} (op) -- debug-trigger a {@link FogMoss} puddle event,
+ *       as if vegetation had wilted there. {@code pos} defaults to the source's own position, so
+ *       {@code /fogged puddle} alone drops one under your feet; {@code instant} fast-forwards it to an
+ *       established state the way a freshly-revealed chunk gets, instead of growing it out over time.</li>
  * </ul>
  */
 @EventBusSubscriber(modid = Fogged.MODID)
@@ -47,7 +53,17 @@ public final class FoggedCommands {
                 .then(Commands.literal("depth")
                         .executes(ctx -> depth(ctx, ctx.getSource().getPlayerOrException()))
                         .then(Commands.argument("player", EntityArgument.player())
-                                .executes(ctx -> depth(ctx, EntityArgument.getPlayer(ctx, "player")))));
+                                .executes(ctx -> depth(ctx, EntityArgument.getPlayer(ctx, "player")))))
+                .then(Commands.literal("puddle")
+                        .requires(src -> src.hasPermission(2))
+                        .executes(ctx -> puddle(ctx, sourceBlockPos(ctx), false))
+                        .then(Commands.literal("instant")
+                                .executes(ctx -> puddle(ctx, sourceBlockPos(ctx), true)))
+                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .executes(ctx -> puddle(ctx, BlockPosArgument.getBlockPos(ctx, "pos"), false))
+                                .then(Commands.literal("instant")
+                                        .executes(ctx -> puddle(ctx,
+                                                BlockPosArgument.getBlockPos(ctx, "pos"), true)))));
         event.getDispatcher().register(fogged);
     }
 
@@ -89,6 +105,27 @@ public final class FoggedCommands {
 
         src.sendSuccess(() -> Component.literal(String.format(
                 "Spawned a fog lurker%s at %.1f %.1f %.1f", noAi ? " (no AI)" : "", x, y, z)), true);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    // Strength of a /fogged puddle debug event: a plain, unscaled reference puddle (FOG_MOSS_STRENGTH_LEAVES
+    // is the same 1.0 vanilla growth already uses for a wilted leaf, so this reads the same size).
+    private static final double DEBUG_PUDDLE_STRENGTH = 1.0;
+
+    private static BlockPos sourceBlockPos(CommandContext<CommandSourceStack> ctx) {
+        return BlockPos.containing(ctx.getSource().getPosition());
+    }
+
+    private static int puddle(CommandContext<CommandSourceStack> ctx, BlockPos pos, boolean instant) {
+        CommandSourceStack src = ctx.getSource();
+        if (!(src.getLevel() instanceof ServerLevel level)) {
+            src.sendFailure(Component.literal("No server level."));
+            return 0;
+        }
+        FogMoss.puddleAt(level, pos, DEBUG_PUDDLE_STRENGTH, instant);
+        src.sendSuccess(() -> Component.literal(String.format(
+                "Triggered a fog-moss puddle at %d %d %d%s",
+                pos.getX(), pos.getY(), pos.getZ(), instant ? " (instant)" : "")), true);
         return Command.SINGLE_SUCCESS;
     }
 

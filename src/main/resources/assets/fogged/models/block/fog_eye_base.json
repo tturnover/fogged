@@ -1,65 +1,233 @@
 {
   "__placeholder": "art to replace -- models + textures",
-  "__comment": "Static base of the fog eye: the bottom slice of vanilla's chorus flower core, the part that meets the stem. The blockstate turns it with FACING so it always points at the stem the eye grew off, but never spins or leans it with the head -- the base has to stay plugged into the plant.",
+  "__comment": "Static base of the fog eye. Thicker than the vanilla chorus core slice it was ported from, and skirted with four low root nubs so it plants into the moss instead of just resting on it. Every element stays inside the block's own 0..16 bounds on purpose -- unlike the free-floating fluff leaf on the rare stem cap, this base sits directly against whatever ground/terrain surrounds it, and geometry poking past the cube risks visibly clipping into that. The blockstate turns it with FACING so it always points at the stem the eye grew off, but never spins or leans it with the head -- the base has to stay plugged into the plant. Own root texture (fog_eye_root), not the stem's -- the ground grip should read differently from the smooth climbing stem.",
   "parent": "minecraft:block/block",
   "textures": {
-    "bottom": "fogged:block/fog_eye_stem",
-    "particle": "fogged:block/fog_eye_stem"
+    "bottom": "fogged:block/fog_eye_root",
+    "particle": "fogged:block/fog_eye_root"
   },
   "elements": [
     {
       "from": [
-        2,
+        1,
         0,
-        2
+        1
       ],
       "to": [
-        14,
-        2,
-        14
+        15,
+        3,
+        15
       ],
       "faces": {
         "down": {
           "uv": [
-            14,
-            14,
-            2,
-            2
+            15,
+            15,
+            1,
+            1
           ],
           "texture": "#bottom"
         },
         "north": {
           "uv": [
-            2,
-            14,
-            14,
+            1,
+            13,
+            15,
             16
           ],
           "texture": "#bottom"
         },
         "south": {
           "uv": [
-            2,
-            14,
-            14,
+            1,
+            13,
+            15,
             16
           ],
           "texture": "#bottom"
         },
         "west": {
           "uv": [
-            2,
-            14,
-            14,
+            1,
+            13,
+            15,
             16
           ],
           "texture": "#bottom"
         },
         "east": {
           "uv": [
-            2,
+            1,
+            13,
+            15,
+            16
+          ],
+          "texture": "#bottom"
+        }
+      }
+    },
+    {
+      "name": "root_nw",
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        3,
+        2,
+        3
+      ],
+      "faces": {
+        "down": {
+          "uv": [
+            3,
+            3,
+            0,
+            0
+          ],
+          "texture": "#bottom"
+        },
+        "north": {
+          "uv": [
+            0,
             14,
+            3,
+            16
+          ],
+          "texture": "#bottom"
+        },
+        "west": {
+          "uv": [
+            0,
             14,
+            3,
+            16
+          ],
+          "texture": "#bottom"
+        }
+      }
+    },
+    {
+      "name": "root_ne",
+      "from": [
+        13,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        2,
+        3
+      ],
+      "faces": {
+        "down": {
+          "uv": [
+            3,
+            3,
+            0,
+            0
+          ],
+          "texture": "#bottom"
+        },
+        "north": {
+          "uv": [
+            0,
+            14,
+            3,
+            16
+          ],
+          "texture": "#bottom"
+        },
+        "east": {
+          "uv": [
+            0,
+            14,
+            3,
+            16
+          ],
+          "texture": "#bottom"
+        }
+      }
+    },
+    {
+      "name": "root_sw",
+      "from": [
+        0,
+        0,
+        13
+      ],
+      "to": [
+        3,
+        2,
+        16
+      ],
+      "faces": {
+        "down": {
+          "uv": [
+            3,
+            3,
+            0,
+            0
+          ],
+          "texture": "#bottom"
+        },
+        "south": {
+          "uv": [
+            0,
+            14,
+            3,
+            16
+          ],
+          "texture": "#bottom"
+        },
+        "west": {
+          "uv": [
+            0,
+            14,
+            3,
+            16
+          ],
+          "texture": "#bottom"
+        }
+      }
+    },
+    {
+      "name": "root_se",
+      "from": [
+        13,
+        0,
+        13
+      ],
+      "to": [
+        16,
+        2,
+        16
+      ],
+      "faces": {
+        "down": {
+          "uv": [
+            3,
+            3,
+            0,
+            0
+          ],
+          "texture": "#bottom"
+        },
+        "south": {
+          "uv": [
+            0,
+            14,
+            3,
+            16
+          ],
+          "texture": "#bottom"
+        },
+        "east": {
+          "uv": [
+            0,
+            14,
+            3,
             16
           ],
           "texture": "#bottom"

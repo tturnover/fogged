@@ -229,10 +229,14 @@ public class ModBlockStateProvider extends BlockStateProvider {
         };
     }
 
-    // Fog eye stem: vanilla's chorus_plant blockstate, block for block. Every face that connects gets
-    // an arm model rotated onto it; every face that does not gets one of four randomised end-cap models
-    // (the plain one at double weight, as vanilla weights it), which is what gives the plant its knobbly
-    // silhouette. The item icon is the authored whole-block model, again as vanilla does it.
+    // Fog eye stem: vanilla's chorus_plant blockstate, block for block. Every face that connects gets an
+    // arm model rotated onto it -- kept singular and unshifted, since a connected face has to meet
+    // whatever the neighbour block picked for its own matching face and the two picks are independent,
+    // so shifting it would risk a gap or overlap where two blocks disagree. The plant's curl comes from
+    // growth instead (see FogEyeBlock's throwArms), not from faking a bend inside one block. Every face
+    // that does not connect gets one of four randomised end-cap models (the plain one at double weight,
+    // as vanilla weights it), which is what gives the plant its knobbly silhouette. The item icon is the
+    // authored whole-block model, again as vanilla does it.
     private void fogEyeStem() {
         ModelFile side = models().getExistingFile(modLoc("block/fog_eye_stem_side"));
         ModelFile[] caps = new ModelFile[STEM_CAPS];
@@ -249,8 +253,6 @@ public class ModBlockStateProvider extends BlockStateProvider {
             builder.part().modelFile(side).rotationX(x).rotationY(y).uvLock(true)
                     .addModel().condition(connected, true).end();
 
-            // nextModel() hands back a fresh builder carrying the ones already configured, so each
-            // cap has to be threaded through it rather than piled onto the same builder.
             var cap = builder.part();
             for (int i = 0; i < STEM_CAPS; i++) {
                 cap = cap.modelFile(caps[i]).rotationX(x).rotationY(y).uvLock(true)
