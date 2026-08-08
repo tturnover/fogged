@@ -1,35 +1,73 @@
 {
-  "__comment": "Placeholder 'for now' filter model: the lower half reuses Create's nozzle net texture as a stub body, with a plain white box capping the upper half. Authored facing UP; the blockstate rotates it per FACING (see ModBlockStateProvider#nozzleFilter).",
-  "textures": {
-    "net": "create:block/net",
-    "white": "fogged:block/puff",
-    "particle": "fogged:block/puff"
-  },
-  "elements": [
-    {
-      "name": "body",
-      "from": [2, 0, 2],
-      "to": [14, 8, 14],
-      "faces": {
-        "north": {"uv": [2, 8, 14, 16], "texture": "#net"},
-        "east":  {"uv": [2, 8, 14, 16], "texture": "#net"},
-        "south": {"uv": [2, 8, 14, 16], "texture": "#net"},
-        "west":  {"uv": [2, 8, 14, 16], "texture": "#net"},
-        "down":  {"uv": [2, 2, 14, 14], "texture": "#net"}
-      }
-    },
-    {
-      "name": "filter",
-      "from": [1, 8, 1],
-      "to": [15, 16, 15],
-      "faces": {
-        "north": {"uv": [1, 0, 15, 8], "texture": "#white"},
-        "east":  {"uv": [1, 0, 15, 8], "texture": "#white"},
-        "south": {"uv": [1, 0, 15, 8], "texture": "#white"},
-        "west":  {"uv": [1, 0, 15, 8], "texture": "#white"},
-        "up":    {"uv": [1, 1, 15, 15], "texture": "#white"},
-        "down":  {"uv": [1, 1, 15, 15], "texture": "#white"}
-      }
-    }
-  ]
+	"format_version": "1.21.11",
+	"credit": "Create's nozzle geometry, copied so the mesh (the two body boxes) can be 2px wider than Create's; #3 mesh texture is wool (overridden per COLOR by the blockstate), rim + particle stay Create's.",
+	"parent": "block/block",
+	"textures": {
+		"3": "block/white_wool",
+		"back": "create:block/gearbox",
+		"particle": "create:block/net"
+	},
+	"elements": [
+		{
+			"name": "body",
+			"from": [0, 0, 0],
+			"to": [16, 14, 16],
+			"faces": {
+				"north": {"uv": [0, 0, 16, 14], "texture": "#3"},
+				"east": {"uv": [0, 0, 16, 14], "texture": "#3"},
+				"south": {"uv": [0, 0, 16, 14], "texture": "#3"},
+				"west": {"uv": [0, 0, 16, 14], "texture": "#3"},
+				"up": {"uv": [0, 0, 16, 16], "texture": "#3"},
+				"down": {"uv": [0, 0, 16, 16], "texture": "#3"}
+			}
+		},
+		{
+			"name": "rim",
+			"from": [1, 13, 1],
+			"to": [15, 15, 3],
+			"faces": {
+				"north": {"uv": [1, 0, 15, 2], "rotation": 180, "texture": "#back"},
+				"east": {"uv": [0, 1, 2, 3], "rotation": 270, "texture": "#back"},
+				"south": {"uv": [1, 2, 15, 4], "texture": "#back"},
+				"west": {"uv": [14, 13, 16, 15], "rotation": 90, "texture": "#back"},
+				"up": {"uv": [1, 13, 15, 15], "rotation": 180, "texture": "#back"},
+				"down": {"uv": [1, 13, 15, 15], "texture": "#back"}
+			}
+		},
+		{
+			"name": "rim",
+			"from": [1, 13, 13],
+			"to": [15, 15, 15],
+			"faces": {
+				"north": {"uv": [1, 4, 15, 2], "rotation": 180, "texture": "#back"},
+				"east": {"uv": [0, 3, 2, 1], "rotation": 270, "texture": "#back"},
+				"south": {"uv": [1, 2, 15, 0], "texture": "#back"},
+				"west": {"uv": [14, 15, 16, 13], "rotation": 90, "texture": "#back"},
+				"up": {"uv": [1, 15, 15, 13], "rotation": 180, "texture": "#back"},
+				"down": {"uv": [1, 15, 15, 13], "texture": "#back"}
+			}
+		},
+		{
+			"name": "rim",
+			"from": [13, 13, 3],
+			"to": [15, 15, 13],
+			"faces": {
+				"east": {"uv": [0, 3, 2, 13], "rotation": 270, "texture": "#back"},
+				"west": {"uv": [2, 3, 4, 13], "rotation": 90, "texture": "#back"},
+				"up": {"uv": [1, 3, 3, 13], "rotation": 180, "texture": "#back"},
+				"down": {"uv": [13, 3, 15, 13], "texture": "#back"}
+			}
+		},
+		{
+			"name": "rim",
+			"from": [1, 13, 3],
+			"to": [3, 15, 13],
+			"faces": {
+				"east": {"uv": [4, 3, 2, 13], "rotation": 270, "texture": "#back"},
+				"west": {"uv": [2, 3, 0, 13], "rotation": 90, "texture": "#back"},
+				"up": {"uv": [3, 3, 1, 13], "rotation": 180, "texture": "#back"},
+				"down": {"uv": [15, 3, 13, 13], "texture": "#back"}
+			}
+		}
+	]
 }

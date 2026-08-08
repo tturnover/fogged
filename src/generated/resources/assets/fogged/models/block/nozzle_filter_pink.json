@@ -1,0 +1,6 @@
+{
+  "parent": "fogged:block/nozzle_filter",
+  "textures": {
+    "3": "minecraft:block/pink_wool"
+  }
+}

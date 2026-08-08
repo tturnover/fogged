@@ -36,7 +36,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
     /** Fan speed (RPM magnitude) at which the sphere saturates at {@link #MAX_RADIUS} -- half of Create's
      *  256 RPM top tier. */
     private static final float FULL_SPEED = 128.0F;
-    /** Above this fan speed the filter overloads: it reverts to a plain nozzle and drops its puff. */
+    /** Above this fan speed the filter overloads: it reverts to a plain nozzle and drops its wool. */
     private static final float OVERLOAD_SPEED = 128.0F;
     /** Recompute cadence. The fan's speed changes rarely, so a coarse interval is plenty. */
     private static final int UPDATE_INTERVAL = 10;
@@ -61,7 +61,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
         CreateCompatibility.FanState fan = CreateCompatibility.attachedFan(level, pos, facing.getOpposite());
 
         if (isBlowing(fan, facing)) {
-            // Fan pushing air out through the filter blows the puff straight off: revert to a nozzle.
+            // Fan pushing air out through the filter blows the wool straight off: revert to a nozzle.
             NozzleFilterEvents.revertToNozzle(level, pos, facing);
             return;
         }
@@ -74,7 +74,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
         }
 
         if (fan.speed() > OVERLOAD_SPEED) {
-            // Too much airflow: the filter blows out, reverting to a plain nozzle and shedding its puff.
+            // Too much airflow: the filter blows out, reverting to a plain nozzle and shedding its wool.
             NozzleFilterEvents.revertToNozzle(level, pos, facing);
             return;
         }

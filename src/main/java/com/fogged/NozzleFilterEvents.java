@@ -2,32 +2,37 @@ package com.fogged;
 
 import com.fogged.block.NozzleFilterBlock;
 import com.fogged.registry.ModBlocks;
-import com.fogged.registry.ModItems;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 /**
  * Turns a {@code create:nozzle} into a {@code fogged:nozzle_filter}: right-click the nozzle while
- * holding at least {@link #REQUIRED} puff balls and the nozzle block is replaced in place (inheriting
- * its facing) and the puff balls consumed. Replacing the block outright -- rather than layering on top
- * -- is deliberate: it drops Create's own nozzle behaviour so the two air sources never conflict.
+ * holding at least {@link #REQUIRED} wool block(s) -- any dye colour, matched by the data-driven
+ * {@code minecraft:wool} item tag -- and the nozzle block is replaced in place (inheriting its facing)
+ * and the wool consumed. The filter remembers the wool's colour ({@link NozzleFilterBlock#COLOR}), so it
+ * both renders in that colour and returns that same wool when broken. Replacing the block outright --
+ * rather than layering on top -- is deliberate: it drops Create's own nozzle behaviour so the two air
+ * sources never conflict.
  *
  * <p>Soft integration only: the nozzle is matched by registry id, so this compiles and runs whether or
  * not Create is installed (with Create absent, no nozzle ever exists and the handler never fires).
@@ -35,8 +40,8 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class NozzleFilterEvents {
 
-    /** Puff balls consumed per conversion. */
-    public static final int REQUIRED = 3;
+    /** Wool blocks consumed per conversion. */
+    public static final int REQUIRED = 1;
 
     private static final ResourceLocation CREATE_NOZZLE =
             ResourceLocation.fromNamespaceAndPath("create", "nozzle");
@@ -47,7 +52,7 @@ public final class NozzleFilterEvents {
             return;
         }
         ItemStack stack = event.getItemStack();
-        if (!stack.is(ModItems.PUFF_BALL.get()) || stack.getCount() < REQUIRED) {
+        if (!stack.is(ItemTags.WOOL) || stack.getCount() < REQUIRED) {
             return;
         }
         Level level = event.getLevel();
@@ -56,10 +61,12 @@ public final class NozzleFilterEvents {
             return;
         }
 
-        // The swap is authoritative, so only the server performs it. The client must NOT cancel here --
-        // cancelling client-side would stop the use packet from ever reaching the server. It just lets
-        // the (no-op) vanilla nozzle interaction proceed; the server-side pass below does the real work.
+        // The swap is authoritative, so only the server performs it. On the client, deny only the held
+        // ITEM's use -- this stops the wool BlockItem from predict-placing a ghost wool block (which would
+        // flicker in until the server resynced the filter) -- without cancelling the event, so the use
+        // packet still reaches the server, where the pass below does the real work.
         if (level.isClientSide) {
+            event.setUseItem(TriState.FALSE);
             return;
         }
 
@@ -69,7 +76,8 @@ public final class NozzleFilterEvents {
 
         Player player = event.getEntity();
         BlockState filter = ModBlocks.NOZZLE_FILTER.get().defaultBlockState()
-                .setValue(NozzleFilterBlock.FACING, nozzleFacing(nozzle));
+                .setValue(NozzleFilterBlock.FACING, nozzleFacing(nozzle))
+                .setValue(NozzleFilterBlock.COLOR, woolColor(stack));
         level.setBlockAndUpdate(event.getPos(), filter);
 
         SoundType sound = filter.getSoundType();
@@ -82,8 +90,8 @@ public final class NozzleFilterEvents {
     }
 
     /**
-     * Breaking a filter returns the {@code create:nozzle} it was made from. The {@link #REQUIRED} puff
-     * balls come back via the block's loot table ({@code ModBlockLoot}); the nozzle is dropped here
+     * Breaking a filter returns the {@code create:nozzle} it was made from. The {@link #REQUIRED} wool
+     * comes back via the block's loot table ({@code ModBlockLoot}); the nozzle is dropped here
      * instead because Create is a soft dependency, so its item can only be resolved by id at runtime.
      * Creative breaks drop nothing (matching how loot tables skip creative), and non-player breaks
      * (explosions) still return the nozzle.
@@ -103,23 +111,6 @@ public final class NozzleFilterEvents {
         dropNozzle(level, event.getPos());
     }
 
-    /**
-     * True when this right-click is a nozzle_filter conversion (aiming at a {@code create:nozzle} with at
-     * least {@link #REQUIRED} puff balls). {@link com.fogged.PuffBallItem#use} yields the click so the
-     * conversion wins over breathing. Mirrors {@link #onRightClickBlock}'s gating.
-     */
-    public static boolean isConversionTarget(Player player, ItemStack stack) {
-        if (!Config.ITEMS_ENABLED.get() || !stack.is(ModItems.PUFF_BALL.get()) || stack.getCount() < REQUIRED) {
-            return false;
-        }
-        HitResult hit = player.pick(player.blockInteractionRange(), 1.0F, false);
-        if (hit.getType() != HitResult.Type.BLOCK) {
-            return false;
-        }
-        BlockState state = player.level().getBlockState(((BlockHitResult) hit).getBlockPos());
-        return CREATE_NOZZLE.equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()));
-    }
-
     /** Drop a single {@code create:nozzle} item at {@code pos} (no-op when Create is absent). */
     public static void dropNozzle(Level level, BlockPos pos) {
         if (level.isClientSide) {
@@ -131,13 +122,17 @@ public final class NozzleFilterEvents {
 
     /**
      * Revert a nozzle filter back into a plain {@code create:nozzle}, keeping {@code facing}, and drop
-     * the {@link #REQUIRED} puff balls that made it. Used when the attached fan spins too fast and the
+     * the {@link #REQUIRED} wool that made it. Used when the attached fan spins too fast and the
      * filter overloads (see {@link com.fogged.block.NozzleFilterBlockEntity}). Server-side only.
      */
     public static void revertToNozzle(Level level, BlockPos pos, Direction facing) {
         if (level.isClientSide) {
             return;
         }
+        // Read the wool colour off the filter before we replace it, so the same wool comes back.
+        BlockState old = level.getBlockState(pos);
+        DyeColor color = old.hasProperty(NozzleFilterBlock.COLOR)
+                ? old.getValue(NozzleFilterBlock.COLOR) : DyeColor.WHITE;
         BreatheSpheres.remove(level, pos);
         Block nozzle = BuiltInRegistries.BLOCK.getOptional(CREATE_NOZZLE).orElse(null);
         if (nozzle == null) {
@@ -146,7 +141,24 @@ public final class NozzleFilterEvents {
         } else {
             level.setBlockAndUpdate(pos, withFacing(nozzle.defaultBlockState(), facing));
         }
-        Block.popResource(level, pos, new ItemStack(ModItems.PUFF_BALL.get(), REQUIRED));
+        Block.popResource(level, pos, new ItemStack(woolItem(color), REQUIRED));
+    }
+
+    /** Dye colour of a wool item, read from its registry path ({@code red_wool} -> RED); white otherwise. */
+    private static DyeColor woolColor(ItemStack stack) {
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        String path = id.getPath();
+        if (path.endsWith("_wool")) {
+            path = path.substring(0, path.length() - "_wool".length());
+        }
+        return DyeColor.byName(path, DyeColor.WHITE);
+    }
+
+    /** The wool item for a dye colour (e.g. RED -> {@code minecraft:red_wool}). */
+    private static Item woolItem(DyeColor color) {
+        return BuiltInRegistries.ITEM.getOptional(
+                ResourceLocation.withDefaultNamespace(color.getSerializedName() + "_wool"))
+                .orElse(Items.WHITE_WOOL);
     }
 
     /** Read the nozzle's {@code facing} generically (no compile dependency on Create's block class). */

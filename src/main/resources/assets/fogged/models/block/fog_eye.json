@@ -1,8 +1,0 @@
-{
-  "__placeholder": "art to replace -- models + textures",
-  "__comment": "The eye open, level with the fog surface and staring out of it.",
-  "parent": "fogged:block/fog_eye_template",
-  "textures": {
-    "texture": "fogged:block/fog_eye"
-  }
-}

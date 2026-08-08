@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:block/cube_all",
-  "textures": {
-    "all": "fogged:block/soft_fog_moss_1"
-  }
-}

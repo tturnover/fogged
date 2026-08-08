@@ -48,16 +48,6 @@ public class BreathHandler {
             return;
         }
 
-        // A puff bush leaf pocket only pauses the clock -- it is a gap in the fog, not a source of air,
-        // so it should not actively refill the bar the way a real breathable zone (above, or a
-        // nozzle-filter sphere) does. Stay on the "can't breathe" branch (so nothing else tries to
-        // regenerate air) but consume none of it.
-        if (PuffLeafAir.isBreathable(player.level(), player.getEyePosition())) {
-            event.setCanBreathe(false);
-            event.setConsumeAirAmount(0);
-            return;
-        }
-
         // Below the dry boundary: drown as if underwater. NeoForge handles the air-bar decrement,
         // drowning damage and bubble particles from here. Respiration gives the vanilla chance to skip
         // the loss this tick; otherwise we drain at the configured rate.

@@ -1,37 +1,71 @@
 {
   "variants": {
-    "facing=east,vertical_direction=down": {
+    "facing=east,lit=false,vertical_direction=down": {
       "model": "fogged:block/fog_detector",
       "x": 180,
       "y": 270
     },
-    "facing=east,vertical_direction=up": {
+    "facing=east,lit=false,vertical_direction=up": {
       "model": "fogged:block/fog_detector",
       "y": 270
     },
-    "facing=north,vertical_direction=down": {
+    "facing=east,lit=true,vertical_direction=down": {
+      "model": "fogged:block/fog_detector_on",
+      "x": 180,
+      "y": 270
+    },
+    "facing=east,lit=true,vertical_direction=up": {
+      "model": "fogged:block/fog_detector_on",
+      "y": 270
+    },
+    "facing=north,lit=false,vertical_direction=down": {
       "model": "fogged:block/fog_detector",
       "x": 180,
       "y": 180
     },
-    "facing=north,vertical_direction=up": {
+    "facing=north,lit=false,vertical_direction=up": {
       "model": "fogged:block/fog_detector",
       "y": 180
     },
-    "facing=south,vertical_direction=down": {
+    "facing=north,lit=true,vertical_direction=down": {
+      "model": "fogged:block/fog_detector_on",
+      "x": 180,
+      "y": 180
+    },
+    "facing=north,lit=true,vertical_direction=up": {
+      "model": "fogged:block/fog_detector_on",
+      "y": 180
+    },
+    "facing=south,lit=false,vertical_direction=down": {
       "model": "fogged:block/fog_detector",
       "x": 180
     },
-    "facing=south,vertical_direction=up": {
+    "facing=south,lit=false,vertical_direction=up": {
       "model": "fogged:block/fog_detector"
     },
-    "facing=west,vertical_direction=down": {
+    "facing=south,lit=true,vertical_direction=down": {
+      "model": "fogged:block/fog_detector_on",
+      "x": 180
+    },
+    "facing=south,lit=true,vertical_direction=up": {
+      "model": "fogged:block/fog_detector_on"
+    },
+    "facing=west,lit=false,vertical_direction=down": {
       "model": "fogged:block/fog_detector",
       "x": 180,
       "y": 90
     },
-    "facing=west,vertical_direction=up": {
+    "facing=west,lit=false,vertical_direction=up": {
       "model": "fogged:block/fog_detector",
+      "y": 90
+    },
+    "facing=west,lit=true,vertical_direction=down": {
+      "model": "fogged:block/fog_detector_on",
+      "x": 180,
+      "y": 90
+    },
+    "facing=west,lit=true,vertical_direction=up": {
+      "model": "fogged:block/fog_detector_on",
       "y": 90
     }
   }

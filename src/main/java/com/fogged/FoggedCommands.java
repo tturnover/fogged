@@ -5,19 +5,12 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import com.fogged.entity.FogLurker;
-import com.fogged.registry.ModEntities;
-
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Mth;
-import net.minecraft.world.entity.MobSpawnType;
-import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -25,7 +18,6 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 /**
  * The {@code /fogged} command tree:
  * <ul>
- *   <li>{@code /fogged spawnlurker} (op) -- summon a {@link FogLurker} buried in front of the source.</li>
  *   <li>{@code /fogged fogheight} -- report the current fog surface Y in this dimension.</li>
  *   <li>{@code /fogged depth [player]} -- report how far a player's eyes are below the fog surface.</li>
  * </ul>
@@ -37,11 +29,6 @@ public final class FoggedCommands {
     @SubscribeEvent
     static void onRegisterCommands(RegisterCommandsEvent event) {
         LiteralArgumentBuilder<CommandSourceStack> fogged = Commands.literal("fogged")
-                .then(Commands.literal("spawnlurker")
-                        .requires(src -> src.hasPermission(2))
-                        .executes(ctx -> spawn(ctx, false))
-                        .then(Commands.literal("noai")
-                                .executes(ctx -> spawn(ctx, true))))
                 .then(Commands.literal("fogheight")
                         .executes(FoggedCommands::fogHeight))
                 .then(Commands.literal("depth")
@@ -49,47 +36,6 @@ public final class FoggedCommands {
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(ctx -> depth(ctx, EntityArgument.getPlayer(ctx, "player")))));
         event.getDispatcher().register(fogged);
-    }
-
-    private static int spawn(CommandContext<CommandSourceStack> ctx, boolean noAi) {
-        CommandSourceStack src = ctx.getSource();
-        if (!(src.getLevel() instanceof ServerLevel level)) {
-            src.sendFailure(Component.literal("No server level."));
-            return 0;
-        }
-
-        // Normally buried a few blocks ahead of the source. The no-AI debug spawn instead drops right at
-        // the source's head (eye level), frozen and laid out straight, so it's right in front of you.
-        Vec3 look = Vec3.directionFromRotation(0.0F, src.getRotation().y);
-        double x, y, z;
-        if (noAi) {
-            x = src.getPosition().x;
-            z = src.getPosition().z;
-            y = src.getEntity() != null ? src.getEntity().getEyeY() : src.getPosition().y + 1.6;
-        } else {
-            x = src.getPosition().x + look.x * 6.0;
-            z = src.getPosition().z + look.z * 6.0;
-            double ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
-            y = Math.min(ground, src.getPosition().y) - FogLurker.BURROW_DEPTH;
-        }
-
-        FogLurker lurker = ModEntities.FOG_LURKER.get().create(level);
-        if (lurker == null) {
-            src.sendFailure(Component.literal("Could not create fog lurker."));
-            return 0;
-        }
-        lurker.moveTo(x, y, z, src.getRotation().y, 0.0F);
-        lurker.finalizeSpawn(level, level.getCurrentDifficultyAt(lurker.blockPosition()),
-                MobSpawnType.COMMAND, null);
-        lurker.setFrozen(noAi);
-        if (noAi) {
-            lurker.setPersistenceRequired(); // keep the debug dummy around even if you wander off
-        }
-        level.addFreshEntity(lurker);
-
-        src.sendSuccess(() -> Component.literal(String.format(
-                "Spawned a fog lurker%s at %.1f %.1f %.1f", noAi ? " (no AI)" : "", x, y, z)), true);
-        return Command.SINGLE_SUCCESS;
     }
 
     private static int fogHeight(CommandContext<CommandSourceStack> ctx) {

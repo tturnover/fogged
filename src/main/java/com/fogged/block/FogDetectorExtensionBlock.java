@@ -34,7 +34,7 @@ public class FogDetectorExtensionBlock extends FogDetectorBlock {
     // Extension model is the single tall antenna (pixels); it rises above the block top (y up to 19),
     // so the shape overhangs the block -- Block.box yields an ArrayVoxelShape for the out-of-cell coords.
     private static final VoxelShape EXTENSION_SHAPE = Shapes.or(
-            Block.box(6.5, 3.0, 4.0, 9.5, 19.0, 12.0));
+            Block.box(6.5, 2.0, 4.0, 9.5, 18.0, 12.0));
 
     public FogDetectorExtensionBlock(Properties properties) {
         super(properties);
@@ -58,11 +58,10 @@ public class FogDetectorExtensionBlock extends FogDetectorBlock {
     }
     // updateShape (pop-off + waterlog) is inherited from FogDetectorBlock and uses this canSurvive.
 
-    // Extensions are not signal sources and carry no block entity (only the base does).
+    // Carries a non-ticking block entity only to supply the dynamic pole's model data; the base drives redstone.
     @Override
-    @Nullable
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return null;
+        return new FogDetectorBlockEntity(pos, state);
     }
 
     @Override

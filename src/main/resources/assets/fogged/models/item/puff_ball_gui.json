@@ -1,7 +1,0 @@
-{
-  "__comment": "Flat inventory icon for the puff ball. PuffBallModel swaps to this only in the GUI display context; every other context uses the 3D item/puff_ball model.",
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "fogged:item/puff_ball_gui"
-  }
-}

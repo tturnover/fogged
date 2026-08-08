@@ -7,7 +7,6 @@ import com.mojang.logging.LogUtils;
 import com.fogged.registry.ModBlockEntities;
 import com.fogged.registry.ModBlocks;
 import com.fogged.registry.ModCreativeTabs;
-import com.fogged.registry.ModEntities;
 import com.fogged.registry.ModItems;
 import com.fogged.registry.ModParticles;
 
@@ -32,7 +31,6 @@ public class Fogged {
         ModItems.register(modEventBus);
         ModCreativeTabs.register(modEventBus);
         ModBlockEntities.register(modEventBus);
-        ModEntities.register(modEventBus);
         ModParticles.register(modEventBus);
 
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us

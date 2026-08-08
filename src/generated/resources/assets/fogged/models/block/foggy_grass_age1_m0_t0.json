@@ -1,6 +1,0 @@
-{
-  "parent": "fogged:block/foggy_grass_age1_m0",
-  "textures": {
-    "0": "fogged:block/foggy_grass_0"
-  }
-}

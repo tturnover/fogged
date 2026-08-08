@@ -5,11 +5,11 @@
 	"render_type": "minecraft:cutout",
 	"ambientocclusion": false,
 	"textures": {
-		"face": "fogged:block/fog_detector_base",
-		"beem": "fogged:block/fog_detector_beem",
+		"face": "fogged:block/fog_detector_base_on",
+		"beem": "fogged:block/fog_detector_beem_on",
 		"log": "minecraft:block/stripped_oak_log",
 		"stone": "minecraft:block/smooth_stone",
-		"torch": "minecraft:block/redstone_torch_off",
+		"torch": "minecraft:block/redstone_torch",
 		"particle": "minecraft:block/stripped_oak_log"
 	},
 	"elements": [

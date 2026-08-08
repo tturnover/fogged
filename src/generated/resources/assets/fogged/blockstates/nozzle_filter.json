@@ -1,28 +1,418 @@
 {
   "variants": {
-    "facing=down": {
-      "model": "fogged:block/nozzle_filter",
+    "color=black,facing=down": {
+      "model": "fogged:block/nozzle_filter_black",
       "x": 180
     },
-    "facing=east": {
-      "model": "fogged:block/nozzle_filter",
+    "color=black,facing=east": {
+      "model": "fogged:block/nozzle_filter_black",
       "x": 90,
       "y": 90
     },
-    "facing=north": {
-      "model": "fogged:block/nozzle_filter",
+    "color=black,facing=north": {
+      "model": "fogged:block/nozzle_filter_black",
       "x": 90
     },
-    "facing=south": {
-      "model": "fogged:block/nozzle_filter",
+    "color=black,facing=south": {
+      "model": "fogged:block/nozzle_filter_black",
       "x": 90,
       "y": 180
     },
-    "facing=up": {
-      "model": "fogged:block/nozzle_filter"
+    "color=black,facing=up": {
+      "model": "fogged:block/nozzle_filter_black"
     },
-    "facing=west": {
-      "model": "fogged:block/nozzle_filter",
+    "color=black,facing=west": {
+      "model": "fogged:block/nozzle_filter_black",
+      "x": 90,
+      "y": 270
+    },
+    "color=blue,facing=down": {
+      "model": "fogged:block/nozzle_filter_blue",
+      "x": 180
+    },
+    "color=blue,facing=east": {
+      "model": "fogged:block/nozzle_filter_blue",
+      "x": 90,
+      "y": 90
+    },
+    "color=blue,facing=north": {
+      "model": "fogged:block/nozzle_filter_blue",
+      "x": 90
+    },
+    "color=blue,facing=south": {
+      "model": "fogged:block/nozzle_filter_blue",
+      "x": 90,
+      "y": 180
+    },
+    "color=blue,facing=up": {
+      "model": "fogged:block/nozzle_filter_blue"
+    },
+    "color=blue,facing=west": {
+      "model": "fogged:block/nozzle_filter_blue",
+      "x": 90,
+      "y": 270
+    },
+    "color=brown,facing=down": {
+      "model": "fogged:block/nozzle_filter_brown",
+      "x": 180
+    },
+    "color=brown,facing=east": {
+      "model": "fogged:block/nozzle_filter_brown",
+      "x": 90,
+      "y": 90
+    },
+    "color=brown,facing=north": {
+      "model": "fogged:block/nozzle_filter_brown",
+      "x": 90
+    },
+    "color=brown,facing=south": {
+      "model": "fogged:block/nozzle_filter_brown",
+      "x": 90,
+      "y": 180
+    },
+    "color=brown,facing=up": {
+      "model": "fogged:block/nozzle_filter_brown"
+    },
+    "color=brown,facing=west": {
+      "model": "fogged:block/nozzle_filter_brown",
+      "x": 90,
+      "y": 270
+    },
+    "color=cyan,facing=down": {
+      "model": "fogged:block/nozzle_filter_cyan",
+      "x": 180
+    },
+    "color=cyan,facing=east": {
+      "model": "fogged:block/nozzle_filter_cyan",
+      "x": 90,
+      "y": 90
+    },
+    "color=cyan,facing=north": {
+      "model": "fogged:block/nozzle_filter_cyan",
+      "x": 90
+    },
+    "color=cyan,facing=south": {
+      "model": "fogged:block/nozzle_filter_cyan",
+      "x": 90,
+      "y": 180
+    },
+    "color=cyan,facing=up": {
+      "model": "fogged:block/nozzle_filter_cyan"
+    },
+    "color=cyan,facing=west": {
+      "model": "fogged:block/nozzle_filter_cyan",
+      "x": 90,
+      "y": 270
+    },
+    "color=gray,facing=down": {
+      "model": "fogged:block/nozzle_filter_gray",
+      "x": 180
+    },
+    "color=gray,facing=east": {
+      "model": "fogged:block/nozzle_filter_gray",
+      "x": 90,
+      "y": 90
+    },
+    "color=gray,facing=north": {
+      "model": "fogged:block/nozzle_filter_gray",
+      "x": 90
+    },
+    "color=gray,facing=south": {
+      "model": "fogged:block/nozzle_filter_gray",
+      "x": 90,
+      "y": 180
+    },
+    "color=gray,facing=up": {
+      "model": "fogged:block/nozzle_filter_gray"
+    },
+    "color=gray,facing=west": {
+      "model": "fogged:block/nozzle_filter_gray",
+      "x": 90,
+      "y": 270
+    },
+    "color=green,facing=down": {
+      "model": "fogged:block/nozzle_filter_green",
+      "x": 180
+    },
+    "color=green,facing=east": {
+      "model": "fogged:block/nozzle_filter_green",
+      "x": 90,
+      "y": 90
+    },
+    "color=green,facing=north": {
+      "model": "fogged:block/nozzle_filter_green",
+      "x": 90
+    },
+    "color=green,facing=south": {
+      "model": "fogged:block/nozzle_filter_green",
+      "x": 90,
+      "y": 180
+    },
+    "color=green,facing=up": {
+      "model": "fogged:block/nozzle_filter_green"
+    },
+    "color=green,facing=west": {
+      "model": "fogged:block/nozzle_filter_green",
+      "x": 90,
+      "y": 270
+    },
+    "color=light_blue,facing=down": {
+      "model": "fogged:block/nozzle_filter_light_blue",
+      "x": 180
+    },
+    "color=light_blue,facing=east": {
+      "model": "fogged:block/nozzle_filter_light_blue",
+      "x": 90,
+      "y": 90
+    },
+    "color=light_blue,facing=north": {
+      "model": "fogged:block/nozzle_filter_light_blue",
+      "x": 90
+    },
+    "color=light_blue,facing=south": {
+      "model": "fogged:block/nozzle_filter_light_blue",
+      "x": 90,
+      "y": 180
+    },
+    "color=light_blue,facing=up": {
+      "model": "fogged:block/nozzle_filter_light_blue"
+    },
+    "color=light_blue,facing=west": {
+      "model": "fogged:block/nozzle_filter_light_blue",
+      "x": 90,
+      "y": 270
+    },
+    "color=light_gray,facing=down": {
+      "model": "fogged:block/nozzle_filter_light_gray",
+      "x": 180
+    },
+    "color=light_gray,facing=east": {
+      "model": "fogged:block/nozzle_filter_light_gray",
+      "x": 90,
+      "y": 90
+    },
+    "color=light_gray,facing=north": {
+      "model": "fogged:block/nozzle_filter_light_gray",
+      "x": 90
+    },
+    "color=light_gray,facing=south": {
+      "model": "fogged:block/nozzle_filter_light_gray",
+      "x": 90,
+      "y": 180
+    },
+    "color=light_gray,facing=up": {
+      "model": "fogged:block/nozzle_filter_light_gray"
+    },
+    "color=light_gray,facing=west": {
+      "model": "fogged:block/nozzle_filter_light_gray",
+      "x": 90,
+      "y": 270
+    },
+    "color=lime,facing=down": {
+      "model": "fogged:block/nozzle_filter_lime",
+      "x": 180
+    },
+    "color=lime,facing=east": {
+      "model": "fogged:block/nozzle_filter_lime",
+      "x": 90,
+      "y": 90
+    },
+    "color=lime,facing=north": {
+      "model": "fogged:block/nozzle_filter_lime",
+      "x": 90
+    },
+    "color=lime,facing=south": {
+      "model": "fogged:block/nozzle_filter_lime",
+      "x": 90,
+      "y": 180
+    },
+    "color=lime,facing=up": {
+      "model": "fogged:block/nozzle_filter_lime"
+    },
+    "color=lime,facing=west": {
+      "model": "fogged:block/nozzle_filter_lime",
+      "x": 90,
+      "y": 270
+    },
+    "color=magenta,facing=down": {
+      "model": "fogged:block/nozzle_filter_magenta",
+      "x": 180
+    },
+    "color=magenta,facing=east": {
+      "model": "fogged:block/nozzle_filter_magenta",
+      "x": 90,
+      "y": 90
+    },
+    "color=magenta,facing=north": {
+      "model": "fogged:block/nozzle_filter_magenta",
+      "x": 90
+    },
+    "color=magenta,facing=south": {
+      "model": "fogged:block/nozzle_filter_magenta",
+      "x": 90,
+      "y": 180
+    },
+    "color=magenta,facing=up": {
+      "model": "fogged:block/nozzle_filter_magenta"
+    },
+    "color=magenta,facing=west": {
+      "model": "fogged:block/nozzle_filter_magenta",
+      "x": 90,
+      "y": 270
+    },
+    "color=orange,facing=down": {
+      "model": "fogged:block/nozzle_filter_orange",
+      "x": 180
+    },
+    "color=orange,facing=east": {
+      "model": "fogged:block/nozzle_filter_orange",
+      "x": 90,
+      "y": 90
+    },
+    "color=orange,facing=north": {
+      "model": "fogged:block/nozzle_filter_orange",
+      "x": 90
+    },
+    "color=orange,facing=south": {
+      "model": "fogged:block/nozzle_filter_orange",
+      "x": 90,
+      "y": 180
+    },
+    "color=orange,facing=up": {
+      "model": "fogged:block/nozzle_filter_orange"
+    },
+    "color=orange,facing=west": {
+      "model": "fogged:block/nozzle_filter_orange",
+      "x": 90,
+      "y": 270
+    },
+    "color=pink,facing=down": {
+      "model": "fogged:block/nozzle_filter_pink",
+      "x": 180
+    },
+    "color=pink,facing=east": {
+      "model": "fogged:block/nozzle_filter_pink",
+      "x": 90,
+      "y": 90
+    },
+    "color=pink,facing=north": {
+      "model": "fogged:block/nozzle_filter_pink",
+      "x": 90
+    },
+    "color=pink,facing=south": {
+      "model": "fogged:block/nozzle_filter_pink",
+      "x": 90,
+      "y": 180
+    },
+    "color=pink,facing=up": {
+      "model": "fogged:block/nozzle_filter_pink"
+    },
+    "color=pink,facing=west": {
+      "model": "fogged:block/nozzle_filter_pink",
+      "x": 90,
+      "y": 270
+    },
+    "color=purple,facing=down": {
+      "model": "fogged:block/nozzle_filter_purple",
+      "x": 180
+    },
+    "color=purple,facing=east": {
+      "model": "fogged:block/nozzle_filter_purple",
+      "x": 90,
+      "y": 90
+    },
+    "color=purple,facing=north": {
+      "model": "fogged:block/nozzle_filter_purple",
+      "x": 90
+    },
+    "color=purple,facing=south": {
+      "model": "fogged:block/nozzle_filter_purple",
+      "x": 90,
+      "y": 180
+    },
+    "color=purple,facing=up": {
+      "model": "fogged:block/nozzle_filter_purple"
+    },
+    "color=purple,facing=west": {
+      "model": "fogged:block/nozzle_filter_purple",
+      "x": 90,
+      "y": 270
+    },
+    "color=red,facing=down": {
+      "model": "fogged:block/nozzle_filter_red",
+      "x": 180
+    },
+    "color=red,facing=east": {
+      "model": "fogged:block/nozzle_filter_red",
+      "x": 90,
+      "y": 90
+    },
+    "color=red,facing=north": {
+      "model": "fogged:block/nozzle_filter_red",
+      "x": 90
+    },
+    "color=red,facing=south": {
+      "model": "fogged:block/nozzle_filter_red",
+      "x": 90,
+      "y": 180
+    },
+    "color=red,facing=up": {
+      "model": "fogged:block/nozzle_filter_red"
+    },
+    "color=red,facing=west": {
+      "model": "fogged:block/nozzle_filter_red",
+      "x": 90,
+      "y": 270
+    },
+    "color=white,facing=down": {
+      "model": "fogged:block/nozzle_filter_white",
+      "x": 180
+    },
+    "color=white,facing=east": {
+      "model": "fogged:block/nozzle_filter_white",
+      "x": 90,
+      "y": 90
+    },
+    "color=white,facing=north": {
+      "model": "fogged:block/nozzle_filter_white",
+      "x": 90
+    },
+    "color=white,facing=south": {
+      "model": "fogged:block/nozzle_filter_white",
+      "x": 90,
+      "y": 180
+    },
+    "color=white,facing=up": {
+      "model": "fogged:block/nozzle_filter_white"
+    },
+    "color=white,facing=west": {
+      "model": "fogged:block/nozzle_filter_white",
+      "x": 90,
+      "y": 270
+    },
+    "color=yellow,facing=down": {
+      "model": "fogged:block/nozzle_filter_yellow",
+      "x": 180
+    },
+    "color=yellow,facing=east": {
+      "model": "fogged:block/nozzle_filter_yellow",
+      "x": 90,
+      "y": 90
+    },
+    "color=yellow,facing=north": {
+      "model": "fogged:block/nozzle_filter_yellow",
+      "x": 90
+    },
+    "color=yellow,facing=south": {
+      "model": "fogged:block/nozzle_filter_yellow",
+      "x": 90,
+      "y": 180
+    },
+    "color=yellow,facing=up": {
+      "model": "fogged:block/nozzle_filter_yellow"
+    },
+    "color=yellow,facing=west": {
+      "model": "fogged:block/nozzle_filter_yellow",
       "x": 90,
       "y": 270
     }

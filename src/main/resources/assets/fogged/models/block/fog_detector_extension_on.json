@@ -5,7 +5,7 @@
 	"ambientocclusion": false,
 	"textures": {
 		"log": "minecraft:block/stripped_oak_log",
-		"beem": "fogged:block/fog_detector_beem",
+		"beem": "fogged:block/fog_detector_beem_on",
 		"particle": "minecraft:block/stripped_oak_log"
 	},
 	"elements": [

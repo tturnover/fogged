@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.fogged.Config;
+import com.fogged.Fogged;
 import com.fogged.PlaneSensor;
 import com.fogged.registry.ModBlockEntities;
 import com.fogged.registry.ModBlocks;
@@ -11,7 +12,13 @@ import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.Item;
+import net.neoforged.neoforge.client.model.data.ModelProperty;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
@@ -62,19 +69,33 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
     public static final MapCodec<FogDetectorBlock> CODEC = simpleCodec(FogDetectorBlock::new);
     public static final DirectionProperty VERTICAL_DIRECTION = BlockStateProperties.VERTICAL_DIRECTION;
     public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
+    /** True while the column is detecting fog (redstone output > 0): lights the base's bulb. */
+    public static final BooleanProperty LIT = BlockStateProperties.LIT;
+
+    /** Items that reskin the column's pole: any stripped log (data-driven tag), like the wool on a filter. */
+    public static final TagKey<Item> STRIPPED_LOGS =
+            TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "stripped_logs"));
+
+    /** Default pole wood when a column is placed / has never been reskinned. */
+    public static final ResourceLocation DEFAULT_LOG =
+            ResourceLocation.withDefaultNamespace("stripped_oak_log");
+
+    /** Model data key carrying the column's chosen stripped-log id to the dynamic pole model (client). */
+    public static final ModelProperty<ResourceLocation> LOG_ID = new ModelProperty<>();
 
     /** Max column length (base + extensions). Capped at 15 so one segment == one redstone level. */
     public static final int MAX_COLUMN = 15;
     /** Max number of extensions that may be stacked above a base detector. */
     public static final int MAX_EXTENSIONS = MAX_COLUMN - 1;
 
-    // Shape follows the model elements (pixels). The tall antenna rises above the block top (y up to
-    // 19), so its VoxelShape overhangs the block: Block.box builds an ArrayVoxelShape for out-of-cell
-    // coords, and the flip/rotate below carry the overhang into the DOWN and yaw-rotated orientations.
+    // Shape follows the model elements (pixels): the base slab and the tall antenna only. The redstone
+    // bulb is decorative (crossed billboard slabs), so it is intentionally left out of the hitbox. The
+    // antenna rises above the block top (y up to 19), so its VoxelShape overhangs the block: Block.box
+    // builds an ArrayVoxelShape for out-of-cell coords, and the flip/rotate below carry the overhang into
+    // the DOWN and yaw-rotated orientations.
     private static final VoxelShape DETECTOR_SHAPE = Shapes.or(
             Block.box(0.0, 0.0, 0.0, 16.0, 2.0, 16.0),
-            Block.box(6.5, 2.0, 4.0, 9.5, 19.0, 12.0),
-            Block.box(2.5, 2.0, 3.0, 6.5, 6.0, 7.0));
+            Block.box(6.5, 2.0, 4.0, 9.5, 18.0, 12.0));
 
     // Per-orientation shape cache (block is a singleton).
     private final Map<Long, VoxelShape> shapeCache = new ConcurrentHashMap<>();
@@ -84,7 +105,8 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
         registerDefaultState(stateDefinition.any()
                 .setValue(FACING, Direction.NORTH)
                 .setValue(VERTICAL_DIRECTION, Direction.UP)
-                .setValue(WATERLOGGED, Boolean.FALSE));
+                .setValue(WATERLOGGED, Boolean.FALSE)
+                .setValue(LIT, Boolean.FALSE)); // starts unlit; the block entity lights it when detecting fog
     }
 
     @Override
@@ -94,7 +116,7 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, VERTICAL_DIRECTION, WATERLOGGED);
+        builder.add(FACING, VERTICAL_DIRECTION, WATERLOGGED, LIT);
     }
 
     @Override
@@ -132,6 +154,22 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
             Player player, InteractionHand hand, BlockHitResult hitResult) {
+        // Right-click any segment with a stripped log (fogged:stripped_logs tag) -> reskin the whole
+        // column's pole to that wood, stored by item key on the base entity. Not consumed.
+        if (!player.isSecondaryUseActive() && stack.is(STRIPPED_LOGS)) {
+            if (!level.isClientSide) {
+                ResourceLocation logId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+                FogDetectorBlockEntity be = baseEntity(level, pos, state);
+                if (be != null && !logId.equals(be.getLogId())) {
+                    be.setLogId(logId);
+                    SoundType sound = state.getSoundType();
+                    level.playSound(null, pos, sound.getPlaceSound(), net.minecraft.sounds.SoundSource.BLOCKS,
+                            (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch());
+                }
+            }
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        }
+
         // Sneak to bypass and place a detector normally instead of extending.
         if (player.isSecondaryUseActive()
                 || !stack.is(ModBlocks.FOG_DETECTOR.get().asItem())) {
@@ -289,6 +327,16 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
     }
 
     // --- Block entity (drives redstone re-evaluation as the fog plane drifts) -----
+
+    /** The block entity on the base of this segment's column (walks down; only the base carries one). */
+    static FogDetectorBlockEntity baseEntity(BlockGetter level, BlockPos pos, BlockState state) {
+        Direction down = state.getValue(VERTICAL_DIRECTION).getOpposite();
+        BlockPos p = pos;
+        while (level.getBlockState(p.relative(down)).getBlock() instanceof FogDetectorBlock) {
+            p = p.relative(down);
+        }
+        return level.getBlockEntity(p) instanceof FogDetectorBlockEntity be ? be : null;
+    }
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {

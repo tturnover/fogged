@@ -3,7 +3,6 @@ package com.fogged.registry;
 import java.util.function.Function;
 
 import com.fogged.Fogged;
-import com.fogged.PuffBallItem;
 
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
@@ -23,18 +22,7 @@ public final class ModItems {
 
     // --- Items --------------------------------------------------------------
     // Add new items below. One line each; datagen produces the model + lang.
-
-    // Debug/test item. It is in the fogged:lurker_ward tag, so holding or wearing it stops the carrier
-    // from provoking a fog lurker -- handy for digging next to one without triggering the attack.
-    public static final DeferredItem<Item> LURKER_DEBUG =
-            register("lurker_debug", Item::new, new Item.Properties());
-
-    // Puff ball: right-click to breathe (refills air to full on a shared cooldown; see PuffBallItem), and
-    // 3 of them convert a create:nozzle into a nozzle_filter. Flat icon in the GUI, 3D in hand, from a
-    // hand-authored model (models/item/puff_ball.json), so datagen skips it (see ModItemModelProvider).
-    // The puff bush's leaves rarely shed one when broken, making the bush a renewable source.
-    public static final DeferredItem<PuffBallItem> PUFF_BALL =
-            register("puff_ball", PuffBallItem::new, new Item.Properties());
+    // (No standalone items at present; every registered item is a BlockItem from ModBlocks.)
 
     // ------------------------------------------------------------------------
 

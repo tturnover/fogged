@@ -5,8 +5,13 @@ import com.fogged.NozzleFilterEvents;
 import com.fogged.registry.ModBlockEntities;
 import com.mojang.serialization.MapCodec;
 
+import java.util.EnumMap;
+import java.util.Map;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
@@ -23,9 +28,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * The block a Create nozzle becomes once 3 puff balls are applied to it (see
+ * The block a Create nozzle becomes once a wool block is applied to it (see
  * {@code com.fogged.NozzleFilterEvents}). It is never placed from an item -- it only ever replaces an
  * in-world {@code create:nozzle}, inheriting that nozzle's {@code FACING} so it points away from the
  * fan it is attached to (the fan therefore sits on the {@code FACING.getOpposite()} side).
@@ -37,10 +46,12 @@ import net.minecraft.world.level.block.state.properties.DirectionProperty;
 public class NozzleFilterBlock extends BaseEntityBlock {
     public static final MapCodec<NozzleFilterBlock> CODEC = simpleCodec(NozzleFilterBlock::new);
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
+    /** The dye colour of the wool the filter was made from; drives both its model and its drop. */
+    public static final EnumProperty<DyeColor> COLOR = EnumProperty.create("color", DyeColor.class);
 
     public NozzleFilterBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.UP));
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.UP).setValue(COLOR, DyeColor.WHITE));
     }
 
     @Override
@@ -50,13 +61,53 @@ public class NozzleFilterBlock extends BaseEntityBlock {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, COLOR);
     }
 
     /** The block carries its own model (BlockBench-style), so render it as a normal model, not a BE renderer. */
     @Override
     protected RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
+    }
+
+    // --- Hitbox: follows Create's nozzle silhouette (body + top flange) instead of a full cube --------
+
+    // The shape for a filter pointing UP (matching the authored model): the 12x14x12 body rising from the
+    // floor, capped by the 14x2x14 flange near the top. Rotated per FACING to match the model's rotations.
+    private static final Map<Direction, VoxelShape> SHAPES = buildShapes();
+
+    private static Map<Direction, VoxelShape> buildShapes() {
+        VoxelShape up = Shapes.or(Block.box(2, 0, 2, 14, 14, 14), Block.box(1, 13, 1, 15, 15, 15));
+        VoxelShape north = rotateX(up); // x:90
+        Map<Direction, VoxelShape> map = new EnumMap<>(Direction.class);
+        map.put(Direction.UP, up);
+        map.put(Direction.DOWN, rotateX(north));            // x:180
+        map.put(Direction.NORTH, north);                    // x:90, y:0
+        map.put(Direction.EAST, rotateY(north));            // x:90, y:90
+        map.put(Direction.SOUTH, rotateY(rotateY(north)));  // x:90, y:180
+        map.put(Direction.WEST, rotateY(rotateY(rotateY(north)))); // x:90, y:270
+        return map;
+    }
+
+    // One 90-degree turn about X, matching a vanilla blockstate x-rotation: (y, z) -> (z, 1 - y).
+    private static VoxelShape rotateX(VoxelShape shape) {
+        VoxelShape[] out = { Shapes.empty() };
+        shape.forAllBoxes((x1, y1, z1, x2, y2, z2) ->
+                out[0] = Shapes.or(out[0], Shapes.box(x1, z1, 1 - y2, x2, z2, 1 - y1)));
+        return out[0];
+    }
+
+    // One 90-degree turn about Y, matching a vanilla blockstate y-rotation: (x, z) -> (1 - z, x).
+    private static VoxelShape rotateY(VoxelShape shape) {
+        VoxelShape[] out = { Shapes.empty() };
+        shape.forAllBoxes((x1, y1, z1, x2, y2, z2) ->
+                out[0] = Shapes.or(out[0], Shapes.box(1 - z2, y1, x1, 1 - z1, y2, x2)));
+        return out[0];
+    }
+
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return SHAPES.getOrDefault(state.getValue(FACING), Shapes.block());
     }
 
     // --- Attachment: the filter rides on its fan, so it pops off if that fan is broken ---------------
@@ -79,7 +130,7 @@ public class NozzleFilterBlock extends BaseEntityBlock {
     protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
             LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
         if (!canSurvive(state, level, pos)) {
-            // Fan gone -> pop off. The puff comes back via the loot table; drop the nozzle here too.
+            // Fan gone -> pop off. The wool comes back via the loot table; drop the nozzle here too.
             if (level instanceof Level lvl) {
                 NozzleFilterEvents.dropNozzle(lvl, pos);
             }

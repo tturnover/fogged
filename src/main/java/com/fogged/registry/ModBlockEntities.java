@@ -18,9 +18,11 @@ public final class ModBlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, Fogged.MODID);
 
+    // Valid for the base and its extensions -- extensions carry a (non-ticking) entity only to supply the
+    // dynamic pole's model data.
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FogDetectorBlockEntity>> FOG_DETECTOR =
             BLOCK_ENTITIES.register("fog_detector", () -> BlockEntityType.Builder
-                    .of(FogDetectorBlockEntity::new, ModBlocks.FOG_DETECTOR.get())
+                    .of(FogDetectorBlockEntity::new, ModBlocks.FOG_DETECTOR.get(), ModBlocks.FOG_DETECTOR_EXTENSION.get())
                     .build(null));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<NozzleFilterBlockEntity>> NOZZLE_FILTER =

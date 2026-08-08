@@ -1,7 +1,0 @@
-{
-  "parent": "minecraft:block/cube_column_horizontal",
-  "textures": {
-    "end": "fogged:block/puff_bush_log_top",
-    "side": "fogged:block/puff_bush_log"
-  }
-}
