@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.fogged.Config;
 import com.fogged.Fogged;
+import com.fogged.NozzleFilterEvents;
 import com.fogged.PlaneSensor;
 import com.fogged.registry.ModBlockEntities;
 import com.fogged.registry.ModBlocks;
@@ -19,6 +20,10 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.client.model.data.ModelProperty;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
@@ -65,6 +70,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * {@link #MAX_EXTENSIONS}. The collision/outline shape is built from the model elements
  * ({@link #DETECTOR_SHAPE}) and rotated to match the blockstate.
  */
+@EventBusSubscriber(modid = Fogged.MODID)
 public class FogDetectorBlock extends HorizontalDirectionalBlock implements SimpleWaterloggedBlock, EntityBlock {
     public static final MapCodec<FogDetectorBlock> CODEC = simpleCodec(FogDetectorBlock::new);
     public static final DirectionProperty VERTICAL_DIRECTION = BlockStateProperties.VERTICAL_DIRECTION;
@@ -79,6 +85,9 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
     /** Default pole wood when a column is placed / has never been reskinned. */
     public static final ResourceLocation DEFAULT_LOG =
             ResourceLocation.withDefaultNamespace("stripped_oak_log");
+
+    private static final ResourceLocation CREATE_WRENCH =
+            ResourceLocation.fromNamespaceAndPath("create", "wrench");
 
     /** Model data key carrying the column's chosen stripped-log id to the dynamic pole model (client). */
     public static final ModelProperty<ResourceLocation> LOG_ID = new ModelProperty<>();
@@ -327,6 +336,44 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
     }
 
     // --- Block entity (drives redstone re-evaluation as the fog plane drifts) -----
+
+    // Sneak + Create wrench -> shrink the column. Handled as an event because a sneaking player holding an
+    // item bypasses the block's useItemOn entirely.
+    @SubscribeEvent
+    static void onWrench(PlayerInteractEvent.RightClickBlock event) {
+        Level level = event.getLevel();
+        BlockState state = level.getBlockState(event.getPos());
+        if (!(state.getBlock() instanceof FogDetectorBlock)) {
+            return;
+        }
+        Player player = event.getEntity();
+        if (!player.isSecondaryUseActive()
+                || !CREATE_WRENCH.equals(BuiltInRegistries.ITEM.getKey(event.getItemStack().getItem()))) {
+            return;
+        }
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+        if (!level.isClientSide) {
+            removeTip(level, event.getPos(), state, player);
+        }
+    }
+
+    // Remove one segment per click: the tip of the column at/above the clicked segment. Repeated clicks
+    // peel the tower down to the clicked point; once nothing is above it, the clicked segment itself goes.
+    private static void removeTip(Level level, BlockPos clicked, BlockState state, Player player) {
+        Direction up = state.getValue(VERTICAL_DIRECTION);
+        BlockPos tip = clicked;
+        while (level.getBlockState(tip.relative(up)).getBlock() instanceof FogDetectorBlock) {
+            tip = tip.relative(up);
+        }
+        level.removeBlock(tip, false);
+        if (!player.getAbilities().instabuild) {
+            NozzleFilterEvents.giveOrDrop(player, new ItemStack(ModBlocks.FOG_DETECTOR.get()));
+        }
+        SoundType sound = state.getSoundType();
+        level.playSound(null, tip, sound.getBreakSound(), net.minecraft.sounds.SoundSource.BLOCKS,
+                (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch());
+    }
 
     /** The block entity on the base of this segment's column (walks down; only the base carries one). */
     static FogDetectorBlockEntity baseEntity(BlockGetter level, BlockPos pos, BlockState state) {

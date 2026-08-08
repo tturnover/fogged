@@ -45,6 +45,8 @@ public final class NozzleFilterEvents {
 
     private static final ResourceLocation CREATE_NOZZLE =
             ResourceLocation.fromNamespaceAndPath("create", "nozzle");
+    private static final ResourceLocation CREATE_WRENCH =
+            ResourceLocation.fromNamespaceAndPath("create", "wrench");
 
     @SubscribeEvent
     static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
@@ -52,11 +54,32 @@ public final class NozzleFilterEvents {
             return;
         }
         ItemStack stack = event.getItemStack();
+        Level level = event.getLevel();
+        BlockPos pos = event.getPos();
+        BlockState clicked = level.getBlockState(pos);
+        Player player = event.getEntity();
+
+        // Sneak + Create wrench on a filter -> revert to a nozzle, wool straight into the inventory.
+        if (clicked.is(ModBlocks.NOZZLE_FILTER.get()) && player.isSecondaryUseActive()
+                && CREATE_WRENCH.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()))) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            if (!level.isClientSide) {
+                Direction facing = clicked.getValue(NozzleFilterBlock.FACING);
+                DyeColor color = clicked.getValue(NozzleFilterBlock.COLOR);
+                revertBlock(level, pos, facing);
+                giveOrDrop(player, new ItemStack(woolItem(color), REQUIRED));
+                SoundType sound = clicked.getSoundType();
+                level.playSound(null, pos, sound.getBreakSound(), SoundSource.BLOCKS,
+                        (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch());
+            }
+            return;
+        }
+
         if (!stack.is(ItemTags.WOOL) || stack.getCount() < REQUIRED) {
             return;
         }
-        Level level = event.getLevel();
-        BlockState nozzle = level.getBlockState(event.getPos());
+        BlockState nozzle = clicked;
         if (!CREATE_NOZZLE.equals(BuiltInRegistries.BLOCK.getKey(nozzle.getBlock()))) {
             return;
         }
@@ -74,7 +97,6 @@ public final class NozzleFilterEvents {
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.SUCCESS);
 
-        Player player = event.getEntity();
         BlockState filter = ModBlocks.NOZZLE_FILTER.get().defaultBlockState()
                 .setValue(NozzleFilterBlock.FACING, nozzleFacing(nozzle))
                 .setValue(NozzleFilterBlock.COLOR, woolColor(stack));
@@ -129,19 +151,29 @@ public final class NozzleFilterEvents {
         if (level.isClientSide) {
             return;
         }
-        // Read the wool colour off the filter before we replace it, so the same wool comes back.
         BlockState old = level.getBlockState(pos);
         DyeColor color = old.hasProperty(NozzleFilterBlock.COLOR)
                 ? old.getValue(NozzleFilterBlock.COLOR) : DyeColor.WHITE;
+        revertBlock(level, pos, facing);
+        Block.popResource(level, pos, new ItemStack(woolItem(color), REQUIRED));
+    }
+
+    /** Swap a filter back to a plain {@code create:nozzle} (keeping facing), clearing its sphere. No wool. */
+    private static void revertBlock(Level level, BlockPos pos, Direction facing) {
         BreatheSpheres.remove(level, pos);
         Block nozzle = BuiltInRegistries.BLOCK.getOptional(CREATE_NOZZLE).orElse(null);
         if (nozzle == null) {
-            // Create not present (shouldn't happen -- the filter only exists with Create): just clear it.
             level.removeBlock(pos, false);
         } else {
             level.setBlockAndUpdate(pos, withFacing(nozzle.defaultBlockState(), facing));
         }
-        Block.popResource(level, pos, new ItemStack(woolItem(color), REQUIRED));
+    }
+
+    /** Add the stack to the player's inventory, dropping any remainder at their feet. */
+    public static void giveOrDrop(Player player, ItemStack stack) {
+        if (!player.getInventory().add(stack)) {
+            player.drop(stack, false);
+        }
     }
 
     /** Dye colour of a wool item, read from its registry path ({@code red_wool} -> RED); white otherwise. */
