@@ -40,12 +40,13 @@ public final class DataGenerators {
         generator.addProvider(event.includeClient(), new ModItemModelProvider(output, exFileHelper));
         generator.addProvider(event.includeClient(), new ModLanguageProvider(output));
 
-        // Server-side data: loot tables.
+        // Server-side data: loot tables, recipes.
         generator.addProvider(event.includeServer(), new LootTableProvider(
                 output,
                 Set.of(),
                 List.of(new LootTableProvider.SubProviderEntry(ModBlockLoot::new, LootContextParamSets.BLOCK)),
                 lookup));
+        generator.addProvider(event.includeServer(), new ModRecipeProvider(output, lookup));
     }
 
     private DataGenerators() {}
