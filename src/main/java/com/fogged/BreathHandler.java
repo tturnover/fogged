@@ -3,6 +3,7 @@ package com.fogged;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectUtil;
 import net.minecraft.world.entity.player.Player;
@@ -52,8 +53,24 @@ public class BreathHandler {
         // drowning damage and bubble particles from here. Respiration gives the vanilla chance to skip
         // the loss this tick; otherwise we drain at the configured rate.
         event.setCanBreathe(false);
-        event.setConsumeAirAmount(skipLossFromRespiration(player) ? 0 : Config.AIR_LOSS_PER_TICK.getAsInt());
+        event.setConsumeAirAmount(skipLossFromRespiration(player) ? 0 : airLoss(player));
     }
+
+    // Air lost this tick: the configured rate scaled by how deep under the boundary the player is.
+    // Air is spent in whole units while the depth factor is continuous, so the leftover fraction is
+    // rolled as a chance for one extra unit -- otherwise small factors would round away to nothing.
+    private static int airLoss(Player player) {
+        double loss = Config.AIR_LOSS_PER_TICK.getAsInt()
+                * Config.depthAirFactor(player.level(), player.getEyeY());
+        int whole = (int) loss;
+        if (player.getRandom().nextDouble() < loss - whole) {
+            whole++;
+        }
+        return Mth.clamp(whole, 0, MAX_AIR);
+    }
+
+    // Vanilla air bar capacity; the per-tick loss is capped there (a full bar in one tick).
+    private static final int MAX_AIR = 300;
 
     // The drowning we induce above uses vanilla's drown damage (so gear/air handling stays vanilla),
     // which would read "drowned". Re-stamp it as our fog suffocation -- but only for a player who is dry

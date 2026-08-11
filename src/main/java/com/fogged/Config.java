@@ -64,6 +64,20 @@ public class Config {
             .comment("Air lost per tick (out of 300) while below the breathing boundary. Higher = drown faster.")
             .defineInRange("airLossPerTick", 1, 1, 300);
 
+    public static final ModConfigSpec.BooleanValue DEPTH_SCALING = BUILDER
+            .comment("Make the murk bite harder the deeper you go: air drains faster and nozzle-filter",
+                    "breathing spheres shrink, both by depthScalingStep. Off = the same everywhere below",
+                    "the boundary.")
+            .define("depthScaling", true);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends Double>> DEPTH_SCALING_STEP = BUILDER
+            .comment("Depth scaling as [depth, percent]: every `depth` blocks below the breathing boundary,",
+                    "air loss goes up by `percent` and the nozzle-filter sphere radius goes down by it.",
+                    "The steps compound (default [10, 5]: -20 blocks = air x1.05^2, radius x0.95^2), and",
+                    "partial steps count, so the change is gradual rather than jumping at each step.")
+            .defineList("depthScalingStep", List.of(10.0, 5.0), () -> 0.0,
+                    o -> o instanceof Number n && n.doubleValue() >= 0.0);
+
     public static final ModConfigSpec.IntValue FOG_DISTANCE = BUILDER
             .comment("Render distance (in blocks) of the thick fog applied while the camera is below the",
                     "breathing boundary. Lower = denser fog / shorter view, like being underwater.")
@@ -228,6 +242,44 @@ public class Config {
     public static boolean fogged(Level level, double y) {
         double fogLine = breathHeight(level) + PLANE_SURFACE_OFFSET + FOG_START_RAISE;
         return (y < fogLine) != FLIP_FOG.getAsBoolean();
+    }
+
+    // --- depth scaling ---
+
+    // How many depthScalingStep steps deep world height y sits below the boundary. 0 at or above the
+    // boundary; fractional, so the scaling below eases in instead of jumping at every step.
+    private static double depthSteps(Level level, double y) {
+        if (!DEPTH_SCALING.get()) {
+            return 0.0;
+        }
+        List<? extends Double> s = DEPTH_SCALING_STEP.get();
+        double step = s.size() > 0 ? s.get(0) : 0.0;
+        if (step <= 0.0) {
+            return 0.0;
+        }
+        double below = breathHeight(level) + PLANE_SURFACE_OFFSET - y;
+        return below <= 0.0 ? 0.0 : below / step;
+    }
+
+    private static double depthPercent() {
+        List<? extends Double> s = DEPTH_SCALING_STEP.get();
+        return s.size() > 1 ? s.get(1) : 0.0;
+    }
+
+    // Air-loss multiplier at world height y: compounds +percent per step of depth.
+    public static double depthAirFactor(Level level, double y) {
+        double steps = depthSteps(level, y);
+        return steps <= 0.0 ? 1.0 : Math.pow(1.0 + depthPercent() / 100.0, steps);
+    }
+
+    // Breathing-sphere radius multiplier at world height y: compounds -percent per step of depth, so a
+    // filter far under the boundary reaches deep enough only for a stub of a sphere (or none at all).
+    public static double depthRadiusFactor(Level level, double y) {
+        double steps = depthSteps(level, y);
+        if (steps <= 0.0) {
+            return 1.0;
+        }
+        return Math.pow(Math.max(0.0, 1.0 - depthPercent() / 100.0), steps);
     }
 
     // Linear interpolation of the day -> height schedule, clamped flat outside the listed range.

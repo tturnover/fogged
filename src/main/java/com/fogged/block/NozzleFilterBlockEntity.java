@@ -79,17 +79,22 @@ public class NozzleFilterBlockEntity extends BlockEntity {
             return;
         }
 
-        double radius = radiusFor(fan.speed());
+        double radius = radiusFor(level, pos, fan.speed());
         be.currentRadius = radius;
         // World-space centre (handles Sable contraptions, whose blocks sit in a far-off plot while their
         // riders are ordinary world-space entities).
         BreatheSpheres.set(level, pos, PlaneSensor.worldCenter(level, pos), radius);
     }
 
-    /** Breathing-sphere radius for a given (sucking) fan speed. */
-    private static double radiusFor(float speed) {
+    /**
+     * Breathing-sphere radius for a given (sucking) fan speed, shrunk by how deep the filter sits under
+     * the boundary (see {@link Config#depthRadiusFactor}). The depth factor applies after the speed
+     * clamp, so a deep filter can fall below {@link #MIN_RADIUS} -- down to no sphere at all.
+     */
+    private static double radiusFor(Level level, BlockPos pos, float speed) {
         double t = Math.min(speed, FULL_SPEED) / FULL_SPEED;
-        return Mth.clamp(MIN_RADIUS + t * (MAX_RADIUS - MIN_RADIUS), MIN_RADIUS, MAX_RADIUS);
+        double radius = Mth.clamp(MIN_RADIUS + t * (MAX_RADIUS - MIN_RADIUS), MIN_RADIUS, MAX_RADIUS);
+        return radius * Config.depthRadiusFactor(level, PlaneSensor.worldY(level, pos));
     }
 
     /**
@@ -163,7 +168,7 @@ public class NozzleFilterBlockEntity extends BlockEntity {
         }
 
         // Trace the sphere edge for any player who has come near it, so the breathable boundary shows.
-        edgeMarkers(level, center, radiusFor(fan.speed()), c, rand);
+        edgeMarkers(level, center, radiusFor(level, pos, fan.speed()), c, rand);
     }
 
     /**
@@ -171,6 +176,9 @@ public class NozzleFilterBlockEntity extends BlockEntity {
      * {@link #EDGE_APPROACH} of the boundary, revealing where the breathable zone ends as they approach.
      */
     private static void edgeMarkers(Level level, Vec3 center, double radius, float[] color, RandomSource rand) {
+        if (radius <= 0.0) {
+            return; // depth scaling collapsed the sphere: nothing to trace
+        }
         ParticleOptions marker = new DustParticleOptions(new Vector3f(color[0], color[1], color[2]), EDGE_SCALE);
         for (Player player : level.players()) {
             Vec3 toPlayer = player.getEyePosition().subtract(center);
