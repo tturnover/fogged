@@ -137,16 +137,22 @@ public class NozzleFilterBlockEntity extends BlockEntity {
      */
     public static void clientTick(Level level, BlockPos pos, BlockState state, NozzleFilterBlockEntity be) {
         if (!Config.ITEMS_ENABLED.get()) {
+            BreatheSpheres.remove(level, pos);
             return;
         }
         Direction facing = state.getValue(NozzleFilterBlock.FACING);
         CreateCompatibility.FanState fan = CreateCompatibility.attachedFan(level, pos, facing.getOpposite());
         if (!isSucking(fan, facing) || fan.speed() > OVERLOAD_SPEED) {
+            BreatheSpheres.remove(level, pos);
             return;
         }
 
         // World-space centre so particles appear on the contraption (not at its far-off Sable plot).
         Vec3 center = PlaneSensor.worldCenter(level, pos);
+        double radius = radiusFor(level, pos, fan.speed());
+        // Mirror the sphere into the client-side registry so each filter's edge can see its neighbours
+        // and skip the parts they already cover (see edgeMarkers).
+        BreatheSpheres.set(level, pos, center, radius);
         // Our POOF-like puff, so it looks and behaves like the nozzle's own particle -- the ONLY
         // difference between over/under the plane is colour: plain white above, foam colour below (so it
         // reads as drawn-in murk). Compare against the true world height.
@@ -168,14 +174,19 @@ public class NozzleFilterBlockEntity extends BlockEntity {
         }
 
         // Trace the sphere edge for any player who has come near it, so the breathable boundary shows.
-        edgeMarkers(level, center, radiusFor(level, pos, fan.speed()), c, rand);
+        edgeMarkers(level, pos, center, radius, c, rand);
     }
 
     /**
      * Dust little marker particles onto the sphere surface in front of each player who is within
      * {@link #EDGE_APPROACH} of the boundary, revealing where the breathable zone ends as they approach.
+     *
+     * <p>Markers that fall inside another filter's sphere are dropped: there the air is still breathable,
+     * so drawing the edge would paint a false wall across the merged zone. Only the outer hull of a
+     * cluster of overlapping filters gets dusted.
      */
-    private static void edgeMarkers(Level level, Vec3 center, double radius, float[] color, RandomSource rand) {
+    private static void edgeMarkers(Level level, BlockPos self, Vec3 center, double radius,
+                                    float[] color, RandomSource rand) {
         if (radius <= 0.0) {
             return; // depth scaling collapsed the sphere: nothing to trace
         }
@@ -195,6 +206,9 @@ public class NozzleFilterBlockEntity extends BlockEntity {
                         (rand.nextDouble() - 0.5) * 0.4,
                         (rand.nextDouble() - 0.5) * 0.4).normalize();
                 Vec3 on = center.add(jittered.scale(radius));
+                if (BreatheSpheres.insideOther(level, self, on)) {
+                    continue; // a neighbouring sphere already covers this spot -- no wall through it
+                }
                 level.addParticle(marker, on.x, on.y, on.z, 0.0, 0.0, 0.0);
             }
         }

@@ -9,7 +9,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Server-side registry of active "breathing spheres" opened by {@code nozzle_filter} blocks. Each
+ * Registry of active "breathing spheres" opened by {@code nozzle_filter} blocks. Each
  * live {@link com.fogged.block.NozzleFilterBlockEntity} publishes its <em>world-space</em> centre and
  * current radius here every tick; {@link BreathHandler} (players) and {@link MobSuppressor} (mobs)
  * consult it so anything inside a sphere breathes normally under the fog instead of drowning.
@@ -21,29 +21,36 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>Spheres are keyed per dimension. The map is tiny in practice (a handful of nozzle filters), so a
  * linear scan per query is cheaper than any spatial index and keeps the lookup allocation-free.
+ *
+ * <p>Each side keeps its own map. The server's drives breathing; the client mirrors it purely so the
+ * particle edge can tell where a neighbouring sphere overlaps ({@link #insideOther}). Sharing one map
+ * would let the two sides -- same dimension key, same positions inside an integrated server -- evict
+ * each other's entries whenever one side has a filter loaded and the other does not.
  */
 public final class BreatheSpheres {
 
     private record Sphere(Vec3 center, double radius) {}
 
-    private static final Map<ResourceKey<Level>, Map<BlockPos, Sphere>> SPHERES = new ConcurrentHashMap<>();
+    private static final Map<ResourceKey<Level>, Map<BlockPos, Sphere>> SERVER = new ConcurrentHashMap<>();
+    private static final Map<ResourceKey<Level>, Map<BlockPos, Sphere>> CLIENT = new ConcurrentHashMap<>();
+
+    private static Map<ResourceKey<Level>, Map<BlockPos, Sphere>> side(Level level) {
+        return level.isClientSide ? CLIENT : SERVER;
+    }
 
     /** Publish/refresh a sphere at a world-space {@code center}. A radius {@code <= 0} removes it. */
     public static void set(Level level, BlockPos pos, Vec3 center, double radius) {
-        if (level.isClientSide) {
-            return;
-        }
         if (radius <= 0.0 || center == null) {
             remove(level, pos);
             return;
         }
-        SPHERES.computeIfAbsent(level.dimension(), k -> new ConcurrentHashMap<>())
+        side(level).computeIfAbsent(level.dimension(), k -> new ConcurrentHashMap<>())
                 .put(pos.immutable(), new Sphere(center, radius));
     }
 
     /** Drop a sphere (block removed / chunk unloaded / fan stopped). */
     public static void remove(Level level, BlockPos pos) {
-        Map<BlockPos, Sphere> dim = SPHERES.get(level.dimension());
+        Map<BlockPos, Sphere> dim = side(level).get(level.dimension());
         if (dim != null) {
             dim.remove(pos.immutable());
         }
@@ -51,11 +58,35 @@ public final class BreatheSpheres {
 
     /** True when {@code point} lies within any active sphere in this level. */
     public static boolean isBreathable(Level level, Vec3 point) {
-        Map<BlockPos, Sphere> dim = SPHERES.get(level.dimension());
+        Map<BlockPos, Sphere> dim = side(level).get(level.dimension());
         if (dim == null || dim.isEmpty()) {
             return false;
         }
         for (Sphere s : dim.values()) {
+            if (point.distanceToSqr(s.center()) <= s.radius() * s.radius()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True when {@code point} lies inside some sphere other than the one published by {@code self}.
+     * Used to hide the edge particles of a sphere where a neighbour already covers that spot: without
+     * it, two overlapping filters draw their edges straight through the shared breathable volume and it
+     * reads as a wall across open air.
+     */
+    public static boolean insideOther(Level level, BlockPos self, Vec3 point) {
+        Map<BlockPos, Sphere> dim = side(level).get(level.dimension());
+        if (dim == null || dim.size() < 2) {
+            return false;
+        }
+        BlockPos key = self.immutable();
+        for (Map.Entry<BlockPos, Sphere> e : dim.entrySet()) {
+            if (e.getKey().equals(key)) {
+                continue;
+            }
+            Sphere s = e.getValue();
             if (point.distanceToSqr(s.center()) <= s.radius() * s.radius()) {
                 return true;
             }
