@@ -1,6 +1,7 @@
 package com.fogged.data;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.fogged.Fogged;
@@ -17,6 +18,12 @@ import net.neoforged.neoforge.common.data.LanguageProvider;
  * from the block (its {@link BlockItem} shares the same translation key), plain items from the item.
  */
 public class ModLanguageProvider extends LanguageProvider {
+
+    // Names that are not just the registry path spelled out -- the filter is sold on what it filters,
+    // not on the Create nozzle it replaces.
+    private static final Map<String, String> NAMES = Map.of(
+            "nozzle_filter", "Fog Filter");
+
     public ModLanguageProvider(PackOutput output) {
         super(output, Fogged.MODID, "en_us");
     }
@@ -37,30 +44,57 @@ public class ModLanguageProvider extends LanguageProvider {
         add("death.attack.fog_suffocation.player", "%1$s drowned in the fog while fleeing %2$s");
 
         ModBlocks.BLOCKS.getEntries()
-                .forEach(holder -> add(holder.get(), titleCase(holder.getId().getPath())));
+                .forEach(holder -> add(holder.get(), name(holder.getId().getPath())));
 
         ModItems.ITEMS.getEntries().forEach(holder -> {
             if (holder.get() instanceof BlockItem) {
                 return; // shares the block's translation key
             }
-            add(holder.get(), titleCase(holder.getId().getPath()));
+            add(holder.get(), name(holder.getId().getPath()));
         });
     }
 
-    /** Config-screen translation keys. Owned here so en_us.json has a single generated source. */
+    /** Config-screen translation keys, one per option in {@link com.fogged.Config}. */
     private void addConfigTranslations() {
         add("itemGroup.fogged", "Fogged");
         add("fogged.configuration.title", "Fogged Configs");
         add("fogged.configuration.section.fogged.common.toml", "Fogged Configs");
         add("fogged.configuration.section.fogged.common.toml.title", "Fogged Configs");
-        add("fogged.configuration.breathHeight", "Breathing Boundary Height");
-        add("fogged.configuration.airLossPerTick", "Air Loss Per Tick");
+
+        add("fogged.configuration.planeHeightSchedule", "Boundary Height Schedule");
+        add("fogged.configuration.planeHeightCycle", "Cycle Height Schedule");
+        add("fogged.configuration.overdayOffset", "Daily Height Offset");
         add("fogged.configuration.fogDistance", "Under-Plane Fog Distance");
+        add("fogged.configuration.flipFog", "Flip Fog Side");
+        add("fogged.configuration.submergeWorld", "Submerge World");
+        add("fogged.configuration.submergeSkip", "Submerge Dead Zone");
+        add("fogged.configuration.snuffedDevices", "Snuffed Devices");
+
+        add("fogged.configuration.playerSuffocation", "Player Suffocation");
+        add("fogged.configuration.airLossPerTick", "Air Loss Per Tick");
+        add("fogged.configuration.depthScaling", "Depth Scaling");
+        add("fogged.configuration.depthScalingStep", "Depth Scaling Step [depth, percent]");
+        add("fogged.configuration.mobSuffocation", "Mob Suffocation");
+        add("fogged.configuration.allowedMobs", "Mobs Allowed Under The Fog");
+        add("fogged.configuration.mobSuffocateDelaySeconds", "Mob Suffocation Delay (seconds)");
+        add("fogged.configuration.mobSuffocateDamage", "Mob Suffocation Damage");
+
         add("fogged.configuration.renderPlane", "Render Separation Plane");
         add("fogged.configuration.planeColor", "Plane Colour (hex RGBA)");
         add("fogged.configuration.foamColor", "Foam Colour (hex RGBA)");
         add("fogged.configuration.foamWidth", "Foam Width");
         add("fogged.configuration.sableFoam", "Sable Sub-Level Foam");
+        add("fogged.configuration.foamDebug", "Foam Debug View");
+        add("fogged.configuration.renderVapor", "Render Cold-Vapour Layer");
+        add("fogged.configuration.vaporColorOffset", "Vapour Colour Offset");
+        add("fogged.configuration.vaporStrength", "Vapour Strength");
+        add("fogged.configuration.vaporSheets", "Vapour Sheets");
+        add("fogged.configuration.vaporUndulation", "Vapour Undulation");
+    }
+
+    /** Display name for a registry path: the listed name if there is one, else the path spelled out. */
+    static String name(String path) {
+        return NAMES.getOrDefault(path, titleCase(path));
     }
 
     private static String titleCase(String path) {

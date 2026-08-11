@@ -22,7 +22,7 @@ import net.neoforged.neoforge.data.event.GatherDataEvent;
  * <ul>
  *   <li>blockstates + block/item models — {@link ModBlockStateProvider}, {@link ModItemModelProvider}</li>
  *   <li>block loot tables — {@link ModBlockLoot}</li>
- *   <li>{@code en_us} lang — {@link ModLanguageProvider}</li>
+ *   <li>{@code en_us} / {@code uk_ua} lang — {@link ModLanguageProvider}, {@link ModLanguageProviderUk}</li>
  * </ul>
  * Run with {@code ./gradlew runData}; output lands in {@code src/generated/resources}.
  */
@@ -39,6 +39,7 @@ public final class DataGenerators {
         generator.addProvider(event.includeClient(), new ModBlockStateProvider(output, exFileHelper));
         generator.addProvider(event.includeClient(), new ModItemModelProvider(output, exFileHelper));
         generator.addProvider(event.includeClient(), new ModLanguageProvider(output));
+        generator.addProvider(event.includeClient(), new ModLanguageProviderUk(output));
 
         // Server-side data: loot tables, recipes.
         generator.addProvider(event.includeServer(), new LootTableProvider(
