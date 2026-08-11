@@ -28,30 +28,18 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 
 /**
- * The fire-burning <em>devices</em> half of the under-fog scour (see {@link FogScour}): furnaces,
- * campfires, blaze burners, balloon burners, portable engines -- whatever {@link Config#SNUFFED_DEVICES}
- * lists. Loose fire is simply removed; a device instead gets drowned so it cannot come back:
+ * The fire-burning <em>devices</em> half of the under-fog scour ({@link FogScour}): whatever
+ * {@link Config#SNUFFED_DEVICES} lists is unlit, its burn timer zeroed and its fuel ejected. Taking the
+ * fuel is the part that makes it stick -- a device left holding any just relights between sweeps.
  *
- * <ol>
- *   <li>the block is unlit -- a {@code lit_} block swapped for its unlit sibling (Create's
- *       {@code lit_blaze_burner} -> {@code blaze_burner}), otherwise {@code lit} / {@code powered}
- *       cleared;</li>
- *   <li>its burn timer is zeroed, so whatever it was still running on is gone;</li>
- *   <li>its fuel is ejected, so the next tick cannot simply relight it. Without this a device just
- *       re-lights between sweeps and keeps working under the murk.</li>
- * </ol>
- *
- * <p>Only vanilla furnaces are touched through real types; every other device is reached by name
- * through reflection, so the mods that own them stay optional and none of them is a build dependency
- * (the same approach as {@link CreateCompatibility}). A device whose mod is missing never matches.
+ * <p>Only vanilla furnaces are touched through real types; everything else is reached by name through
+ * reflection, so the mods owning them stay optional (as in {@link CreateCompatibility}).
  */
 public final class FogSnuff {
     private FogSnuff() {}
 
-    // ---- which blocks count as devices ----
-
-    // Resolved once per config change: matching the id per block would run a registry lookup and a regex
-    // for every block in the scour band, which is by far the hottest loop in the mod.
+    // Resolved once per config change: matching ids per block would run a registry lookup and a regex
+    // for every block in the scour band, the hottest loop in the mod.
     private static List<? extends String> cachedRaw;
     private static Set<Block> devices = Set.of();
 
@@ -78,7 +66,7 @@ public final class FogSnuff {
         devices = found;
     }
 
-    // "simulated:*_portable_engine" -> a regex matching that id shape. Everything but '*' is literal.
+    // "simulated:*_portable_engine" -> a regex for that id shape; everything but '*' is literal.
     private static Pattern glob(String s) {
         StringBuilder sb = new StringBuilder();
         for (String part : s.split("\\*", -1)) {
@@ -96,8 +84,6 @@ public final class FogSnuff {
         return !devices.isEmpty() && devices.contains(state.getBlock());
     }
 
-    // ---- drowning one device ----
-
     /** Unlight a device, zero its burn timer and eject its fuel. */
     public static void snuff(Level level, BlockPos pos, BlockState state) {
         BlockState off = unlit(state);
@@ -111,8 +97,8 @@ public final class FogSnuff {
         }
     }
 
-    // The unlit form of a device's state: the sibling block for a "lit_" block (whose lit-ness is the
-    // block itself, not a property), else the same state with its lit / powered flags cleared.
+    // A "lit_" block carries its lit-ness as the block itself rather than as a property, so it is swapped
+    // for its unlit sibling (create:lit_blaze_burner -> create:blaze_burner) instead of having a flag cleared.
     private static BlockState unlit(BlockState state) {
         ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
         if (id.getPath().startsWith("lit_")) {
@@ -133,8 +119,7 @@ public final class FogSnuff {
         return off;
     }
 
-    // Carry over whatever properties the two blocks share (facing, waterlogging, ...) so swapping the
-    // lit block for its sibling keeps the device pointing the way it was placed.
+    // Keeps facing / waterlogging / ... across the sibling swap.
     private static BlockState copyShared(BlockState from, BlockState to) {
         for (Property<?> property : from.getProperties()) {
             if (to.hasProperty(property)) {
@@ -158,14 +143,12 @@ public final class FogSnuff {
             return douseFurnace(level, pos, furnace);
         }
 
-        // Anything else: a burn timer to zero (fuel burners) and/or a redstone-fed output to cut
-        // (burners driven by a signal rather than by fuel; those then stay down because the murk also
-        // isolates their redstone input -- see isolated).
+        // A burn timer to zero (fuel burners) and/or a redstone-fed output to cut; the latter stay down
+        // because the murk isolates their input too (see isolated).
         boolean burner = zeroInt(be, "setCurrentBurnTime");
         boolean stopped = burner | zeroInt(be, "setSignalStrength");
-        // A fuel burner also has its fuel taken, or it just lights again off the next item. Dropping it
-        // needs an item handler; a device that exposes none has its fuel destroyed instead -- the murk
-        // has to win, and the alternative is a device that never actually goes out.
+        // Dropping the fuel needs an item handler; a device exposing none has it destroyed instead, since
+        // the alternative is a device that never actually goes out.
         if (burner && !dropFuel(level, pos) && be instanceof Clearable clearable) {
             clearable.clearContent();
         }
@@ -175,9 +158,8 @@ public final class FogSnuff {
         return stopped;
     }
 
-    // A furnace keeps its remaining burn time in a private field, but writes it out as "BurnTime", so
-    // the block entity's own save/load is the supported way to clear it. The fuel slot is emptied first
-    // so it is not written back by the round-trip.
+    // litTime is private but is written out as "BurnTime", so the block entity's own save/load is the
+    // supported way to clear it. The fuel slot is emptied first, or the round-trip writes it back.
     private static boolean douseFurnace(Level level, BlockPos pos, AbstractFurnaceBlockEntity furnace) {
         boolean changed = false;
         ItemStack fuel = furnace.getItem(1); // SLOT_FUEL
@@ -198,8 +180,7 @@ public final class FogSnuff {
         return changed;
     }
 
-    // Pull everything out of the device's item handler and drop it at its feet. False when the device
-    // exposes no handler, or the handler refused to hand anything over.
+    // False when the device exposes no handler, or the handler refused to hand anything over.
     private static boolean dropFuel(Level level, BlockPos pos) {
         IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
         if (handler == null) {
@@ -216,13 +197,11 @@ public final class FogSnuff {
         return dropped;
     }
 
-    // ---- redstone isolation ----
-
     /**
-     * True when {@code pos} holds a listed device drowned by the murk, i.e. one whose redstone input the
-     * fog cuts (see {@link com.fogged.mixin.SignalGetterMixin}). A burner fed by a signal rather than by
-     * fuel has nothing to take away, so isolating its input is what keeps it off: it reads no power for
-     * as long as it is under the fog, and picks its old signal back up once the boundary rises past it.
+     * True when {@code pos} holds a listed device whose redstone input the fog cuts (see
+     * {@link com.fogged.mixin.SignalGetterMixin}). A burner fed by a signal rather than by fuel has
+     * nothing to take away, so cutting its input is what keeps it off -- and it picks the signal back up
+     * once the boundary rises past it.
      */
     public static boolean isolated(SignalGetter getter, BlockPos pos) {
         ensureDevices();
@@ -237,11 +216,8 @@ public final class FogSnuff {
         return PlaneSensor.worldY(level, pos) < activeSurfaceY;
     }
 
-    // ---- reflection into third-party devices ----
-
-    // Call a no-frills int setter (setCurrentBurnTime / setSignalStrength) with 0, if the device has one
-    // and is not already at zero. False when there is no such setter -- i.e. this is not that kind of
-    // device.
+    // Calls setCurrentBurnTime / setSignalStrength with 0. False when the device has no such setter,
+    // i.e. it is not that kind of device.
     private static boolean zeroInt(BlockEntity be, String setter) {
         Method set = method(be.getClass(), setter, int.class);
         if (set == null) {
@@ -259,8 +235,8 @@ public final class FogSnuff {
         }
     }
 
-    // Reflection lookups are cached per block-entity class: the scour re-snuffs the same devices every
-    // sweep, and a miss (the common case -- most devices have neither setter) is cached too.
+    // Cached per block-entity class -- the scour re-snuffs the same devices every sweep. Misses (the
+    // common case) are cached too.
     private record MethodKey(Class<?> owner, String name) {}
 
     private static final Map<MethodKey, Method> METHODS = new ConcurrentHashMap<>();

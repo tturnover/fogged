@@ -12,11 +12,10 @@ import net.neoforged.neoforge.common.data.LanguageProvider;
 
 /**
  * Ukrainian ({@code uk_ua}) counterpart of {@link ModLanguageProvider}: same keys, translated strings.
- * Block and item names are looked up in {@link #NAMES} by registry path, so a block added without a
- * Ukrainian name still gets an entry -- it just falls back to its English one until translated.
+ * A block with no {@link #NAMES} entry falls back to its English name rather than going missing.
  *
- * <p>Death lines are phrased so their verb agrees with "туман" rather than with the player, keeping them
- * correct whoever died (Ukrainian past-tense verbs are gendered).
+ * <p>The death lines put their verb on "туман" rather than on the player, so they stay correct whoever
+ * died -- Ukrainian past-tense verbs are gendered.
  */
 public class ModLanguageProviderUk extends LanguageProvider {
 

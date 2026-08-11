@@ -57,9 +57,8 @@ public class BreathHandler {
         event.setConsumeAirAmount(skipLossFromRespiration(player) ? 0 : airLoss(player));
     }
 
-    // Air lost this tick: the configured rate scaled by how deep under the boundary the player is.
     // Air is spent in whole units while the depth factor is continuous, so the leftover fraction is
-    // rolled as a chance for one extra unit -- otherwise small factors would round away to nothing.
+    // rolled as a chance for one extra unit -- otherwise small factors round away to nothing.
     private static int airLoss(Player player) {
         double loss = Config.AIR_LOSS_PER_TICK.getAsInt()
                 * Config.depthAirFactor(player.level(), player.getEyeY());
@@ -70,7 +69,7 @@ public class BreathHandler {
         return Mth.clamp(whole, 0, MAX_AIR);
     }
 
-    // Vanilla air bar capacity; the per-tick loss is capped there (a full bar in one tick).
+    // Vanilla air bar capacity, the cap on one tick's loss.
     private static final int MAX_AIR = 300;
 
     // The drowning we induce above uses vanilla's drown damage (so gear/air handling stays vanilla),

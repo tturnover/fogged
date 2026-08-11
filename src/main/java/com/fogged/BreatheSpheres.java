@@ -22,10 +22,9 @@ import net.minecraft.world.phys.Vec3;
  * <p>Spheres are keyed per dimension. The map is tiny in practice (a handful of nozzle filters), so a
  * linear scan per query is cheaper than any spatial index and keeps the lookup allocation-free.
  *
- * <p>Each side keeps its own map. The server's drives breathing; the client mirrors it purely so the
- * particle edge can tell where a neighbouring sphere overlaps ({@link #insideOther}). Sharing one map
- * would let the two sides -- same dimension key, same positions inside an integrated server -- evict
- * each other's entries whenever one side has a filter loaded and the other does not.
+ * <p>Each side keeps its own map: the server's drives breathing, the client mirrors it only for
+ * {@link #insideOther}. One shared map would let the sides -- same dimension keys and positions inside
+ * an integrated server -- evict each other's entries when only one has a filter loaded.
  */
 public final class BreatheSpheres {
 
@@ -71,10 +70,9 @@ public final class BreatheSpheres {
     }
 
     /**
-     * True when {@code point} lies inside some sphere other than the one published by {@code self}.
-     * Used to hide the edge particles of a sphere where a neighbour already covers that spot: without
-     * it, two overlapping filters draw their edges straight through the shared breathable volume and it
-     * reads as a wall across open air.
+     * True when {@code point} lies inside some sphere other than {@code self}'s. Hides edge particles
+     * where a neighbour already covers the spot -- two overlapping filters otherwise draw their edges
+     * through the shared volume, which reads as a wall across open air.
      */
     public static boolean insideOther(Level level, BlockPos self, Vec3 point) {
         Map<BlockPos, Sphere> dim = side(level).get(level.dimension());
