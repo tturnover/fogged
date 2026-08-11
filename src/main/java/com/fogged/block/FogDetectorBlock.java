@@ -296,9 +296,6 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
      * segment is worth at most one level.
      */
     public static int columnPower(Level level, BlockPos basePos, BlockState baseState) {
-        if (!Config.ITEMS_ENABLED.get()) {
-            return 0; // items master switch off: the detector goes inert.
-        }
         Direction stackDir = baseState.getValue(VERTICAL_DIRECTION);
         double surfaceY = Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET;
         int length = 0;

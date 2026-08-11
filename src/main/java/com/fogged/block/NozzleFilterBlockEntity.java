@@ -51,11 +51,6 @@ public class NozzleFilterBlockEntity extends BlockEntity {
         if ((level.getGameTime() % UPDATE_INTERVAL) != 0L) {
             return;
         }
-        if (!Config.ITEMS_ENABLED.get()) {
-            be.currentRadius = 0.0;
-            BreatheSpheres.remove(level, pos);
-            return;
-        }
         // The nozzle points away from its fan, so the fan sits on the opposite side.
         Direction facing = state.getValue(NozzleFilterBlock.FACING);
         CreateCompatibility.FanState fan = CreateCompatibility.attachedFan(level, pos, facing.getOpposite());
@@ -136,10 +131,6 @@ public class NozzleFilterBlockEntity extends BlockEntity {
      * Silent while the fan is stopped or over the overload threshold (the filter is about to revert).
      */
     public static void clientTick(Level level, BlockPos pos, BlockState state, NozzleFilterBlockEntity be) {
-        if (!Config.ITEMS_ENABLED.get()) {
-            BreatheSpheres.remove(level, pos);
-            return;
-        }
         Direction facing = state.getValue(NozzleFilterBlock.FACING);
         CreateCompatibility.FanState fan = CreateCompatibility.attachedFan(level, pos, facing.getOpposite());
         if (!isSucking(fan, facing) || fan.speed() > OVERLOAD_SPEED) {

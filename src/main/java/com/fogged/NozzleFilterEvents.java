@@ -50,9 +50,6 @@ public final class NozzleFilterEvents {
 
     @SubscribeEvent
     static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
-        if (!Config.ITEMS_ENABLED.get()) {
-            return;
-        }
         ItemStack stack = event.getItemStack();
         Level level = event.getLevel();
         BlockPos pos = event.getPos();

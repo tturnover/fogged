@@ -24,7 +24,7 @@ public class MobSuppressor {
     // Block natural/structure/spawner spawns of non-allowed mobs on the fogged side of the boundary.
     @SubscribeEvent
     static void onFinalizeSpawn(FinalizeSpawnEvent event) {
-        if (!Config.mobSuffocationEnabled()) {
+        if (!Config.MOB_SUFFOCATION.get()) {
             return;
         }
         Mob mob = event.getEntity();
@@ -37,7 +37,7 @@ public class MobSuppressor {
     // Drown out non-allowed mobs that are under the fog: count up while submerged, damage past the delay.
     @SubscribeEvent
     static void onEntityTick(EntityTickEvent.Post event) {
-        if (!Config.mobSuffocationEnabled()) {
+        if (!Config.MOB_SUFFOCATION.get()) {
             return;
         }
         Entity entity = event.getEntity();

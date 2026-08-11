@@ -38,7 +38,8 @@ public class BreathHandler {
         // handles it -- only force the underwater pipeline for a player standing in dry air below the
         // boundary. Touching any of these would wrongly drown a creative/spectator player, cancel a
         // water-breathing potion, or change how real-water drowning behaves.
-        boolean handledElsewhere = player.isCreative()
+        boolean handledElsewhere = !Config.PLAYER_SUFFOCATION.get()
+                || player.isCreative()
                 || player.isSpectator()
                 || player.canBreatheUnderwater()
                 || MobEffectUtil.hasWaterBreathing(player)
@@ -81,8 +82,8 @@ public class BreathHandler {
         if (!(event.getEntity() instanceof Player player)) {
             return;
         }
-        if (!event.getSource().is(DamageTypes.DROWN)) {
-            return;
+        if (!event.getSource().is(DamageTypes.DROWN) || !Config.PLAYER_SUFFOCATION.get()) {
+            return; // not our doing: with player suffocation off we never induce drowning
         }
         Level level = player.level();
         if (player.isEyeInFluid(FluidTags.WATER)

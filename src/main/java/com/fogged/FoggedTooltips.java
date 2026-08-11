@@ -30,9 +30,6 @@ public final class FoggedTooltips {
     // full tooltip -- summary, Ponder hint, advanced lines -- exists, so we can slot in above the Ponder.
     @SubscribeEvent(priority = EventPriority.LOWEST)
     static void onTooltip(ItemTooltipEvent event) {
-        if (!Config.ITEMS_ENABLED.get()) {
-            return;
-        }
         ItemStack stack = event.getItemStack();
         ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
 

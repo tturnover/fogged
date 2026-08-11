@@ -29,16 +29,6 @@ public class Config {
     // static blocks so they run in declaration order, interleaved with the field initializers -- Java
     // runs static initializer blocks and static field initializers top-to-bottom (JLS 12.4.2).
 
-    // ==== [items] : items / devices ====
-    static { BUILDER.push("items"); }
-
-    public static final ModConfigSpec.BooleanValue ITEMS_ENABLED = BUILDER
-            .comment("Master switch for the mod's items/devices (currently the fog detector). Off = the",
-                    "detector emits no redstone signal and is hidden from the creative tab.")
-            .define("itemsEnabled", true);
-
-    static { BUILDER.pop(); }
-
     // ==== [boundary] : underwater-breathing boundary ====
     static { BUILDER.push("boundary"); }
 
@@ -59,24 +49,6 @@ public class Config {
             .comment("Daily height offset added on top of the scheduled height, as [minNoon, maxMidnight].",
                     "It eases from the noon minimum to the midnight maximum and back over the day.")
             .defineList("overdayOffset", List.of(0.0, 4.0), () -> 0.0, o -> o instanceof Number);
-
-    public static final ModConfigSpec.IntValue AIR_LOSS_PER_TICK = BUILDER
-            .comment("Air lost per tick (out of 300) while below the breathing boundary. Higher = drown faster.")
-            .defineInRange("airLossPerTick", 1, 1, 300);
-
-    public static final ModConfigSpec.BooleanValue DEPTH_SCALING = BUILDER
-            .comment("Make the murk bite harder the deeper you go: air drains faster and nozzle-filter",
-                    "breathing spheres shrink, both by depthScalingStep. Off = the same everywhere below",
-                    "the boundary.")
-            .define("depthScaling", true);
-
-    public static final ModConfigSpec.ConfigValue<List<? extends Double>> DEPTH_SCALING_STEP = BUILDER
-            .comment("Depth scaling as [depth, percent]: every `depth` blocks below the breathing boundary,",
-                    "air loss goes up by `percent` and the nozzle-filter sphere radius goes down by it.",
-                    "The steps compound (default [10, 5]: -20 blocks = air x1.05^2, radius x0.95^2), and",
-                    "partial steps count, so the change is gradual rather than jumping at each step.")
-            .defineList("depthScalingStep", List.of(10.0, 5.0), () -> 0.0,
-                    o -> o instanceof Number n && n.doubleValue() >= 0.0);
 
     public static final ModConfigSpec.IntValue FOG_DISTANCE = BUILDER
             .comment("Render distance (in blocks) of the thick fog applied while the camera is below the",
@@ -111,6 +83,59 @@ public class Config {
                     o -> o instanceof String s && !s.isBlank());
 
     static { BUILDER.pop(); }
+
+    // ==== [suffocation] : what the murk does to the things breathing in it, players and mobs alike ====
+    static { BUILDER.push("suffocation"); }
+
+    public static final ModConfigSpec.BooleanValue PLAYER_SUFFOCATION = BUILDER
+            .comment("Whether players drown under the breathing boundary: their air bar drains at",
+                    "airLossPerTick and runs out into drowning damage. Off lets them breathe under the",
+                    "fog freely, leaving only the fog itself. Mobs are unaffected either way.")
+            .define("playerSuffocation", true);
+
+    public static final ModConfigSpec.IntValue AIR_LOSS_PER_TICK = BUILDER
+            .comment("Air a player loses per tick (out of 300) while below the breathing boundary.",
+                    "Higher = drown faster.")
+            .defineInRange("airLossPerTick", 1, 1, 300);
+
+    public static final ModConfigSpec.BooleanValue DEPTH_SCALING = BUILDER
+            .comment("Make the murk bite harder the deeper you go: air drains faster and nozzle-filter",
+                    "breathing spheres shrink, both by depthScalingStep. Off = the same everywhere below",
+                    "the boundary.")
+            .define("depthScaling", true);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends Double>> DEPTH_SCALING_STEP = BUILDER
+            .comment("Depth scaling as [depth, percent]: every `depth` blocks below the breathing boundary,",
+                    "air loss goes up by `percent` and the nozzle-filter sphere radius goes down by it.",
+                    "The steps compound (default [10, 5]: -20 blocks = air x1.05^2, radius x0.95^2), and",
+                    "partial steps count, so the change is gradual rather than jumping at each step.")
+            .defineList("depthScalingStep", List.of(10.0, 5.0), () -> 0.0,
+                    o -> o instanceof Number n && n.doubleValue() >= 0.0);
+
+    public static final ModConfigSpec.BooleanValue MOB_SUFFOCATION = BUILDER
+            .comment("Whether the murk suffocates non-allowed mobs: they cannot spawn on the fogged side",
+                    "and take damage once they have been under it past mobSuffocateDelaySeconds.",
+                    "Off lets any mob live under the fog. Players are unaffected either way.")
+            .define("mobSuffocation", true);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLOWED_MOBS = BUILDER
+            .comment("Entity-type IDs allowed to live under the fog (on the murk side of the boundary).",
+                    "Anything NOT listed cannot spawn there and starts taking damage after",
+                    "mobSuffocateDelaySeconds submerged. IDs may omit the 'minecraft:' namespace.",
+                    "Example: allowedMobs = [\"minecraft:cod\", \"axolotl\", \"guardian\"]")
+            .defineListAllowEmpty("allowedMobs", Config::defaultAllowedMobs, () -> "minecraft:cod",
+                    o -> o instanceof String s && ResourceLocation.tryParse(withNamespace(s)) != null);
+
+    public static final ModConfigSpec.IntValue MOB_SUFFOCATE_DELAY = BUILDER
+            .comment("Seconds a non-allowed mob can stay under the fog before it starts taking damage.")
+            .defineInRange("mobSuffocateDelaySeconds", 5, 0, 600);
+
+    public static final ModConfigSpec.DoubleValue MOB_SUFFOCATE_DAMAGE = BUILDER
+            .comment("Damage dealt to a non-allowed mob each second once it has been under the fog past",
+                    "the delay. 2.0 = one heart per second.")
+            .defineInRange("mobSuffocateDamage", 2.0, 0.0, 1000.0);
+
+    static { BUILDER.pop(); }   // [suffocation]
 
     // ==== [plane] : separation plane (and its cold-vapour layer) ====
     static { BUILDER.push("plane"); }
@@ -177,38 +202,6 @@ public class Config {
 
     static { BUILDER.pop(); }   // [plane.vapor]
     static { BUILDER.pop(); }   // [plane]
-
-    // ==== [mobs] : murk suffocation of non-allowed mobs ====
-    static { BUILDER.push("mobs"); }
-
-    public static final ModConfigSpec.BooleanValue MOBS_ENABLED = BUILDER
-            .comment("Master switch for the mod's mob behaviour: the murk suffocation of non-allowed mobs.",
-                    "Off = non-allowed mobs no longer suffocate under the fog.")
-            .define("mobsEnabled", true);
-
-    public static final ModConfigSpec.BooleanValue MOB_SUFFOCATION_ENABLED = BUILDER
-            .comment("Whether the murk suffocates non-allowed mobs (blocks their spawns and damages them",
-                    "under the fog). Off lets any mob live under the fog. Ignored when mobsEnabled is off.")
-            .define("mobSuffocationEnabled", true);
-
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLOWED_MOBS = BUILDER
-            .comment("Entity-type IDs allowed to live under the fog (on the murk side of the boundary).",
-                    "Anything NOT listed cannot spawn there and starts taking damage after",
-                    "mobSuffocateDelaySeconds submerged. IDs may omit the 'minecraft:' namespace.",
-                    "Example: allowedMobs = [\"minecraft:cod\", \"axolotl\", \"guardian\"]")
-            .defineListAllowEmpty("allowedMobs", Config::defaultAllowedMobs, () -> "minecraft:cod",
-                    o -> o instanceof String s && ResourceLocation.tryParse(withNamespace(s)) != null);
-
-    public static final ModConfigSpec.IntValue MOB_SUFFOCATE_DELAY = BUILDER
-            .comment("Seconds a non-allowed mob can stay under the fog before it starts taking damage.")
-            .defineInRange("mobSuffocateDelaySeconds", 5, 0, 600);
-
-    public static final ModConfigSpec.DoubleValue MOB_SUFFOCATE_DAMAGE = BUILDER
-            .comment("Damage dealt to a non-allowed mob each second once it has been under the fog past",
-                    "the delay. 2.0 = one heart per second.")
-            .defineInRange("mobSuffocateDamage", 2.0, 0.0, 1000.0);
-
-    static { BUILDER.pop(); }   // [mobs]
 
     static final ModConfigSpec SPEC = BUILDER.build();
 
@@ -455,11 +448,6 @@ public class Config {
             return false;
         }
         return id.getNamespace().equals(Fogged.MODID) || allowedMobIds.contains(id);
-    }
-
-    // Whether the murk suffocates non-allowed mobs: needs both the mobs master switch and its own toggle.
-    public static boolean mobSuffocationEnabled() {
-        return MOBS_ENABLED.get() && MOB_SUFFOCATION_ENABLED.get();
     }
 
     // --- hex RGBA helpers ---
