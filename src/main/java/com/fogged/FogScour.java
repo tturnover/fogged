@@ -128,6 +128,11 @@ public final class FogScour {
             level.destroyBlock(pos, true);
             return;
         }
+        // Fire-burning devices (furnaces, campfires, burners, engines) are drowned rather than broken.
+        if (FogSnuff.isDevice(state)) {
+            FogSnuff.snuff(level, pos, state);
+            return;
+        }
 
         // Grass blocks die back to coarse dirt: the sward is the first thing the murk takes, and coarse
         // dirt will not spread or regrow the way plain dirt re-grasses from a lit neighbour.

@@ -101,6 +101,15 @@ public class Config {
                     "from this offset down to the bottom of the world.")
             .defineInRange("submergeSkip", 5, 0, 64);
 
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> SNUFFED_DEVICES = BUILDER
+            .comment("Block ids of fire-burning devices the murk snuffs out along with the loose fires: each",
+                    "is unlit, its burn timer zeroed and any fuel inside it ejected, so it cannot keep",
+                    "running under the fog. '*' matches any run of characters, and the 'minecraft:'",
+                    "namespace may be omitted. Empty list = leave devices burning. Needs submergeWorld.",
+                    "Example: snuffedDevices = [\"furnace\", \"create:lit_blaze_burner\"]")
+            .defineListAllowEmpty("snuffedDevices", Config::defaultSnuffedDevices, () -> "minecraft:furnace",
+                    o -> o instanceof String s && !s.isBlank());
+
     static { BUILDER.pop(); }
 
     // ==== [plane] : separation plane (and its cold-vapour layer) ====
@@ -397,8 +406,22 @@ public class Config {
         return new ArrayList<>(List.of("minecraft:warden"));
     }
 
+    // Devices snuffed under the fog by default: the vanilla fire-burners plus the burners and engines
+    // of the Create-family mods this pack runs with (each entry is simply ignored when its mod is absent).
+    private static List<String> defaultSnuffedDevices() {
+        return new ArrayList<>(List.of(
+                "minecraft:furnace",
+                "minecraft:blast_furnace",
+                "minecraft:smoker",
+                "minecraft:campfire",
+                "minecraft:soul_campfire",
+                "create:lit_blaze_burner",
+                "aeronautics:adjustable_burner",
+                "simulated:*_portable_engine"));
+    }
+
     // A bare "cod" is treated as "minecraft:cod" so the config stays terse.
-    private static String withNamespace(String s) {
+    static String withNamespace(String s) {
         s = s.trim();
         return s.indexOf(':') >= 0 ? s : "minecraft:" + s;
     }
