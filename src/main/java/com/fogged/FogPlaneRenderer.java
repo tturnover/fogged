@@ -10,12 +10,14 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.material.FogType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
@@ -142,11 +144,8 @@ public class FogPlaneRenderer {
             shader.safeGetUniform("WaterlineOrigin").set((float) (WaterlineMap.originX() - ax), (float) (WaterlineMap.originZ() - az));
             shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
             shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
-            // Fade the rim out so the plane never shows past where the world fades away. Above the
-            // boundary that wall is the render distance; below it, the much closer murk fog distance,
-            // so the ceiling and its foam are obscured once out of the fog's reach.
-            float fogFar = Config.FOG_DISTANCE.getAsInt();
-            float fadeEnd = below ? fogFar : mc.options.getEffectiveRenderDistance() * 16.0F;
+            // Fade the rim out so the plane never shows past where the world fades away (visibleReach).
+            float fadeEnd = visibleReach(mc, event.getCamera(), below);
             shader.safeGetUniform("PlaneFadeStart").set(fadeEnd * 0.8F);
             shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
             // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
@@ -208,6 +207,21 @@ public class FogPlaneRenderer {
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();
         RenderSystem.disableBlend();
+    }
+
+    // Distance at which the world fades away on the camera's side, i.e. how far the plane (and the
+    // vapour above it) may reach before it must be gone. Below the boundary that wall is the murk fog;
+    // above it the render distance -- except with the camera in a fluid, where the vanilla scene fog
+    // ends the view much sooner (and closer still in the seconds after diving, while water vision ramps
+    // up). Without that clamp a plane far below the camera stayed a hard, depth-writing sheet across
+    // water the eye reads as empty: submerging over sections that were still rebuilding painted the
+    // whole gap murk, with a straight horizon cut where the plane ran out.
+    static float visibleReach(Minecraft mc, Camera camera, boolean below) {
+        float reach = below ? Config.FOG_DISTANCE.getAsInt() : mc.options.getEffectiveRenderDistance() * 16.0F;
+        if (camera.getFluidInCamera() != FogType.NONE) {
+            reach = Math.min(reach, RenderSystem.getShaderFogEnd());
+        }
+        return reach;
     }
 
     // Fill entityHoleBuf with up to MAX_ENTITY_HOLES dissolve discs for entities near the plane, packed as

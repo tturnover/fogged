@@ -58,8 +58,8 @@ public final class FogVapor {
         double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
         float relY = (float) (surfaceY - cam.y);
         boolean below = (cam.y < surfaceY) != Config.FLIP_FOG.getAsBoolean();
-        // Same fade range the plane uses: the murk distance below the boundary, render distance above.
-        float fogFar = below ? Config.FOG_DISTANCE.getAsInt() : mc.options.getEffectiveRenderDistance() * 16.0F;
+        // Same fade range the plane uses (see FogPlaneRenderer#visibleReach).
+        float fogFar = FogPlaneRenderer.visibleReach(mc, event.getCamera(), below);
 
         // Monotonic clock so the boil never runs backward (see FogShaders#animTimeSeconds).
         double timeSeconds = FogShaders.animTimeSeconds();
