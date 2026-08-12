@@ -14,12 +14,10 @@ import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
-import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.client.model.data.ModelProperty;
+import net.neoforged.neoforge.common.Tags;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -77,10 +75,6 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
     public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
     /** True while the column is detecting fog (redstone output > 0): lights the base's bulb. */
     public static final BooleanProperty LIT = BlockStateProperties.LIT;
-
-    /** Items that reskin the column's pole: any stripped log (data-driven tag), like the wool on a filter. */
-    public static final TagKey<Item> STRIPPED_LOGS =
-            TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "stripped_logs"));
 
     /** Default pole wood when a column is placed / has never been reskinned. */
     public static final ResourceLocation DEFAULT_LOG =
@@ -163,9 +157,9 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
             Player player, InteractionHand hand, BlockHitResult hitResult) {
-        // Right-click any segment with a stripped log (fogged:stripped_logs tag) -> reskin the whole
+        // Right-click any segment with a stripped log (c:stripped_logs) -> reskin the whole
         // column's pole to that wood, stored by item key on the base entity. Not consumed.
-        if (!player.isSecondaryUseActive() && stack.is(STRIPPED_LOGS)) {
+        if (!player.isSecondaryUseActive() && stack.is(Tags.Items.STRIPPED_LOGS)) {
             if (!level.isClientSide) {
                 ResourceLocation logId = BuiltInRegistries.ITEM.getKey(stack.getItem());
                 FogDetectorBlockEntity be = baseEntity(level, pos, state);
