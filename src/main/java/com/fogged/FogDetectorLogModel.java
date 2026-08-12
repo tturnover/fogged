@@ -49,6 +49,16 @@ public class FogDetectorLogModel extends BakedModelWrapper<BakedModel> {
         return cache.computeIfAbsent(key, k -> retexture(quads, logId));
     }
 
+    // Break / hit particles take their sprite from here, so a birch-poled column crumbles birch.
+    @Override
+    public TextureAtlasSprite getParticleIcon(ModelData data) {
+        ResourceLocation logId = data.get(FogDetectorBlock.LOG_ID);
+        if (logId == null || logId.equals(FogDetectorBlock.DEFAULT_LOG)) {
+            return super.getParticleIcon(data);
+        }
+        return sprite(ResourceLocation.fromNamespaceAndPath(logId.getNamespace(), "block/" + logId.getPath()));
+    }
+
     private List<BakedQuad> retexture(List<BakedQuad> quads, ResourceLocation logId) {
         TextureAtlasSprite target = sprite(ResourceLocation.fromNamespaceAndPath(logId.getNamespace(), "block/" + logId.getPath()));
         List<BakedQuad> out = new ArrayList<>(quads.size());

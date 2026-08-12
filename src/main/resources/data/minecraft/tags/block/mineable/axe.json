@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "fogged:fog_detector",
+    "fogged:fog_detector_extension"
+  ]
+}

@@ -39,8 +39,8 @@ public final class ModBlocks {
     public static final DeferredBlock<FogDetectorBlock> FOG_DETECTOR =
             register("fog_detector", FogDetectorBlock::new, BlockBehaviour.Properties.of()
                     .mapColor(MapColor.ICE)
-                    .strength(0.3F)
-                    .sound(SoundType.GLASS)
+                    .strength(2.0F)
+                    .sound(SoundType.WOOD)
                     .lightLevel(state -> state.getValue(FogDetectorBlock.LIT) ? 7 : 0) // bulb glows when detecting
                     .noOcclusion());
 
@@ -48,8 +48,8 @@ public final class ModBlocks {
     public static final DeferredBlock<FogDetectorExtensionBlock> FOG_DETECTOR_EXTENSION =
             registerNoItem("fog_detector_extension", FogDetectorExtensionBlock::new, BlockBehaviour.Properties.of()
                     .mapColor(MapColor.ICE)
-                    .strength(0.3F)
-                    .sound(SoundType.GLASS)
+                    .strength(2.0F)
+                    .sound(SoundType.WOOD)
                     .noOcclusion());
 
     // Nozzle filter: a create:nozzle converted by right-clicking it with a wool block. Not obtainable
