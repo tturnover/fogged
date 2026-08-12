@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -111,9 +112,47 @@ public final class FoggedTooltip {
         return idLine >= 0 ? idLine : tooltip.size();
     }
 
-    // A "Hold [Key] to/for ..." control-hint line (Create's Ponder/Summary prompts and the like).
+    // Matched by their own translated text: keying off the English word "hold" dropped our section below
+    // the Ponder line in every other language ("Утримуйте [W], щоб обдумати" in Ukrainian).
+    private static final String[] HINT_KEYS = {
+            "create.tooltip.holdForDescription",
+            "create.tooltip.holdForControls",
+            "ponder.ui.hold_to_ponder" };
+
+    private static String language = "";
+    private static List<String> prefixes = List.of();
+
+    // A "Hold [Key] to/for ..." control-hint line (Create's Summary/Controls prompts, Ponder's own).
     private static boolean isControlHint(String line) {
+        for (String prefix : hintPrefixes()) {
+            if (line.startsWith(prefix)) {
+                return true;
+            }
+        }
+        // The English shape, which is also how our own prompt reads with Create absent.
         return line.contains("[") && line.toLowerCase().contains("hold");
+    }
+
+    /**
+     * The leading run of each prompt, up to the key placeholder -- what the finished line starts with
+     * whatever key it names. Cached per language: tooltips re-render every frame while hovered.
+     */
+    private static List<String> hintPrefixes() {
+        String selected = Minecraft.getInstance().getLanguageManager().getSelected();
+        if (selected.equals(language)) {
+            return prefixes;
+        }
+        List<String> found = new ArrayList<>();
+        for (String key : HINT_KEYS) {
+            String pattern = Component.translatable(key).getString();
+            int placeholder = pattern.indexOf("%1$s");
+            if (placeholder > 0) { // a missing translation resolves to the bare key: no placeholder
+                found.add(pattern.substring(0, placeholder));
+            }
+        }
+        language = selected;
+        prefixes = found;
+        return prefixes;
     }
 
     private FoggedTooltip() {}
