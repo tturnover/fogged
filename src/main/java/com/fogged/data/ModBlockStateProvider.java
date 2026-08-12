@@ -66,7 +66,9 @@ public class ModBlockStateProvider extends BlockStateProvider {
         for (DyeColor color : DyeColor.values()) {
             ModelFile model = models()
                     .withExistingParent("nozzle_filter_" + color.getSerializedName(), modLoc("block/nozzle_filter"))
-                    .texture("3", mcLoc("block/" + color.getSerializedName() + "_wool"));
+                    .texture("3", mcLoc("block/" + color.getSerializedName() + "_wool"))
+                    // Break / hit particles come off the wool that made the filter, not Create's mesh.
+                    .texture("particle", mcLoc("block/" + color.getSerializedName() + "_wool"));
             for (Direction facing : Direction.values()) {
                 int[] rot = filterRotation(facing);
                 builder.partialState()

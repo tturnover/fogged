@@ -1,6 +1,7 @@
 {
   "parent": "fogged:block/nozzle_filter",
   "textures": {
-    "3": "minecraft:block/black_wool"
+    "3": "minecraft:block/black_wool",
+    "particle": "minecraft:block/black_wool"
   }
 }
