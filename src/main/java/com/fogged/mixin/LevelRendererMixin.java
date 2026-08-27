@@ -1,6 +1,7 @@
 package com.fogged.mixin;
 
 import com.fogged.Config;
+import com.fogged.MixinHealthCheck;
 
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -24,17 +25,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // rendering-replacement mods to do) could rename or restructure any of these methods, and this mod
 // should degrade to "sky/rain/clouds occasionally visible through the fog" rather than fail to load
 // at all. FogModifier's short, dense murk fog is the deliberate visual backstop for that case -- see
-// its comment. MixinHealthCheck does a best-effort check of whether each injector actually ran.
+// its comment. Each injector reports that it ran to MixinHealthCheck.{flag} rather than a field
+// declared here: Mixin merges this class's members directly into LevelRenderer at apply time, and its
+// validator rejects any new non-private static field a mixin tries to add to the target class -- the
+// flags have to live in an ordinary class instead. MixinHealthCheck does a best-effort check of
+// whether each injector actually ran.
 @Mixin(LevelRenderer.class)
 public class LevelRendererMixin {
-
-    // Set unconditionally the moment each injected method actually runs, regardless of whether the
-    // fogged check below ends up cancelling it -- proof the injection applied and the vanilla hook is
-    // still being invoked by whatever renderer is active. Read by MixinHealthCheck.
-    public static volatile boolean skyFired = false;
-    public static volatile boolean weatherFired = false;
-    public static volatile boolean rainTickFired = false;
-    public static volatile boolean cloudsFired = false;
 
     // Skip the whole sky pass (sky gradient, sun, moon, stars) while on the fogged side, so none of it
     // shows through the murk under the plane -- e.g. at the faded plane rim or past its edge. The
@@ -42,7 +39,7 @@ public class LevelRendererMixin {
     @Inject(method = "renderSky", at = @At("HEAD"), cancellable = true, require = 0)
     private void fogged$skipSkyInMurk(Matrix4f frustumMatrix, Matrix4f projectionMatrix, float partialTick,
                                       Camera camera, boolean isFoggy, Runnable skyFogSetup, CallbackInfo ci) {
-        skyFired = true;
+        MixinHealthCheck.skyFired = true;
         Level level = Minecraft.getInstance().level;
         if (level != null && Config.fogged(level, camera.getPosition().y)) {
             ci.cancel();
@@ -52,7 +49,7 @@ public class LevelRendererMixin {
     @Inject(method = "renderSnowAndRain", at = @At("HEAD"), cancellable = true, require = 0)
     private void fogged$skipWeatherInMurk(LightTexture lightTexture, float partialTick,
                                           double camX, double camY, double camZ, CallbackInfo ci) {
-        weatherFired = true;
+        MixinHealthCheck.weatherFired = true;
         Level level = Minecraft.getInstance().level;
         if (level != null && Config.fogged(level, camY)) {
             ci.cancel();
@@ -63,7 +60,7 @@ public class LevelRendererMixin {
     // murk too, otherwise splashes keep popping under the plane even with the weather pass cancelled.
     @Inject(method = "tickRain", at = @At("HEAD"), cancellable = true, require = 0)
     private void fogged$skipRainSplashesInMurk(Camera camera, CallbackInfo ci) {
-        rainTickFired = true;
+        MixinHealthCheck.rainTickFired = true;
         Level level = Minecraft.getInstance().level;
         if (level != null && Config.fogged(level, camera.getPosition().y)) {
             ci.cancel();
@@ -80,7 +77,7 @@ public class LevelRendererMixin {
     // used by BreathHandler/MobSuppressor) rather than reaching for the render camera from a mixin.
     @Inject(method = "renderClouds", at = @At("HEAD"), cancellable = true, require = 0)
     private void fogged$skipCloudsInMurk(CallbackInfo ci) {
-        cloudsFired = true;
+        MixinHealthCheck.cloudsFired = true;
         Minecraft mc = Minecraft.getInstance();
         Level level = mc.level;
         var player = mc.player;

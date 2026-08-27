@@ -16,6 +16,12 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
  * {@code renderClouds} methods degrades silently instead of crashing mod load -- this just surfaces
  * that degradation once, for players/pack maintainers to notice, rather than leaving it invisible.
  *
+ * <p>The fired-flags themselves live here rather than on {@link LevelRendererMixin} because Mixin
+ * merges a mixin class's members directly into its target class at apply time, and rejects any new
+ * non-private static field a mixin tries to add there (a public field would silently become part of
+ * vanilla's {@code LevelRenderer}, which Mixin's validator specifically forbids) -- so the injected
+ * methods report here, into an ordinary class, instead of declaring the flags on themselves.
+ *
  * <p>This CANNOT distinguish "the mixin failed to apply" from "the hook exists but genuinely wasn't
  * reached in the check window" -- e.g. the clouds flag can stay unfired simply because the player's own
  * Clouds option is Off, not because of a renderer conflict. Treat the warning as "worth investigating",
@@ -24,6 +30,14 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public final class MixinHealthCheck {
     private static final int CHECK_AFTER_TICKS = 400; // ~20 seconds
+
+    // Set unconditionally by LevelRendererMixin's injectors the moment each one actually runs,
+    // regardless of whether it goes on to cancel anything -- proof the injection applied and the
+    // vanilla hook is still being invoked by whatever renderer is active.
+    public static volatile boolean skyFired = false;
+    public static volatile boolean weatherFired = false;
+    public static volatile boolean rainTickFired = false;
+    public static volatile boolean cloudsFired = false;
 
     private static int ticks = 0;
     private static boolean checked = false;
@@ -43,10 +57,10 @@ public final class MixinHealthCheck {
         if (!Config.LOG_RENDER_COMPAT_WARNINGS.getAsBoolean()) {
             return;
         }
-        warnIfNotFired("renderSky", LevelRendererMixin.skyFired, "sky suppression under the murk");
-        warnIfNotFired("renderSnowAndRain", LevelRendererMixin.weatherFired, "rain/snow suppression under the murk");
-        warnIfNotFired("tickRain", LevelRendererMixin.rainTickFired, "rain-splash suppression under the murk");
-        warnIfNotFired("renderClouds", LevelRendererMixin.cloudsFired,
+        warnIfNotFired("renderSky", skyFired, "sky suppression under the murk");
+        warnIfNotFired("renderSnowAndRain", weatherFired, "rain/snow suppression under the murk");
+        warnIfNotFired("tickRain", rainTickFired, "rain-splash suppression under the murk");
+        warnIfNotFired("renderClouds", cloudsFired,
                 "cloud suppression under the murk (also stays unfired if your own Clouds option is Off)");
     }
 
