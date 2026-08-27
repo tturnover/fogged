@@ -17,6 +17,9 @@ public class FogShaders {
     // Set once the shaders have loaded; read by FogPlaneRenderer / FogVapor. Null until loaded.
     public static ShaderInstance FOG_PLANE;
     public static ShaderInstance FOG_VAPOR;
+    // Copies the main render target's depth by sampling it (see SceneDepth) instead of glBlitFramebuffer,
+    // so it never depends on the source/destination depth formats matching.
+    public static ShaderInstance DEPTH_COPY;
 
     // Monotonic wall clock for the surface boil. The game's per-frame partial tick can slip backward
     // between frames (esp. at uncapped FPS), which made the time-driven noise morph run forward then
@@ -40,5 +43,10 @@ public class FogShaders {
                         ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "fog_vapor"),
                         DefaultVertexFormat.POSITION_COLOR),
                 shader -> FOG_VAPOR = shader);
+        event.registerShader(
+                new ShaderInstance(event.getResourceProvider(),
+                        ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "depth_copy"),
+                        DefaultVertexFormat.POSITION),
+                shader -> DEPTH_COPY = shader);
     }
 }

@@ -20,7 +20,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 // A world-aligned "distance to the nearest waterline" map, centred on the camera. The grid is stored
-// at CELLS_PER_BLOCK cells per block (sub-block resolution) so the foam contour is crisp on the
+// at cellsPerBlock cells per block (sub-block resolution) so the foam contour is crisp on the
 // pixel grid. Each cell's red channel stores the distance (normalised by MAX_DIST blocks) to the
 // nearest solid block / boundary-crossing entity. The plane shader samples this to draw foam as a
 // stable ring on the water -- world-space, so it never cuts off with view angle.
@@ -33,8 +33,13 @@ import net.minecraft.world.phys.Vec3;
 public final class WaterlineMap {
 
     public static final float MAX_DIST = 8.0F;       // distances are clamped/stored up to this many blocks
-    public static final int CELLS_PER_BLOCK = 4;     // sub-block grid resolution (crisp foam contour)
     private static final int RECOMPUTE_INTERVAL = 5;  // ticks between full target rebuilds (also on move)
+    // The block-state reseed scan (recompute's O(size^2) part) is spread one x-stripe per tick instead
+    // of bursting the whole grid at once -- same idiom as FogScour's per-tick sweep. Equal to
+    // RECOMPUTE_INTERVAL so a full stripe cycle finishes exactly as the next chamfer below is due: the
+    // data chamfer consumes is always as fresh as if the whole grid had been rescanned in one go, just
+    // spread across the same window instead of bursted into a single tick.
+    private static final int RESEED_STRIPES = RECOMPUTE_INTERVAL;
     private static final float EASE_CELLS_PER_TICK = 0.25F; // how fast shown[] chases target[] (foam ramp)
     private static final int MIN_SIZE = 48;           // clamp the simulation-distance-driven block edge
     private static final int MAX_SIZE = 192;
@@ -49,7 +54,8 @@ public final class WaterlineMap {
 
     private static DynamicTexture texture;
     private static int size = 0;          // current block edge length of the map
-    private static int cells = 0;         // texel/cell edge length = size * CELLS_PER_BLOCK
+    private static int cellsPerBlock = 4; // sub-block grid resolution; see Config.WATERLINE_CELLS_PER_BLOCK
+    private static int cells = 0;         // texel/cell edge length = size * cellsPerBlock
     // Two independent foam fields so full-strength (solid/entity) foam and half-strength plant foam
     // form separately and never override one another -- they are combined by max in the shader.
     private static float[] target = new float[0];   // distance to nearest solid block / entity
@@ -74,6 +80,12 @@ public final class WaterlineMap {
         return size;
     }
 
+    // Current sub-block grid resolution (cells per block); read by the plane/vapour shaders' pixel-snap
+    // uniforms so their pixelation always matches the map's actual resolution (see Config.WATERLINE_CELLS_PER_BLOCK).
+    public static int cellsPerBlock() {
+        return cellsPerBlock;
+    }
+
     public static float originX() {
         return originX;
     }
@@ -86,8 +98,9 @@ public final class WaterlineMap {
     // eases the shown field toward it once per tick, and sprinkles foam particles.
     public static void update(Level level, Vec3 camPos, int boundaryY, int mapBlocks) {
         int want = Mth.clamp(mapBlocks, MIN_SIZE, MAX_SIZE);
-        if (texture == null || want != size) {
-            rebuild(want);
+        int wantC = Mth.clamp(Config.WATERLINE_CELLS_PER_BLOCK.getAsInt(), 1, 4);
+        if (texture == null || want != size || wantC != cellsPerBlock) {
+            rebuild(want, wantC);
         }
 
         int cx = Mth.floor(camPos.x) - size / 2;
@@ -101,8 +114,8 @@ public final class WaterlineMap {
         // them. The newly exposed edge strip reads as "far water" until that next recompute (<= a few
         // ticks), which the foam ease already hides at the map's outer rim.
         if (originMoved) {
-            int dx = (cx - originX) * CELLS_PER_BLOCK;
-            int dz = (cz - originZ) * CELLS_PER_BLOCK;
+            int dx = (cx - originX) * cellsPerBlock;
+            int dz = (cz - originZ) * cellsPerBlock;
             shiftField(shown, dx, dz);
             shiftField(shownP, dx, dz);
             shiftField(target, dx, dz);
@@ -111,16 +124,27 @@ public final class WaterlineMap {
             originZ = cz;
         }
 
+        boolean newTick = tick != lastTick;
         boolean recomputed = false;
-        if (boundaryY != lastBoundaryY || tick - lastRecomputeTick >= RECOMPUTE_INTERVAL) {
+
+        if (boundaryY != lastBoundaryY) {
+            // Rare event (the day/schedule moved the breathing boundary): reseed the whole grid right
+            // now instead of waiting out a multi-tick stripe cycle, so foam doesn't lag a stale height.
             lastBoundaryY = boundaryY;
             lastRecomputeTick = tick;
-            recompute(level, boundaryY);
-            recomputed = true; // foam distances were resampled -> re-upload even if the origin didn't move
+            reseedAll(level, boundaryY);
+            finishRecompute(level, boundaryY);
+            recomputed = true;
+        } else if (newTick) {
+            reseedStripe(level, boundaryY, (int) (tick % RESEED_STRIPES));
+            if (tick - lastRecomputeTick >= RECOMPUTE_INTERVAL) {
+                lastRecomputeTick = tick;
+                finishRecompute(level, boundaryY);
+                recomputed = true;
+            }
         }
 
         // Ease + re-upload at most once per tick (bounded cost), or immediately after a re-centre.
-        boolean newTick = tick != lastTick;
         if (newTick || originMoved) {
             long elapsed = lastTick == Long.MIN_VALUE ? 1 : Math.max(1, tick - lastTick);
             float step = EASE_CELLS_PER_TICK * elapsed;
@@ -136,31 +160,68 @@ public final class WaterlineMap {
         }
     }
 
-    private static void recompute(Level level, int boundaryY) {
-        final int C = CELLS_PER_BLOCK;
+    // Reseed one x-stripe of the block-state fields this tick (the O(size^2) part of recompute, spread
+    // across RESEED_STRIPES ticks -- see the field comment on RESEED_STRIPES). Solids and flowing water
+    // (currents, falls) seed the full field; plants the plant field. Still water (source) and air are
+    // left as open surface so foam has somewhere to fade into.
+    private static void reseedStripe(Level level, int boundaryY, int phase) {
+        int stripe = (size + RESEED_STRIPES - 1) / RESEED_STRIPES;
+        int bx0 = phase * stripe;
+        if (bx0 >= size) {
+            return;
+        }
+        int bx1 = Math.min(size, bx0 + stripe);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-
-        java.util.Arrays.fill(target, INF);
-        java.util.Arrays.fill(targetP, INF);
-
-        // Seed the two fields independently. Solids and flowing water (currents, falls) seed the full
-        // field; plants the plant field. Still water (source) and air are left as open surface so foam
-        // has somewhere to fade into.
         for (int bz = 0; bz < size; bz++) {
-            for (int bx = 0; bx < size; bx++) {
-                pos.set(originX + bx, boundaryY, originZ + bz);
-                BlockState state = level.getBlockState(pos);
-                var fluid = state.getFluidState();
-                boolean solid = state.blocksMotion();
-                boolean flowing = !fluid.isEmpty() && !fluid.isSource();
-                boolean plant = !solid && fluid.isEmpty() && !state.isAir();
-                if (solid || flowing) {
-                    stampCells(target, bx * C, bz * C, bx * C + C - 1, bz * C + C - 1);
-                } else if (plant) {
-                    stampCells(targetP, bx * C, bz * C, bx * C + C - 1, bz * C + C - 1);
-                }
+            for (int bx = bx0; bx < bx1; bx++) {
+                reseedColumn(level, pos, boundaryY, bx, bz);
             }
         }
+    }
+
+    // Reseed the whole block-state field in one pass (used only on a boundary-height change, a rare
+    // one-off event -- see update()). Equivalent to running every reseedStripe() phase back to back.
+    private static void reseedAll(Level level, int boundaryY) {
+        java.util.Arrays.fill(target, INF);
+        java.util.Arrays.fill(targetP, INF);
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (int bz = 0; bz < size; bz++) {
+            for (int bx = 0; bx < size; bx++) {
+                reseedColumn(level, pos, boundaryY, bx, bz);
+            }
+        }
+    }
+
+    // Reseed one block column's cells from its current block state. Clears the column's own cells first
+    // (rather than relying on a prior full-array clear), so a striped reseed only ever touches the
+    // columns it is actually re-scanning this call.
+    private static void reseedColumn(Level level, BlockPos.MutableBlockPos pos, int boundaryY, int bx, int bz) {
+        final int C = cellsPerBlock;
+        int x0 = bx * C;
+        int z0 = bz * C;
+        int x1 = x0 + C - 1;
+        int z1 = z0 + C - 1;
+        fillCells(target, x0, z0, x1, z1, INF);
+        fillCells(targetP, x0, z0, x1, z1, INF);
+
+        pos.set(originX + bx, boundaryY, originZ + bz);
+        BlockState state = level.getBlockState(pos);
+        var fluid = state.getFluidState();
+        boolean solid = state.blocksMotion();
+        boolean flowing = !fluid.isEmpty() && !fluid.isSource();
+        boolean plant = !solid && fluid.isEmpty() && !state.isAir();
+        if (solid || flowing) {
+            fillCells(target, x0, z0, x1, z1, 0.0F);
+        } else if (plant) {
+            fillCells(targetP, x0, z0, x1, z1, 0.0F);
+        }
+    }
+
+    // Entity + Sable sub-level stamping (bounded queries, not the O(size^2) cost reseedStripe/reseedAll
+    // spread out) followed by the chamfer distance transform. Always runs immediately after a full
+    // reseed cycle has completed (see update()), so it always operates on fully fresh block-state data.
+    private static void finishRecompute(Level level, int boundaryY) {
+        final int C = cellsPerBlock;
 
         // Entities whose bounding box straddles the boundary seed the full field (foam rings them).
         AABB area = new AABB(originX, boundaryY - 2.0, originZ, originX + size, boundaryY + 2.0, originZ + size);
@@ -171,7 +232,7 @@ public final class WaterlineMap {
             int x1 = Mth.floor((b.maxX - originX) * C);
             int z0 = Mth.floor((b.minZ - originZ) * C);
             int z1 = Mth.floor((b.maxZ - originZ) * C);
-            stampCells(target, x0, z0, x1, z1);
+            fillCells(target, x0, z0, x1, z1, 0.0F);
         }
 
         // Sable sub-levels (ships / contraptions) that cross the boundary also seed the full field.
@@ -184,14 +245,14 @@ public final class WaterlineMap {
         chamferDistance(targetP);
     }
 
-    private static void stampCells(float[] field, int x0, int z0, int x1, int z1) {
+    private static void fillCells(float[] field, int x0, int z0, int x1, int z1, float value) {
         x0 = Math.max(0, x0);
         z0 = Math.max(0, z0);
         x1 = Math.min(cells - 1, x1);
         z1 = Math.min(cells - 1, z1);
         for (int z = z0; z <= z1; z++) {
             for (int x = x0; x <= x1; x++) {
-                field[z * cells + x] = 0.0F;
+                field[z * cells + x] = value;
             }
         }
     }
@@ -228,7 +289,7 @@ public final class WaterlineMap {
     // seed foam at once, then foam may only advance stepCells past an already-foamed neighbour each
     // tick -- so it always sweeps outward from the contact edge instead of appearing everywhere.
     private static boolean ease(float[] field, float[] show, float stepCells) {
-        final float maxCells = MAX_DIST * CELLS_PER_BLOCK;
+        final float maxCells = MAX_DIST * cellsPerBlock;
         boolean changed = false;
 
         // Seed the contact and fade retreating foam back toward "far water".
@@ -273,7 +334,7 @@ public final class WaterlineMap {
 
     // Translate a shown field by (dx, dz) cells when the map re-centres; exposed cells become far water.
     private static void shiftField(float[] show, int dx, int dz) {
-        final float maxCells = MAX_DIST * CELLS_PER_BLOCK;
+        final float maxCells = MAX_DIST * cellsPerBlock;
         for (int z = 0; z < cells; z++) {
             int sz = z + dz;
             for (int x = 0; x < cells; x++) {
@@ -287,7 +348,7 @@ public final class WaterlineMap {
     }
 
     private static void upload() {
-        final float maxCells = MAX_DIST * CELLS_PER_BLOCK;
+        final float maxCells = MAX_DIST * cellsPerBlock;
         NativeImage img = texture.getPixels();
         for (int z = 0; z < cells; z++) {
             for (int x = 0; x < cells; x++) {
@@ -309,7 +370,7 @@ public final class WaterlineMap {
         if (Math.abs(camPos.y - surfaceY) > 32.0) {
             return; // only when the camera is near the surface
         }
-        final int C = CELLS_PER_BLOCK;
+        final int C = cellsPerBlock;
         float foamBandCells = (float) (double) Config.FOAM_WIDTH.get() * C;
         if (foamBandCells <= 0.0F) {
             return;
@@ -336,11 +397,12 @@ public final class WaterlineMap {
         }
     }
 
-    // (Re)allocate the backing arrays and GPU texture for a new block edge length.
-    private static void rebuild(int newSize) {
-        final float maxCells = MAX_DIST * CELLS_PER_BLOCK;
+    // (Re)allocate the backing arrays and GPU texture for a new block edge length and/or cell resolution.
+    private static void rebuild(int newSize, int newCellsPerBlock) {
         size = newSize;
-        cells = size * CELLS_PER_BLOCK;
+        cellsPerBlock = newCellsPerBlock;
+        final float maxCells = MAX_DIST * cellsPerBlock;
+        cells = size * cellsPerBlock;
         target = new float[cells * cells];
         shown = new float[cells * cells];
         targetP = new float[cells * cells];

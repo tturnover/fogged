@@ -1,0 +1,11 @@
+{
+    "vertex": "fogged:depth_copy",
+    "fragment": "fogged:depth_copy",
+    "samplers": [
+        { "name": "DepthSampler" }
+    ],
+    "attributes": [
+        "Position"
+    ],
+    "uniforms": []
+}

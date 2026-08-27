@@ -17,10 +17,12 @@ uniform float FoamDebug;
 uniform vec2 WaterlineOrigin;   // world XZ of the waterline map's corner
 uniform float WaterlineSize;    // map edge length in blocks
 uniform float WaterlineMaxDist; // distance (blocks) the map's stored value of 1.0 represents
+uniform float FoamPixelsPerBlock; // waterline map's cells-per-block resolution (Config.waterlineCellsPerBlock)
 uniform float PlaneFadeStart;   // distance at which the surface starts fading to transparent
 uniform float PlaneFadeEnd;     // distance at which it is fully gone (reveals the real horizon)
 uniform mat4 ProjMat;           // reused to linearise depth for the soft-occlusion fade
 uniform vec2 ScreenSize;        // framebuffer size in pixels, to map gl_FragCoord into the depth sampler
+uniform float DepthValid;       // 0 if the scene-depth snapshot is unavailable/disabled this frame (see SceneDepth)
 uniform float HolesActive;      // 1 on the fogged side (dissolve holes on), 0 on the dry side (solid plane)
 uniform int EntityHoleCount;    // number of active entity dissolve discs (0..MAX_ENTITY_HOLES)
 // Packed 4 floats per entity: camera-relative centre X, Z, horizontal radius (blocks), vertical gap to
@@ -33,57 +35,22 @@ in vec3 relPos;
 
 out vec4 fragColor;
 
-// --- shader-side 3D value noise. TILEABLE: the spatial lattice (xy) wraps at a world-space period so
-// the field repeats seamlessly. That period is made equal to the renderer's NOISE_ANCHOR, so when the
-// anchor tile flips as the camera moves the pattern is identical across the jump -- no seam at ANY
-// distance. The z axis is time (unwrapped), so it still boils forward in place. Octaves are NOT rotated
-// here: a rotated lattice does not tile on the world axes, so seamlessness requires dropping it. ---
-const float NOISE_PERIOD_BLOCKS = 4096.0; // MUST equal FogPlaneRenderer.NOISE_ANCHOR for a seamless wrap
+// --- shader-side 3D value noise (fogged_fbm3 etc., shared with fog_vapor.fsh -- see fogged_noise.glsl).
+// TILEABLE: the spatial lattice (xy) wraps at a world-space period so the field repeats seamlessly.
+// That period is made equal to the renderer's NOISE_ANCHOR, so when the anchor tile flips as the camera
+// moves the pattern is identical across the jump -- no seam at ANY distance. The z axis is time
+// (unwrapped), so it still boils forward in place. Octaves are NOT rotated here: a rotated lattice does
+// not tile on the world axes, so seamlessness requires dropping it. ---
+const float NOISE_PERIOD_BLOCKS = 4096.0; // MUST equal FogPlaneRenderer.NOISE_ANCHOR for a seamless wrap -- see Config.java's mirrored-constants comment
+#moj_import <fogged:fogged_noise.glsl>
 
-float h31(vec3 ip, float per) {
-    vec2 w = mod(ip.xy, vec2(per)); // wrap the (already-integer) spatial lattice into one tile; GLSL mod >= 0
-    float n = w.x * 127.1 + w.y * 311.7 + ip.z * 74.7;
-    return fract(sin(n) * 43758.5453);
-}
-float vnoise3(vec3 p, float per) {
-    vec3 i = floor(p);
-    vec3 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = mix(mix(h31(i + vec3(0,0,0), per), h31(i + vec3(1,0,0), per), f.x),
-                  mix(h31(i + vec3(0,1,0), per), h31(i + vec3(1,1,0), per), f.x), f.y);
-    float b = mix(mix(h31(i + vec3(0,0,1), per), h31(i + vec3(1,0,1), per), f.x),
-                  mix(h31(i + vec3(0,1,1), per), h31(i + vec3(1,1,1), per), f.x), f.y);
-    return mix(a, b, f.z);
-}
-// Fractal noise: stack octaves at doubling frequency; each octave wraps at twice the period of the last
-// so the whole sum stays periodic. The time axis scales up per octave so large blobs drift slowly while
-// fine detail churns faster. `per` is the base spatial period in the passed p-coordinate space.
-float fbm3(vec2 p, float t, float per) {
-    float v = 0.0;
-    float amp = 0.5;
-    float pr = per;
-    for (int i = 0; i < 4; i++) {
-        v += amp * vnoise3(vec3(p, t), pr);
-        p *= 2.0;
-        pr *= 2.0;
-        t *= 1.7;
-        amp *= 0.5;
-    }
-    return v / 0.9375;
-}
-
-// Foam & spot pixelation: 4 pixels per block -> each pixel is a quarter of a block. Both the foam
-// edge and the surface spots snap to this same grid so their pixels are identical in size and aligned.
-const float FOAM_PIXELS_PER_BLOCK = 4.0;
+// Foam & spot pixelation: FoamPixelsPerBlock pixels per block. Both the foam edge and the surface spots
+// snap to this same grid so their pixels are identical in size and aligned.
 const float FOAM_STEPS = 4.0;
-const float OCCLUSION_FADE = 3.0;  // blocks of depth over which an occluding edge softens
 
-// Window depth -> positive camera distance, from the same ProjMat used to project the quad. Both the
-// fragment and the sampled scene depth go through this, so their difference is a true world-space gap.
-float viewDist(float d) {
-    float ndc = d * 2.0 - 1.0;
-    return ProjMat[3][2] / (ndc + ProjMat[2][2]);
-}
+// Soft occlusion (fogged_softOcclusion, shared with fog_vapor.fsh -- see fogged_occlusion.glsl); needs
+// Sampler3/ScreenSize/ProjMat/DepthValid, all declared above.
+#moj_import <fogged:fogged_occlusion.glsl>
 
 // Ordered 4x4 Bayer threshold for screen-door transparency. Indexed by the output pixel so a partial
 // coverage becomes a stable checker of kept/dropped pixels rather than a continuous alpha.
@@ -98,17 +65,6 @@ float bayerDither(vec2 fc) {
     return m[y * 4 + x];
 }
 
-// Soft occlusion: 1.0 in the open, fading to 0.0 as the plane closes on the occluding geometry in the
-// pre-plane depth snapshot, so a block/shore silhouette is a gradient instead of a hard depth cut.
-float softOcclusion() {
-    float sceneD = texture(Sampler3, gl_FragCoord.xy / ScreenSize).r;
-    if (sceneD >= 1.0) {
-        return 1.0; // open sky behind: nothing to fade against
-    }
-    float gap = viewDist(sceneD) - viewDist(gl_FragCoord.z);
-    return clamp(gap / OCCLUSION_FADE, 0.0, 1.0);
-}
-
 void main() {
     vec4 color = vertexColor * ColorModulator;
 
@@ -116,8 +72,8 @@ void main() {
     // FoamWidth. World-space, so it never flickers with view angle. Snap to the foam pixel grid (so it
     // pixelates and aligns with blocks) and sample at the texel centre (+0.5) so NEAREST doesn't bias
     // the whole ring a cell in -X/-Z.
-    vec2 pworld = floor(worldXZ * FOAM_PIXELS_PER_BLOCK) / FOAM_PIXELS_PER_BLOCK;
-    vec2 luv = (pworld - WaterlineOrigin) / WaterlineSize + 0.5 / (WaterlineSize * FOAM_PIXELS_PER_BLOCK);
+    vec2 pworld = floor(worldXZ * FoamPixelsPerBlock) / FoamPixelsPerBlock;
+    vec2 luv = (pworld - WaterlineOrigin) / WaterlineSize + 0.5 / (WaterlineSize * FoamPixelsPerBlock);
     float edge = 0.0;
     if (FoamWidth > 0.0 && luv.x >= 0.0 && luv.x <= 1.0 && luv.y >= 0.0 && luv.y <= 1.0) {
         vec2 wl = texture(Sampler0, luv).rg; // R = dist to solid/entity, G = dist to plant
@@ -135,12 +91,12 @@ void main() {
     // fade in/out in place (morph blends two offset noise layers over time, no translation).
     const float SPOT_CELL_BLOCKS = 4.0;    // blob feature size in blocks (divides NOISE_PERIOD for a tile)
     const float SPOT_TIME_RATE = 0.1;      // noise time-axis advance per second (~one reshuffle per 10 s)
-    vec2 sworld = floor(worldXZ * FOAM_PIXELS_PER_BLOCK) / FOAM_PIXELS_PER_BLOCK;
+    vec2 sworld = floor(worldXZ * FoamPixelsPerBlock) / FoamPixelsPerBlock;
     vec2 cell = sworld / SPOT_CELL_BLOCKS;
     // Animate by advancing the noise's time axis: morphs in place, always forward (no ping-pong, no
     // slide). Time is monotonic wall-clock seconds, so the rate below is per real second. The base
     // period is the world period in cell space, so the noise tiles exactly with the anchor -> no seam.
-    float s = fbm3(cell, Time * SPOT_TIME_RATE, NOISE_PERIOD_BLOCKS / SPOT_CELL_BLOCKS);
+    float s = fogged_fbm3(cell, Time * SPOT_TIME_RATE, NOISE_PERIOD_BLOCKS / SPOT_CELL_BLOCKS);
     // Map onto the two lowest foam bands only (0.25/0.50) so a spot reads as foam not next to an edge.
     float t = smoothstep(0.45, 0.70, s);
     float lum = t <= 0.0 ? 0.0 : (t < 0.5 ? 0.25 : 0.5);
@@ -215,7 +171,7 @@ void main() {
         // fragment still culled the later translucent water pass and left a hard cut line where water
         // flows down past the boundary near a block. Discarding the faded fraction of pixels writes no
         // depth there, so the water renders through the dissolve instead of being cut.
-        float coverage = softOcclusion() * (1.0 - hole);
+        float coverage = fogged_softOcclusion() * (1.0 - hole);
         if (coverage < bayerDither(gl_FragCoord.xy)) {
             discard;
         }

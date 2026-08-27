@@ -29,11 +29,9 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public final class FogVapor {
 
-    // Pixel grid the shader snaps the noise to (matches the foam's 4 px per block), and the world-space
-    // frequency of the terrace/wisp noise.
-    private static final float PIXELS_PER_BLOCK = 4.0F;
-    // Chosen so NOISE_ANCHOR * WISP_SCALE (4096 * 0.09375 = 384) is a whole number: the tileable noise
-    // wraps at that integer lattice period, so the wisps repeat exactly with the anchor -> no seam.
+    // World-space frequency of the terrace/wisp noise. Chosen so NOISE_ANCHOR * WISP_SCALE (4096 *
+    // 0.09375 = 384) is a whole number: the tileable noise wraps at that integer lattice period, so the
+    // wisps repeat exactly with the anchor -> no seam.
     private static final float WISP_SCALE = 0.09375F;
 
     private FogVapor() {
@@ -110,6 +108,9 @@ public final class FogVapor {
 
         // Sampler3 = terrain depth snapshot (shared with the plane) for the soft occlusion edge.
         RenderSystem.setShaderTexture(3, SceneDepth.depthTextureId());
+        // Degrades to "never occlude" in the shader when occlusion is off or FogPlaneRenderer's capture
+        // this frame failed (see SceneDepth) -- mirrors FogPlaneRenderer's own DepthValid gating.
+        float depthValid = Config.PLANE_SOFT_OCCLUSION.getAsBoolean() && SceneDepth.depthAvailable() ? 1.0F : 0.0F;
 
         RenderSystem.setShader(() -> shader);
         // Anchor world coords to a tile near the camera so the floor()-snapped wisp noise stays precise
@@ -121,11 +122,17 @@ public final class FogVapor {
         shader.safeGetUniform("WorldOffset").set((float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
         shader.safeGetUniform("Time").set((float) timeSeconds);
         shader.safeGetUniform("WispScale").set(WISP_SCALE);
-        shader.safeGetUniform("PixelsPerBlock").set(PIXELS_PER_BLOCK);
+        // Must match the waterline map's actual resolution (Config.waterlineCellsPerBlock) so the vapour's
+        // pixel-snap grid lines up with the plane's foam grid.
+        shader.safeGetUniform("PixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
         shader.safeGetUniform("PlaneFadeStart").set(fogFar * 0.8F);
         shader.safeGetUniform("PlaneFadeEnd").set(fogFar);
         // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
         shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
+        shader.safeGetUniform("DepthValid").set(depthValid);
+        // Overall vapour tint, shared by every sheet: Color's rgb channels are repurposed below to pack
+        // per-sheet data instead (see the sheet loop), so the tint now travels as a uniform.
+        shader.safeGetUniform("VaporColor").set(vr, vg, vb);
 
         // Fade the vapour out across the visible range (the shader dissolves its alpha by FogStart/End;
         // it keeps its own vertex colour, so no fog colour is needed here).
@@ -144,22 +151,27 @@ public final class FogVapor {
         mvStack.set(view);
         RenderSystem.applyModelViewMatrix();
 
+        // All sheets are built into ONE buffer and drawn in ONE call instead of one draw per sheet: each
+        // sheet still needs its own StepThreshold (a per-vertex, not per-frame, value), but rather than
+        // adding a whole new custom vertex attribute to carry it, the Color attribute already varies
+        // per-vertex within a single buffer -- so StepThreshold rides in Color.r (0..1, plenty of
+        // precision for a value compared via smoothstep with a 0.12-wide band) and the per-sheet alpha
+        // rides in Color.a exactly as before; Color.g/b are unused. See fog_vapor.fsh for the unpacking.
         double spacing = undulation / sheets;
         Tesselator tess = Tesselator.getInstance();
+        BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         for (int i = 0; i < sheets; i++) {
             // Bottom plane carries most of the alpha (so the mist reads up close, face-on); higher
             // planes fall off fast so grazing overlaps at distance don't pile into a solid wall.
             float baseA = va * 0.5F * (float) Math.pow(0.55, i);
             float threshold = (i + 1.0F) / (sheets + 1.0F);
             float y = relY + side * (float) (0.3 + (i + 1) * spacing);
-            shader.safeGetUniform("StepThreshold").set(threshold);
-            BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-            bb.addVertex(-reach, y, -reach).setColor(vr, vg, vb, baseA);
-            bb.addVertex(-reach, y, reach).setColor(vr, vg, vb, baseA);
-            bb.addVertex(reach, y, reach).setColor(vr, vg, vb, baseA);
-            bb.addVertex(reach, y, -reach).setColor(vr, vg, vb, baseA);
-            BufferUploader.drawWithShader(bb.buildOrThrow());
+            bb.addVertex(-reach, y, -reach).setColor(threshold, 0.0F, 0.0F, baseA);
+            bb.addVertex(-reach, y, reach).setColor(threshold, 0.0F, 0.0F, baseA);
+            bb.addVertex(reach, y, reach).setColor(threshold, 0.0F, 0.0F, baseA);
+            bb.addVertex(reach, y, -reach).setColor(threshold, 0.0F, 0.0F, baseA);
         }
+        BufferUploader.drawWithShader(bb.buildOrThrow());
 
         mvStack.popMatrix();
         RenderSystem.applyModelViewMatrix();

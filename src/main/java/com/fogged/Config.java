@@ -25,6 +25,19 @@ public class Config {
     // The murk fog starts applying this many blocks above the plane (not exactly at it). Internal.
     public static final double FOG_START_RAISE = 0.75;
 
+    // ==== Constants mirrored in GLSL shaders (GLSL can't import Java constants -- keep these in sync
+    // by hand whenever any one of them changes). Each entry's Java declaration links back to this list.
+    //   FogPlaneRenderer.NOISE_ANCHOR (4096.0)
+    //     == fog_plane.fsh  NOISE_PERIOD_BLOCKS
+    //     == fog_vapor.fsh  NOISE_PERIOD_BLOCKS
+    //   FogPlaneRenderer.MAX_ENTITY_HOLES (32)
+    //     == fog_plane.fsh  entity-hole loop bound (`for (int i = 0; i < 32; i++)`)
+    //     == fog_plane.json / fog_plane.fsh  EntityHoles[128] (== MAX_ENTITY_HOLES * 4)
+    // WaterlineMap's cellsPerBlock resolution is NOT in this list: it's threaded to the shaders as the
+    // FoamPixelsPerBlock/PixelsPerBlock uniforms every frame (see FogPlaneRenderer/FogVapor) precisely
+    // so it can change at runtime (waterlineCellsPerBlock) without needing a matching shader edit.
+    // ====
+
     // Config values below are grouped into TOML categories with BUILDER.push/pop. Those calls sit in
     // static blocks so they run in declaration order, interleaved with the field initializers -- Java
     // runs static initializer blocks and static field initializers top-to-bottom (JLS 12.4.2).
@@ -163,6 +176,18 @@ public class Config {
                     "(ships / contraptions) where they cross the boundary. No effect without Sable.")
             .define("sableFoam", true);
 
+    public static final ModConfigSpec.BooleanValue PLANE_SOFT_OCCLUSION = BUILDER
+            .comment("Soft-fade the plane and vapour against terrain/block silhouettes instead of a hard",
+                    "depth cut (uses a per-frame scene-depth snapshot -- see SceneDepth). Off skips that",
+                    "snapshot entirely (a small perf win) and always renders the edge hard-cut instead.")
+            .define("planeSoftOcclusion", true);
+
+    public static final ModConfigSpec.IntValue WATERLINE_CELLS_PER_BLOCK = BUILDER
+            .comment("Sub-block resolution of the foam distance-field grid (see WaterlineMap), in cells",
+                    "per block. Lower trades a coarser foam ring for a smaller grid: halving this quarters",
+                    "the cost of every per-tick foam pass (recompute / chamfer / ease / upload).")
+            .defineInRange("waterlineCellsPerBlock", 4, 1, 4);
+
     public static final ModConfigSpec.BooleanValue FOAM_DEBUG = BUILDER
             .comment("Debug: render the plane as raw foam data instead of the normal look.",
                     "Red = depth-proximity edge factor, Green = sampled scene depth. If Green is a flat",
@@ -202,6 +227,19 @@ public class Config {
 
     static { BUILDER.pop(); }   // [plane.vapor]
     static { BUILDER.pop(); }   // [plane]
+
+    // ==== [compatibility] : diagnostics for when another mod's renderer conflicts with this one ====
+    static { BUILDER.push("compatibility"); }
+
+    public static final ModConfigSpec.BooleanValue LOG_RENDER_COMPAT_WARNINGS = BUILDER
+            .comment("Log a one-time warning when this mod detects it can't work correctly with the",
+                    "current rendering setup (e.g. the scene-depth snapshot failed, or a sky/weather-",
+                    "suppression hook never fired) -- see SceneDepth and LevelRendererMixin. These are",
+                    "diagnostics only; turning this off does not change any fallback behaviour, only",
+                    "whether it is logged.")
+            .define("logRenderCompatWarnings", true);
+
+    static { BUILDER.pop(); }   // [compatibility]
 
     static final ModConfigSpec SPEC = BUILDER.build();
 

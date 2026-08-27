@@ -91,8 +91,15 @@ public class FogPlaneRenderer {
 
         // Snapshot the terrain depth BEFORE drawing the plane, so the plane and the later vapour pass can
         // soft-fade against occluding geometry (the plane writes depth, so sampling the live depth buffer
-        // would be a read/write feedback loop). Reused by FogVapor.
-        SceneDepth.capture();
+        // would be a read/write feedback loop). Reused by FogVapor. Skipped entirely when soft occlusion
+        // is disabled by config -- the only case where capturing it buys nothing this frame.
+        boolean wantSoftOcclusion = Config.PLANE_SOFT_OCCLUSION.getAsBoolean();
+        if (wantSoftOcclusion) {
+            SceneDepth.capture();
+        }
+        // Degrades to "never occlude" in the shader (see fogged_softOcclusion) rather than sampling
+        // stale/garbage depth when occlusion is off or the capture above failed (see SceneDepth).
+        float depthValid = wantSoftOcclusion && SceneDepth.depthAvailable() ? 1.0F : 0.0F;
 
         float[] plane = Config.planeColor();
         float r = plane[0];
@@ -144,12 +151,15 @@ public class FogPlaneRenderer {
             shader.safeGetUniform("WaterlineOrigin").set((float) (WaterlineMap.originX() - ax), (float) (WaterlineMap.originZ() - az));
             shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
             shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
+            // Foam/spot pixel-snap grid must match the map's actual resolution (Config.waterlineCellsPerBlock).
+            shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
             // Fade the rim out so the plane never shows past where the world fades away (visibleReach).
             float fadeEnd = visibleReach(mc, event.getCamera(), below);
             shader.safeGetUniform("PlaneFadeStart").set(fadeEnd * 0.8F);
             shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
             // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
             shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
+            shader.safeGetUniform("DepthValid").set(depthValid);
             // Dissolve holes only on the fogged side: from the dry side they'd be a clear window down
             // through the murk. On the fogged side the revealed content is hidden by the murk fog.
             shader.safeGetUniform("HolesActive").set(below ? 1.0F : 0.0F);
@@ -228,10 +238,17 @@ public class FogPlaneRenderer {
     // (camera-relative X, camera-relative Z, horizontal radius, vertical gap). An entity qualifies when its
     // hitbox is within ENTITY_HOLE_VERT of the plane vertically and ENTITY_HOLE_RANGE of the camera
     // horizontally. On overflow the farthest disc is dropped so the nearest ones survive. Returns the count.
+    //
+    // Queried via an AABB bounded to ENTITY_HOLE_RANGE/ENTITY_HOLE_VERT (mirroring WaterlineMap's entity
+    // query) rather than level.entitiesForRendering(), which scans every rendering entity in the whole
+    // loaded world every frame regardless of how far it is from the boundary.
     private static int gatherEntityHoles(ClientLevel level, Vec3 cam, double surfaceY) {
         int count = 0;
         final double rangeSq = ENTITY_HOLE_RANGE * ENTITY_HOLE_RANGE;
-        for (Entity e : level.entitiesForRendering()) {
+        double vertMargin = ENTITY_HOLE_VERT + 4.0; // generous margin for tall mobs/boats straddling the plane
+        AABB area = new AABB(cam.x - ENTITY_HOLE_RANGE, surfaceY - vertMargin, cam.z - ENTITY_HOLE_RANGE,
+                cam.x + ENTITY_HOLE_RANGE, surfaceY + vertMargin, cam.z + ENTITY_HOLE_RANGE);
+        for (Entity e : level.getEntities((Entity) null, area, e -> true)) {
             AABB b = e.getBoundingBox();
             // Vertical gap from the plane to the entity's box (0 while it straddles); skip once it clears.
             double vgap = Math.max(0.0, Math.max(surfaceY - b.maxY, b.minY - surfaceY));
