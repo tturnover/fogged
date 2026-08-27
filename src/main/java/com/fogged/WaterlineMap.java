@@ -34,12 +34,6 @@ public final class WaterlineMap {
 
     public static final float MAX_DIST = 8.0F;       // distances are clamped/stored up to this many blocks
     private static final int RECOMPUTE_INTERVAL = 5;  // ticks between full target rebuilds (also on move)
-    // The block-state reseed scan (recompute's O(size^2) part) is spread one x-stripe per tick instead
-    // of bursting the whole grid at once -- same idiom as FogScour's per-tick sweep. Equal to
-    // RECOMPUTE_INTERVAL so a full stripe cycle finishes exactly as the next chamfer below is due: the
-    // data chamfer consumes is always as fresh as if the whole grid had been rescanned in one go, just
-    // spread across the same window instead of bursted into a single tick.
-    private static final int RESEED_STRIPES = RECOMPUTE_INTERVAL;
     private static final float EASE_CELLS_PER_TICK = 0.25F; // how fast shown[] chases target[] (foam ramp)
     private static final int MIN_SIZE = 48;           // clamp the simulation-distance-driven block edge
     private static final int MAX_SIZE = 192;
@@ -127,21 +121,17 @@ public final class WaterlineMap {
         boolean newTick = tick != lastTick;
         boolean recomputed = false;
 
-        if (boundaryY != lastBoundaryY) {
-            // Rare event (the day/schedule moved the breathing boundary): reseed the whole grid right
-            // now instead of waiting out a multi-tick stripe cycle, so foam doesn't lag a stale height.
+        // Reseed + chamfer synchronously on the same call, on the boundary changing or every
+        // RECOMPUTE_INTERVAL ticks: the two must happen back-to-back on fully fresh block-state data.
+        // (A tick-staggered reseed was tried here and reverted -- easing every tick against a target[]
+        // whose stripes hold raw, not-yet-chamfered values for several ticks between chamfer passes
+        // made foam near real edges visibly recede then snap back as each stripe cycled through.)
+        if (boundaryY != lastBoundaryY || tick - lastRecomputeTick >= RECOMPUTE_INTERVAL) {
             lastBoundaryY = boundaryY;
             lastRecomputeTick = tick;
             reseedAll(level, boundaryY);
             finishRecompute(level, boundaryY);
             recomputed = true;
-        } else if (newTick) {
-            reseedStripe(level, boundaryY, (int) (tick % RESEED_STRIPES));
-            if (tick - lastRecomputeTick >= RECOMPUTE_INTERVAL) {
-                lastRecomputeTick = tick;
-                finishRecompute(level, boundaryY);
-                recomputed = true;
-            }
         }
 
         // Ease + re-upload at most once per tick (bounded cost), or immediately after a re-centre.
@@ -160,27 +150,9 @@ public final class WaterlineMap {
         }
     }
 
-    // Reseed one x-stripe of the block-state fields this tick (the O(size^2) part of recompute, spread
-    // across RESEED_STRIPES ticks -- see the field comment on RESEED_STRIPES). Solids and flowing water
-    // (currents, falls) seed the full field; plants the plant field. Still water (source) and air are
-    // left as open surface so foam has somewhere to fade into.
-    private static void reseedStripe(Level level, int boundaryY, int phase) {
-        int stripe = (size + RESEED_STRIPES - 1) / RESEED_STRIPES;
-        int bx0 = phase * stripe;
-        if (bx0 >= size) {
-            return;
-        }
-        int bx1 = Math.min(size, bx0 + stripe);
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        for (int bz = 0; bz < size; bz++) {
-            for (int bx = bx0; bx < bx1; bx++) {
-                reseedColumn(level, pos, boundaryY, bx, bz);
-            }
-        }
-    }
-
-    // Reseed the whole block-state field in one pass (used only on a boundary-height change, a rare
-    // one-off event -- see update()). Equivalent to running every reseedStripe() phase back to back.
+    // Reseed the whole block-state field. Solids and flowing water (currents, falls) seed the full
+    // field; plants the plant field. Still water (source) and air are left as open surface so foam has
+    // somewhere to fade into.
     private static void reseedAll(Level level, int boundaryY) {
         java.util.Arrays.fill(target, INF);
         java.util.Arrays.fill(targetP, INF);
@@ -192,17 +164,14 @@ public final class WaterlineMap {
         }
     }
 
-    // Reseed one block column's cells from its current block state. Clears the column's own cells first
-    // (rather than relying on a prior full-array clear), so a striped reseed only ever touches the
-    // columns it is actually re-scanning this call.
+    // Reseed one block column's cells from its current block state. Relies on reseedAll having already
+    // cleared the whole field to INF, so this only needs to stamp the cells that turn out to be solid.
     private static void reseedColumn(Level level, BlockPos.MutableBlockPos pos, int boundaryY, int bx, int bz) {
         final int C = cellsPerBlock;
         int x0 = bx * C;
         int z0 = bz * C;
         int x1 = x0 + C - 1;
         int z1 = z0 + C - 1;
-        fillCells(target, x0, z0, x1, z1, INF);
-        fillCells(targetP, x0, z0, x1, z1, INF);
 
         pos.set(originX + bx, boundaryY, originZ + bz);
         BlockState state = level.getBlockState(pos);
@@ -217,9 +186,8 @@ public final class WaterlineMap {
         }
     }
 
-    // Entity + Sable sub-level stamping (bounded queries, not the O(size^2) cost reseedStripe/reseedAll
-    // spread out) followed by the chamfer distance transform. Always runs immediately after a full
-    // reseed cycle has completed (see update()), so it always operates on fully fresh block-state data.
+    // Entity + Sable sub-level stamping followed by the chamfer distance transform. Always runs
+    // immediately after reseedAll, in the same call (see update()), on fully fresh block-state data.
     private static void finishRecompute(Level level, int boundaryY) {
         final int C = cellsPerBlock;
 

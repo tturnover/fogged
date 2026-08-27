@@ -2,7 +2,7 @@
     "vertex": "fogged:depth_copy",
     "fragment": "fogged:depth_copy",
     "samplers": [
-        { "name": "DepthSampler" }
+        { "name": "Sampler0" }
     ],
     "attributes": [
         "Position"
