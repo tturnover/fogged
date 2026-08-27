@@ -139,16 +139,21 @@ void main() {
         // Near-player dissolve: as the eye nears the plane, open a small soft disc around the player so
         // the surface doesn't snap in as a hard sheet right at eye level. relPos.y is the eye-to-plane
         // vertical gap, so the hole opens only near the boundary and fades shut as the eye moves away.
+        // Deliberately NOT gated by HolesActive: it must open symmetrically crossing in either direction.
+        // HolesActive is 1 only while already below the boundary, so gating this the same way as the
+        // entity holes below left it pre-opened while approaching from below (an exit) but still shut at
+        // the instant of crossing from above (an entry) -- the one moment it's needed most.
         const float NEAR_HOLE_RADIUS = 5.0; // blocks, horizontal radius of the dissolve around the player
         const float NEAR_HOLE_HEIGHT = 2.0; // eye-to-plane vertical gap over which it closes
-        float hole = (1.0 - smoothstep(0.0, NEAR_HOLE_RADIUS, length(relPos.xz)))
-                   * (1.0 - smoothstep(0.0, NEAR_HOLE_HEIGHT, abs(relPos.y)));
+        float nearHole = (1.0 - smoothstep(0.0, NEAR_HOLE_RADIUS, length(relPos.xz)))
+                       * (1.0 - smoothstep(0.0, NEAR_HOLE_HEIGHT, abs(relPos.y)));
 
         // Entity dissolve discs: the same hole opened around every entity near the plane, sized by its
         // hitbox, so a crossing mob/player isn't hard-cut by the depth-writing plane -- it pokes through
         // a soft hole instead. Each disc fades out radially past its hitbox radius and vertically as the
         // entity separates from the plane (ENTITY_HOLE_HEIGHT). Constant loop bound for GLSL 150.
         const float ENTITY_HOLE_HEIGHT = 1.0; // vertical gap past the hitbox over which a disc closes
+        float entityHole = 0.0;
         for (int i = 0; i < 32; i++) {
             if (i >= EntityHoleCount) {
                 break;
@@ -158,12 +163,13 @@ void main() {
             float vgap = EntityHoles[i * 4 + 3];
             float radial = 1.0 - smoothstep(0.0, radius, length(relPos.xz - c));
             float vgate = 1.0 - smoothstep(0.0, ENTITY_HOLE_HEIGHT, vgap);
-            hole = max(hole, radial * vgate);
+            entityHole = max(entityHole, radial * vgate);
         }
-        // Only dissolve on the fogged side. From the dry side (looking down onto the murk) a hole would
+        // Entity holes stay dry-side-gated: from the dry side (looking down onto the murk) a hole would
         // be a clear, unfogged window straight through to the world the murk should hide; keep the plane
-        // solid there. On the fogged side the revealed content sits in the murk fog, so it stays hidden.
-        hole *= HolesActive;
+        // solid there for OTHER entities. On the fogged side the revealed content sits in the murk fog,
+        // so it stays hidden.
+        float hole = max(nearHole, entityHole * HolesActive);
 
         // Soft occlusion edge against terrain/blocks (see softOcclusion): grazing shores and block
         // silhouettes dissolve instead of cutting hard, plus the near-player / entity holes above. Done

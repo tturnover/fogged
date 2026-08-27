@@ -85,6 +85,10 @@ public final class SceneDepth {
         RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_ALWAYS); // commit every fragment's depth regardless of the clear
+        // The quad below is wound back-facing under GL's default CCW-front convention; without this,
+        // terrain's leftover backface-cull state (still active from the pass just before this stage)
+        // discards the whole draw and copy silently never receives any fragment writes at all.
+        RenderSystem.disableCull();
         RenderSystem.setShaderTexture(0, mainDepthTex);
         RenderSystem.setShader(() -> shader);
 
@@ -98,6 +102,7 @@ public final class SceneDepth {
 
         RenderSystem.colorMask(true, true, true, true);
         RenderSystem.depthFunc(GL11.GL_LEQUAL); // vanilla default
+        RenderSystem.enableCull();
         main.bindWrite(false); // restore the main framebuffer for the upcoming draws
 
         // Defense-in-depth: check once per resize (not every frame -- an unconditional glGetError() call
