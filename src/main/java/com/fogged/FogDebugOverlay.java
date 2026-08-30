@@ -108,10 +108,11 @@ public final class FogDebugOverlay {
                 + flag(" weather", MixinHealthCheck.weatherFired)
                 + flag(" rain", MixinHealthCheck.rainTickFired)
                 + flag(" clouds", MixinHealthCheck.cloudsFired)
-                + flag(" terrainfog", MixinHealthCheck.terrainFogFired);
+                + flag(" terrainfog", MixinHealthCheck.terrainFogFired)
+                + flag(" blockchange", MixinHealthCheck.blockChangeFired);
         boolean all = MixinHealthCheck.skyFired && MixinHealthCheck.weatherFired
                 && MixinHealthCheck.rainTickFired && MixinHealthCheck.cloudsFired
-                && MixinHealthCheck.terrainFogFired;
+                && MixinHealthCheck.terrainFogFired && MixinHealthCheck.blockChangeFired;
         return new Line(text, all ? OK : BAD);
     }
 

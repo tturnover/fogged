@@ -127,6 +127,8 @@ public final class FogVapor {
         RenderSystem.depthMask(false);  // translucent: never writes depth
         RenderSystem.disableCull();     // seen from both sides
 
+        // Sampler0 = waterline map, so the mist can thin on the same foam ring the surface draws.
+        RenderSystem.setShaderTexture(0, WaterlineMap.textureId());
         RenderSystem.setShader(() -> shader);
         // Anchor world coords to a tile near the camera so the floor()-snapped wisp noise stays precise
         // far from spawn instead of boiling/flickering. Same period as the plane (see NOISE_ANCHOR).
@@ -140,6 +142,14 @@ public final class FogVapor {
         // Must match the waterline map's actual resolution (Config.waterlineCellsPerBlock) so the vapour's
         // pixel-snap grid lines up with the plane's foam grid.
         shader.safeGetUniform("PixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
+        // Where the foam map sits and how its stored distance scales -- the same values the surface
+        // passes, anchored to the same tile, or the two would disagree about where the ring is.
+        shader.safeGetUniform("WaterlineOrigin").set((float) (WaterlineMap.originX() - ax),
+                (float) (WaterlineMap.originZ() - az));
+        shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
+        shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
+        shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
+        shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
         shader.safeGetUniform("PlaneFadeStart").set(fogFar * 0.8F);
         shader.safeGetUniform("PlaneFadeEnd").set(fogFar);
         // Overall vapour tint, shared by every sheet: Color's rgb channels are repurposed below to pack

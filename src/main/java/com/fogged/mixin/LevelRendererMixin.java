@@ -1,6 +1,7 @@
 package com.fogged.mixin;
 
 import com.fogged.Config;
+import com.fogged.WaterlineMap;
 import com.fogged.FogModifier;
 import com.fogged.MixinHealthCheck;
 
@@ -116,6 +117,25 @@ public class LevelRendererMixin {
                                        org.joml.Matrix4f projectionMatrix, CallbackInfo ci) {
         MixinHealthCheck.terrainFogFired = true;
         FogModifier.enforceMurkFog();
+    }
+
+    // The client's only notice that a block changed: there is no event for it, and the waterline map
+    // has to know or its foam keeps describing terrain that is no longer there. Both of these are the
+    // whole reason the map can be event-driven at all rather than rescanning on a timer.
+    @Inject(method = "blockChanged", at = @At("HEAD"), require = 0)
+    private void fogged$blockChanged(net.minecraft.world.level.BlockGetter level,
+                                     net.minecraft.core.BlockPos pos,
+                                     net.minecraft.world.level.block.state.BlockState oldState,
+                                     net.minecraft.world.level.block.state.BlockState newState,
+                                     int flags, CallbackInfo ci) {
+        MixinHealthCheck.blockChangeFired = true;
+        WaterlineMap.markDirtyAt(pos.getY());
+    }
+
+    // Chunks loading in, and edits large enough to rebuild a whole section, never reach blockChanged.
+    @Inject(method = "setSectionDirty(III)V", at = @At("HEAD"), require = 0)
+    private void fogged$sectionDirty(int sectionX, int sectionY, int sectionZ, CallbackInfo ci) {
+        WaterlineMap.markSectionDirty(sectionY);
     }
 
     // Whether the camera is in the murk itself -- on the fogged side AND not inside a liquid. A liquid

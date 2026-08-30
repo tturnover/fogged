@@ -40,6 +40,8 @@ public final class MixinHealthCheck {
     public static volatile boolean cloudsFired = false;
     /** The terrain-pass fog re-assert; without it another mod's fog override wins (see FogModifier). */
     public static volatile boolean terrainFogFired = false;
+    /** Block-change notice for the waterline map; without it foam only refreshes on the backstop. */
+    public static volatile boolean blockChangeFired = false;
 
     private static int ticks = 0;
     private static boolean checked = false;

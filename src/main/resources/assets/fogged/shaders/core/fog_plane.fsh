@@ -49,6 +49,10 @@ out vec4 fragColor;
 const float NOISE_PERIOD_BLOCKS = 4096.0; // MUST equal FogPlaneRenderer.NOISE_ANCHOR for a seamless wrap -- see Config.java's mirrored-constants comment
 #moj_import <fogged:fogged_noise.glsl>
 
+// Waterline map sampling (fogged_waterline / fogged_foamEdge), shared with fog_vapor.fsh so the mist
+// thins on exactly the ring this surface draws rather than on its own reading of the same map.
+#moj_import <fogged:fogged_foam.glsl>
+
 // Foam & spot pixelation: FoamPixelsPerBlock pixels per block. Both the foam edge and the surface spots
 // snap to this same grid so their pixels are identical in size and aligned.
 const float FOAM_STEPS = 4.0;
@@ -188,36 +192,16 @@ void main() {
     float opacity = occlusion * nearFade * (FoggedSide > 0.5 ? 1.0 : farFade);
 
     // Foam edge: world-space distance to the nearest surface-crossing block/entity, ringed within
-    // FoamWidth. World-space, so it never flickers with view angle. Snap to the foam pixel grid (so it
-    // pixelates and aligns with blocks) and sample at the texel centre (+0.5) so NEAREST doesn't bias
-    // the whole ring a cell in -X/-Z.
-    vec2 pworld = floor(worldXZ * FoamPixelsPerBlock) / FoamPixelsPerBlock;
-    vec2 luv = (pworld - WaterlineOrigin) / WaterlineSize + 0.5 / (WaterlineSize * FoamPixelsPerBlock);
-    // B is the liquid mask. The mesh already omits liquid columns entirely (see FogPlaneMesh), so
-    // nothing samples it for rendering any more; it stays for the WATERLINE_MAP debug view.
-    vec3 wl = vec3(1.0, 1.0, 0.0); // "nothing near, no liquid" until the map says otherwise
-    bool inMap = luv.x >= 0.0 && luv.x <= 1.0 && luv.y >= 0.0 && luv.y <= 1.0;
-    if (inMap) {
-        wl = texture(Sampler0, luv).rgb; // R = dist to solid/entity, G = dist to plant, B = liquid
-    }
-
-    float edge = 0.0;
-    if (FoamWidth > 0.0 && inMap) {
-        // Two independent foam rings combined by max. Each ring's strength scales BOTH its band width
-        // (config FoamWidth * strength) and its intensity, so a plant (0.5) reads half as wide and half
-        // as strong as a solid/entity (1.0). They form separately so neither overrides the other.
-        const float SOLID_STRENGTH = 1.0;
-        const float PLANT_STRENGTH = 0.5;
-        float solidEdge = SOLID_STRENGTH * (1.0 - clamp(wl.r * WaterlineMaxDist / (FoamWidth * SOLID_STRENGTH), 0.0, 1.0));
-        float plantEdge = PLANT_STRENGTH * (1.0 - clamp(wl.g * WaterlineMaxDist / (FoamWidth * PLANT_STRENGTH), 0.0, 1.0));
-        edge = max(solidEdge, plantEdge);
-    }
+    // FoamWidth. World-space, so it never flickers with view angle. B is the liquid mask, kept only
+    // for the WATERLINE_MAP debug view -- the mesh omits liquid columns outright (see FogPlaneMesh).
+    vec3 wl = fogged_waterline(worldXZ);
+    float edge = fogged_foamEdge(wl);
 
     // Surface spots: low-frequency world-space noise blobs, on the same pixel grid as the foam, that
     // fade in/out in place (the noise's time axis advances, so they morph rather than drift).
     const float SPOT_CELL_BLOCKS = 4.0;    // blob feature size in blocks (divides NOISE_PERIOD for a tile)
     const float SPOT_TIME_RATE = 0.1;      // noise time-axis advance per second (~one reshuffle per 10 s)
-    vec2 cell = pworld / SPOT_CELL_BLOCKS;
+    vec2 cell = fogged_pixelSnap(worldXZ) / SPOT_CELL_BLOCKS;
     float s = fogged_fbm3(cell, Time * SPOT_TIME_RATE, NOISE_PERIOD_BLOCKS / SPOT_CELL_BLOCKS);
     // Map onto the two lowest foam bands only (0.25/0.50) so a spot reads as foam not next to an edge.
     float t = smoothstep(0.45, 0.70, s);

@@ -37,11 +37,21 @@ import net.minecraft.world.phys.Vec3;
 public final class WaterlineMap {
 
     public static final float MAX_DIST = 8.0F;       // distances are clamped/stored up to this many blocks
-    private static final int RECOMPUTE_INTERVAL = 5;  // ticks between full target rebuilds (also on move)
+    // The block scan is event-driven: the boundary moving a row, a block changing at that row, or the
+    // map scrolling onto ground it has not read yet. This is the BACKSTOP for none of those arriving --
+    // the block-change hook is a require=0 mixin and another renderer can replace the method it rides
+    // on, and a map that never rescans is a far worse failure than an occasional wasted scan.
+    private static final int FALLBACK_INTERVAL = 200;
     private static final float EASE_CELLS_PER_TICK = 0.25F; // how fast shown[] chases target[] (foam ramp)
     private static final int MIN_SIZE = 48;           // clamp the simulation-distance-driven block edge
     private static final int MAX_SIZE = 192;
     private static final float INF = 1.0e9F;
+
+    // Cost of a diagonal step, against 1.0 for an orthogonal one. Used by BOTH the distance transform
+    // and the foam's growth wavefront, and they have to agree: the transform's contours are what the
+    // foam settles into, so a front that spreads in a different metric visibly changes shape as it
+    // catches up.
+    private static final float DIAGONAL_STEP = 1.41421356F;
 
     // Where the surface sits inside its block row: boundaryY is floor(surfaceY), so this is the
     // leftover fraction (PLANE_SURFACE_OFFSET is -0.38, putting it 0.62 up the block).
@@ -80,6 +90,12 @@ public final class WaterlineMap {
     private static int cells = 0;         // texel/cell edge length = size * cellsPerBlock
     // Two independent foam fields so full-strength (solid/entity) foam and half-strength plant foam
     // form separately and never override one another -- they are combined by max in the shader.
+    // Distance to the nearest solid BLOCK only, chamfered, kept between rescans. Entities and Sable
+    // sub-levels are stamped on top of a copy of this every tick (see restampDynamic), which is what
+    // lets a moving boat's foam ring follow it smoothly instead of jumping on the rescan cadence.
+    // Re-chamfering from an already-valid distance field is exact: the transform is a min-relaxation,
+    // so adding new zero seeds to it yields min(distance to blocks, distance to the new seeds).
+    private static float[] blockDist = new float[0];
     private static float[] target = new float[0];   // distance to nearest solid block / entity
     private static float[] shown = new float[0];     // eased version of target (R channel)
     private static float[] targetP = new float[0];  // distance to nearest plant
@@ -100,6 +116,7 @@ public final class WaterlineMap {
     private static int originZ;           // world block Z of the map's corner
     private static int lastBoundaryY = Integer.MIN_VALUE;
     private static long lastRecomputeTick = Long.MIN_VALUE;
+    private static volatile boolean blocksDirty = true;
     private static long lastTick = Long.MIN_VALUE;
 
     private WaterlineMap() {
@@ -115,6 +132,29 @@ public final class WaterlineMap {
 
     // Current sub-block grid resolution (cells per block); read by the plane/vapour shaders' pixel-snap
     // uniforms so their pixelation always matches the map's actual resolution (see Config.WATERLINE_CELLS_PER_BLOCK).
+    /**
+     * A block changed at {@code blockY}; rescan if that is the row the surface passes through. Called
+     * from the client's own block-change path (see LevelRendererMixin), which is the only notice the
+     * client gets -- there is no event for it.
+     */
+    public static void markDirtyAt(int blockY) {
+        if (Math.abs(blockY - lastBoundaryY) <= 1) {
+            blocksDirty = true;
+        }
+    }
+
+    /**
+     * A whole chunk section was marked for rebuild -- a chunk loading, or a large edit. Rescan if that
+     * section spans the surface's row.
+     */
+    public static void markSectionDirty(int sectionY) {
+        int lo = (sectionY << 4) - 1;
+        int hi = lo + 17;
+        if (lastBoundaryY >= lo && lastBoundaryY <= hi) {
+            blocksDirty = true;
+        }
+    }
+
     public static int cellsPerBlock() {
         return cellsPerBlock;
     }
@@ -165,6 +205,7 @@ public final class WaterlineMap {
             shiftField(shown, dx, dz);
             shiftField(shownP, dx, dz);
             shiftField(target, dx, dz);
+            shiftField(blockDist, dx, dz);
             shiftField(targetP, dx, dz);
             // Newly exposed cells default to "no liquid": the murk draws there until the next rescan,
             // which is the right way round -- a missing cut-out is far less visible than a phantom one.
@@ -178,22 +219,28 @@ public final class WaterlineMap {
         boolean newTick = tick != lastTick;
         boolean recomputed = false;
 
-        // Reseed + chamfer synchronously on the same call, on the boundary changing or every
-        // RECOMPUTE_INTERVAL ticks: the two must happen back-to-back on fully fresh block-state data.
-        // (A tick-staggered reseed was tried here and reverted -- easing every tick against a target[]
-        // whose stripes hold raw, not-yet-chamfered values for several ticks between chamfer passes
-        // made foam near real edges visibly recede then snap back as each stripe cycled through.)
-        if (boundaryY != lastBoundaryY || tick - lastRecomputeTick >= RECOMPUTE_INTERVAL) {
+        // Reseed + chamfer synchronously on the same call, whenever the block picture can have changed:
+        // the boundary moved to another row, a block changed at that row (see markDirtyAt), or the map
+        // scrolled onto ground it has never read. The two must happen back-to-back on fully fresh
+        // block-state data. (A tick-staggered reseed was tried here and reverted -- easing every tick
+        // against a target[] whose stripes hold raw, not-yet-chamfered values for several ticks between
+        // chamfer passes made foam near real edges visibly recede then snap back as each stripe cycled.)
+        if (boundaryY != lastBoundaryY || blocksDirty || originMoved
+                || tick - lastRecomputeTick >= FALLBACK_INTERVAL) {
+            blocksDirty = false;
             lastBoundaryY = boundaryY;
             lastRecomputeTick = tick;
             reseedAll(level, boundaryY);
-            finishRecompute(level, boundaryY);
+            finishRecompute();
             recomputed = true;
             revision++;
         }
 
         // Ease + re-upload at most once per tick (bounded cost), or immediately after a re-centre.
         if (newTick || originMoved) {
+            // Everything that moves goes on fresh every tick, so the ring follows it rather than
+            // catching up on the rescan cadence.
+            restampDynamic(level, boundaryY);
             long elapsed = lastTick == Long.MIN_VALUE ? 1 : Math.max(1, tick - lastTick);
             float step = EASE_CELLS_PER_TICK * elapsed;
             boolean changed = ease(target, shown, step);
@@ -282,10 +329,27 @@ public final class WaterlineMap {
         return shape.isEmpty() || shape.max(Direction.Axis.Y) > SURFACE_FRACTION;
     }
 
-    // Entity + Sable sub-level stamping followed by the chamfer distance transform. Always runs
-    // immediately after reseedAll, in the same call (see update()), on fully fresh block-state data.
-    private static void finishRecompute(Level level, int boundaryY) {
+    // The block half of the field: chamfer what reseedAll seeded and keep it, so the per-tick pass
+    // below has something to stamp onto without rescanning every block again. Plants have no moving
+    // part, so their field is finished here and left alone until the next rescan.
+    private static void finishRecompute() {
+        chamferDistance(target);
+        System.arraycopy(target, 0, blockDist, 0, target.length);
+        chamferDistance(targetP);
+    }
+
+    /**
+     * Stamp everything that MOVES onto a copy of the block field, every tick.
+     *
+     * <p>This used to happen inside the rescan, so a boat's foam ring only caught up every
+     * RECOMPUTE_INTERVAL ticks and visibly stepped along behind it. Splitting it out costs an
+     * arraycopy a tick, and a chamfer only on the ticks where something is actually near the boundary
+     * -- with nothing crossing, the copy alone is already the right answer.
+     */
+    private static void restampDynamic(Level level, int boundaryY) {
         final int C = cellsPerBlock;
+        System.arraycopy(blockDist, 0, target, 0, target.length);
+        int stamps = 0;
 
         // Entities whose bounding box straddles the boundary seed the full field (foam rings them).
         AABB area = new AABB(originX, boundaryY - 2.0, originZ, originX + size, boundaryY + 2.0, originZ + size);
@@ -297,16 +361,23 @@ public final class WaterlineMap {
             int z0 = Mth.floor((b.minZ - originZ) * C);
             int z1 = Mth.floor((b.maxZ - originZ) * C);
             fillCells(target, x0, z0, x1, z1, 0.0F);
+            stamps++;
         }
 
         // Sable sub-levels (ships / contraptions) that cross the boundary also seed the full field.
         if (SABLE && Config.SABLE_FOAM.getAsBoolean()) {
+            int[] subStamps = new int[1];
             SableCompatibility.stampSubLevels(level, boundaryY, originX, originZ, size, C,
-                    (cellX, cellZ) -> target[cellZ * cells + cellX] = 0.0F);
+                    (cellX, cellZ) -> {
+                        target[cellZ * cells + cellX] = 0.0F;
+                        subStamps[0]++;
+                    });
+            stamps += subStamps[0];
         }
 
-        chamferDistance(target);
-        chamferDistance(targetP);
+        if (stamps > 0) {
+            chamferDistance(target);
+        }
     }
 
     private static void fillCells(float[] field, int x0, int z0, int x1, int z1, float value) {
@@ -324,7 +395,7 @@ public final class WaterlineMap {
     // Two-pass chamfer distance transform: cheap O(n) approximate Euclidean distance (in cells).
     private static void chamferDistance(float[] field) {
         final float d1 = 1.0F;
-        final float d2 = 1.41421356F;
+        final float d2 = DIAGONAL_STEP;
         for (int z = 0; z < cells; z++) {
             for (int x = 0; x < cells; x++) {
                 int i = z * cells + x;
@@ -371,7 +442,16 @@ public final class WaterlineMap {
             }
         }
 
-        // Growth wavefront: a cell can only become as foamed as its nearest neighbour plus one step.
+        // Growth wavefront: a cell can only become as foamed as its nearest neighbour, plus what the
+        // front is allowed to creep in a tick.
+        //
+        // Diagonals count, and cost DIAGONAL_STEP rather than one step -- the same weighting the
+        // distance transform uses. Spreading through the four orthogonal neighbours alone is an L1
+        // metric, so the front grew as a DIAMOND and then visibly reshaped into the near-circular
+        // contours of the finished field once it caught up. Weighting the diagonal by its real length
+        // makes the advance per unit of distance the same in every direction, so the growing edge is
+        // already the shape it is going to settle into.
+        final float diagonalStep = stepCells * DIAGONAL_STEP;
         System.arraycopy(show, 0, scratch, 0, show.length);
         for (int z = 0; z < cells; z++) {
             for (int x = 0; x < cells; x++) {
@@ -380,12 +460,19 @@ public final class WaterlineMap {
                 if (show[i] <= t) {
                     continue; // already grown to target
                 }
-                float m = scratch[i];
-                if (x > 0) m = Math.min(m, scratch[i - 1]);
-                if (x < cells - 1) m = Math.min(m, scratch[i + 1]);
-                if (z > 0) m = Math.min(m, scratch[i - cells]);
-                if (z < cells - 1) m = Math.min(m, scratch[i + cells]);
-                float allowed = m + stepCells;               // front creeps stepCells per tick
+                boolean west = x > 0;
+                boolean east = x < cells - 1;
+                boolean north = z > 0;
+                boolean south = z < cells - 1;
+                float allowed = scratch[i] + stepCells;
+                if (west) allowed = Math.min(allowed, scratch[i - 1] + stepCells);
+                if (east) allowed = Math.min(allowed, scratch[i + 1] + stepCells);
+                if (north) allowed = Math.min(allowed, scratch[i - cells] + stepCells);
+                if (south) allowed = Math.min(allowed, scratch[i + cells] + stepCells);
+                if (west && north) allowed = Math.min(allowed, scratch[i - cells - 1] + diagonalStep);
+                if (east && north) allowed = Math.min(allowed, scratch[i - cells + 1] + diagonalStep);
+                if (west && south) allowed = Math.min(allowed, scratch[i + cells - 1] + diagonalStep);
+                if (east && south) allowed = Math.min(allowed, scratch[i + cells + 1] + diagonalStep);
                 float s = Math.max(t, Math.min(show[i], allowed));
                 if (s != show[i]) {
                     show[i] = s;
@@ -487,6 +574,9 @@ public final class WaterlineMap {
     }
 
     // Spray thrown by things crossing the surface, as opposed to the standing foam a shoreline makes.
+    // Emission is once a tick, so everything here back-dates its spawn point along the travel of that
+    // tick: a particle goes where the thing WAS at some fraction of the way through, not where it ended
+    // up. Without that the trail is a row of clumps one tick's travel apart.
     // Rate scales with speed, so a drifting boat barely fizzes and a fast one throws a real wake, and
     // the particles are biased into the arc AHEAD of the direction of travel -- foam piles up against
     // the bow rather than ringing the hull evenly. Each one then carries a fraction of the entity's
@@ -534,7 +624,16 @@ public final class WaterlineMap {
                 // across the surface; losing the motion means the entity leaves it behind rather than
                 // dragging it along -- the two together open into a V behind anything moving quickly.
                 double push = WAKE_SPREAD * (0.4 + strength);
-                spawnWake(level, puff, cx + ox * rr, surfaceY, cz + oz * rr, ox, oz, push, motion);
+                // Spread the tick's spray along the ground the entity actually covered, instead of
+                // dropping all of it where the entity happens to be now. Emission runs once a tick, so
+                // at speed that left the wake in clumps a whole tick's travel apart -- the faster the
+                // thing, the wider the gaps. Stratified (i + random, not just random) so the samples
+                // spread evenly over the interval rather than bunching by luck.
+                double t = (i + rnd.nextDouble()) / count;
+                double lagX = motion.x * (1.0 - t);
+                double lagZ = motion.z * (1.0 - t);
+                spawnWake(level, puff, cx - lagX + ox * rr, surfaceY, cz - lagZ + oz * rr,
+                        ox, oz, push, motion);
             }
         }
 
@@ -554,7 +653,11 @@ public final class WaterlineMap {
                 double heading = speed > 1.0e-4 ? Math.atan2(motion.z, motion.x)
                         : rnd.nextDouble() * Math.PI * 2.0;
                 double angle = heading + (rnd.nextDouble() * 2.0 - 1.0) * FRONT_ARC;
-                spawnWake(level, puff, wx, surfaceY, wz,
+                // Same back-dating along the tick's travel as above. Probes arrive one at a time here
+                // with no count to stratify against, so the sample is a plain random point in the
+                // interval -- over a hull's worth of probes that still fills the gap evenly.
+                double t = rnd.nextDouble();
+                spawnWake(level, puff, wx - motion.x * (1.0 - t), surfaceY, wz - motion.z * (1.0 - t),
                         Math.cos(angle), Math.sin(angle), WAKE_SPREAD * (0.4 + strength), motion);
             });
         }
@@ -577,6 +680,7 @@ public final class WaterlineMap {
         final float maxCells = MAX_DIST * cellsPerBlock;
         cells = size * cellsPerBlock;
         target = new float[cells * cells];
+        blockDist = new float[cells * cells];
         shown = new float[cells * cells];
         targetP = new float[cells * cells];
         shownP = new float[cells * cells];
@@ -586,6 +690,7 @@ public final class WaterlineMap {
         revision++;
         scratch = new float[cells * cells];
         java.util.Arrays.fill(target, maxCells);
+        java.util.Arrays.fill(blockDist, maxCells);
         java.util.Arrays.fill(targetP, maxCells);
         java.util.Arrays.fill(shown, maxCells); // start with no foam so it eases in
         java.util.Arrays.fill(shownP, maxCells);
