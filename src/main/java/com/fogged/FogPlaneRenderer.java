@@ -362,17 +362,14 @@ public class FogPlaneRenderer {
         };
     }
 
-    // Distance at which the world fades away on the camera's side, i.e. how far the murk (and the
-    // vapour above it) may reach before it must be gone. Below the boundary that wall is the murk fog;
-    // above it the render distance, stretched by Distant Horizons and pulled back in by whatever fog
-    // is actually in force.
+    // Distance at which the murk (and the vapour above it) must be gone: the murk fog's own reach below
+    // the boundary, the render distance above it, stretched by Distant Horizons.
     //
-    // The pull-back is deliberately mod-agnostic: it reads the scene fog out of RenderSystem rather
-    // than asking any particular mod. IMB11's Fog mod, a biome pack, a resource pack and vanilla's own
-    // underwater fog all end the view early in exactly the same way -- through FogRenderer.setupFog --
-    // so clamping to what that produced covers all of them and anything else that ever does it. This
-    // started as a fluid-only clamp, which was that same problem seen once: a surface far below the
-    // camera stayed a hard, depth-writing sheet across water the eye reads as empty.
+    // Deliberately NOT clamped to the current scene fog. Fogging out is not the same as not being
+    // drawn -- terrain is still drawn all the way to the render distance and merely fogged, and the
+    // murk takes the same fog uniforms, so it disappears into the distance on its own. Clamping its
+    // geometry to the fog end instead made it fade EARLIER than the terrain it lies over, which is
+    // exactly what any mod that shortens the view (IMB11's Fog, a biome pack, a resource pack) causes.
     static float visibleReach(Minecraft mc, boolean below) {
         float reach = below ? Config.FOG_DISTANCE.getAsInt() : mc.options.getEffectiveRenderDistance() * 16.0F;
 
@@ -384,14 +381,6 @@ public class FogPlaneRenderer {
         // be hidden, rather than absent.
         float lods = dhCompat() ? DistantHorizonsCompatibility.renderDistanceBlocks() : 0.0F;
         reach = Math.max(reach, lods);
-
-        // ...but never past where the world itself stops being drawn. LODs are exempt from the clamp:
-        // DH keeps drawing them beyond the vanilla fog end, so letting the fog end cut the murk back
-        // would undo the reach above and put the ring back.
-        float viewEnd = Math.max(RenderSystem.getShaderFogEnd(), lods);
-        if (viewEnd > 0.0F) {
-            reach = Math.min(reach, viewEnd);
-        }
 
         // Hard ceiling: the projection's own far plane. GameRenderer.getDepthFar() is
         // renderDistance * 4 -- 768 blocks at 12 chunks -- and geometry past it is clipped away
