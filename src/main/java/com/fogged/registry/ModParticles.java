@@ -17,6 +17,9 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  * same {@code generic_*} sprites, see {@code assets/fogged/particles/puff.json}): the nozzle filter
  * emits it white above the fog plane and foam-coloured below, so the two look and behave identically
  * except for colour -- which a plain {@code POOF} could not do, as it carries no colour.
+ *
+ * <p>{@code foam} is the same idea applied to vanilla's cosy campfire smoke, for the waterline spray
+ * (see {@code assets/fogged/particles/foam.json} and {@code FoamParticle}).
  */
 public final class ModParticles {
     public static final DeferredRegister<ParticleType<?>> PARTICLE_TYPES =
@@ -24,6 +27,20 @@ public final class ModParticles {
 
     public static final DeferredHolder<ParticleType<?>, ParticleType<ColorParticleOption>> PUFF =
             PARTICLE_TYPES.register("puff", () -> new ParticleType<ColorParticleOption>(false) {
+                @Override
+                public MapCodec<ColorParticleOption> codec() {
+                    return ColorParticleOption.codec(this);
+                }
+
+                @Override
+                public StreamCodec<? super RegistryFriendlyByteBuf, ColorParticleOption> streamCodec() {
+                    return ColorParticleOption.streamCodec(this);
+                }
+            });
+
+    /** Tinted campfire smoke for the waterline foam; see {@code FoamParticle}. */
+    public static final DeferredHolder<ParticleType<?>, ParticleType<ColorParticleOption>> FOAM =
+            PARTICLE_TYPES.register("foam", () -> new ParticleType<ColorParticleOption>(false) {
                 @Override
                 public MapCodec<ColorParticleOption> codec() {
                     return ColorParticleOption.codec(this);

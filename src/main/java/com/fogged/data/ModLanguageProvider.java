@@ -116,6 +116,10 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Also ring Sable ships and contraptions with foam. No effect without Sable installed.");
         cfg("planeSoftOcclusion", "Soft Occlusion Edge",
                 "Dissolve the plane against blocks, mobs and machines instead of cutting them hard at the boundary.");
+        cfg("distantHorizonsCompat", "Distant Horizons Support",
+                "Extend the murk to the LOD horizon and drive DH's fog. Off, the mod ignores Distant Horizons entirely.");
+        cfg("distantHorizonsLodCut", "Cut Distant Murk Against LOD",
+                "With Distant Horizons installed, let far-off LOD terrain rise through the distant murk instead of being covered by it.");
         cfg("waterlineCellsPerBlock", "Foam Grid Resolution",
                 "Cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper.");
         cfg("renderVapor", "Render Cold-Vapour Layer",
@@ -126,6 +130,12 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Green added to the plane colour to get the vapour colour.");
         cfg("vaporColorOffsetBlue", "Vapour Blue Offset",
                 "Blue added to the plane colour to get the vapour colour.");
+        cfg("vaporStage", "Vapour Render Stage",
+                "Which render stage the mist sheets are drawn at, independently of the murk's.");
+        cfg("vaporUnderwater", "Vapour Under Water",
+                "Draw a second copy of the mist before the water pass, so it reads as lying beneath a lake's surface.");
+        cfg("vaporUnderwaterStage", "Vapour Under-Water Stage",
+                "Which stage that second copy is drawn at. Must be before the translucent water pass.");
         cfg("vaporStrength", "Vapour Strength",
                 "Overall mist alpha. 0 hides the vapour entirely.");
         cfg("vaporSheets", "Vapour Sheets",

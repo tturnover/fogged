@@ -1,7 +1,10 @@
 package com.fogged;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.material.FogType;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -50,11 +53,46 @@ public class FogModifier {
         event.setBlue(c[2]);
     }
 
-    // True when the camera should get our thick fog: the fogged side of the boundary. Normally that is
-    // below it (also winning while submerged in real water); flipFog moves the fog to the side above.
+    /**
+     * Force the murk fog onto the shader uniforms, if the camera is in the murk and nothing tighter is
+     * already in force. Called at the head of the terrain pass (see LevelRendererMixin) as well as
+     * through the ordinary fog event.
+     *
+     * <p>The event alone is not enough. NeoForge fires it from inside {@code FogRenderer.setupFog}, and
+     * a mod injecting at that method's RETURN runs afterwards and simply writes over the result --
+     * Distant Horizons does exactly this to suppress vanilla fog, and it is a common enough shape that
+     * it is not worth chasing one mod at a time. There is no render stage between the terrain fog setup
+     * and the terrain draw, so the last word has to be taken at the draw itself.
+     *
+     * <p>Still composes rather than overrides: it only ever shortens the fog, so another mod's tighter
+     * fog is left alone exactly as the event listener leaves it.
+     */
+    public static void enforceMurkFog() {
+        Minecraft mc = Minecraft.getInstance();
+        Camera camera = mc.gameRenderer.getMainCamera();
+        if (mc.level == null || !belowBoundary(camera)) {
+            return;
+        }
+        float murkEnd = Config.FOG_DISTANCE.getAsInt();
+        if (RenderSystem.getShaderFogEnd() <= murkEnd) {
+            return; // something already ends the view sooner; leave it be
+        }
+        float[] c = Config.planeColor();
+        RenderSystem.setShaderFogStart(murkEnd * 0.25F);
+        RenderSystem.setShaderFogEnd(murkEnd);
+        RenderSystem.setShaderFogColor(c[0], c[1], c[2], 1.0F);
+    }
+
+    // True when the camera should get our thick fog: the fogged side of the boundary, and not inside a
+    // liquid. flipFog moves the fogged side to the one above.
+    //
+    // A liquid keeps its own fog. The murk is cut out of liquids entirely (see WaterlineMap's mask and
+    // the fog_plane shader), so a lake or lava pool the boundary passes through must not be tinted or
+    // shortened by it either -- otherwise the water you are swimming in disagrees with the water you
+    // are looking at.
     private static boolean belowBoundary(Camera cam) {
         var level = Minecraft.getInstance().level;
-        if (level == null) {
+        if (level == null || cam.getFluidInCamera() != FogType.NONE) {
             return false;
         }
         return Config.fogged(level, cam.getPosition().y);

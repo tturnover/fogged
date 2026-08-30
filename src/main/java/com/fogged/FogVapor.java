@@ -25,8 +25,9 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 // blocky terraces, faint and stacked so a grazing line of sight reads them as "overall variation far
 // from the player". Pixel-snapped by the fog_vapor shader to match the plane's blocky look.
 //
-// Drawn AFTER the translucent water pass (its own later stage) so the light mist veils OVER water,
-// instead of water compositing over it and tracing dark outlines along the waterline.
+// Drawn at up to two stages (see onRenderLevelStage): one after the water pass so the mist veils over
+// water, and one before it so water veils over the mist. Together they keep the layer continuous
+// where a lake meets the shore.
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public final class FogVapor {
 
@@ -46,9 +47,22 @@ public final class FogVapor {
         if (!Config.RENDER_PLANE.getAsBoolean() || !Config.RENDER_VAPOR.getAsBoolean()) {
             return;
         }
-        // After the translucent water pass: the depth buffer holds water/terrain/murk, so the mist
-        // sits on top of the water rather than being darkened by it.
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+        // The mist is drawn at up to TWO stages, and the same sheets at that.
+        //
+        // vaporStage (default the murk's own) is after the water pass: terrain, murk and water are all
+        // in the buffers, so the mist veils over them. That copy alone floats on top of a lake.
+        //
+        // vaporUnderwaterStage (default AFTER_ENTITIES) is before the water pass, so water composites
+        // over the mist instead and it reads as lying beneath the surface. Drawing BOTH is what makes
+        // the layer continuous across a shoreline: over land the first copy shows, under a lake the
+        // second, and neither has to know where the water ends.
+        RenderLevelStageEvent.Stage main = FogPlaneRenderer.stage(Config.VAPOR_STAGE.get());
+        RenderLevelStageEvent.Stage under = Config.VAPOR_UNDERWATER.getAsBoolean()
+                ? FogPlaneRenderer.stage(Config.VAPOR_UNDERWATER_STAGE.get())
+                : null;
+        // `under != main` keeps a matching pair of settings from drawing the same sheets twice into
+        // the same buffer, which would just double the mist's density.
+        if (event.getStage() != main && !(event.getStage() == under && under != main)) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -61,7 +75,7 @@ public final class FogVapor {
         float relY = (float) (surfaceY - cam.y);
         boolean below = (cam.y < surfaceY) != Config.FLIP_FOG.getAsBoolean();
         // Same fade range the plane uses (see FogPlaneRenderer#visibleReach).
-        float fogFar = FogPlaneRenderer.visibleReach(mc, event.getCamera(), below);
+        float fogFar = FogPlaneRenderer.visibleReach(mc, below);
 
         // Monotonic clock so the boil never runs backward (see FogShaders#animTimeSeconds).
         double timeSeconds = FogShaders.animTimeSeconds();
@@ -101,8 +115,11 @@ public final class FogVapor {
         Minecraft mc = Minecraft.getInstance();
         float reach = Math.min(mc.options.getEffectiveRenderDistance() * 16.0F, fogFar);
 
-        // Vapour lives on whichever side of the plane the camera is on (the side you can actually see).
-        float side = cam.y >= surfaceY ? 1.0F : -1.0F;
+        // The mist always sits ON TOP of the surface, and is always drawn -- it does not follow the
+        // camera to the underside. From below the murk itself hides it wherever the ceiling is solid,
+        // and it shows through the dithered gaps around whatever crosses the boundary, which is where
+        // you would expect to catch sight of it.
+        final float side = 1.0F;
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();

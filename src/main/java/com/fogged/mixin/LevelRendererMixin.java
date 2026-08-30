@@ -1,6 +1,7 @@
 package com.fogged.mixin;
 
 import com.fogged.Config;
+import com.fogged.FogModifier;
 import com.fogged.MixinHealthCheck;
 
 import net.minecraft.client.Camera;
@@ -8,9 +9,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.FogType;
 
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -40,8 +43,7 @@ public class LevelRendererMixin {
     private void fogged$skipSkyInMurk(Matrix4f frustumMatrix, Matrix4f projectionMatrix, float partialTick,
                                       Camera camera, boolean isFoggy, Runnable skyFogSetup, CallbackInfo ci) {
         MixinHealthCheck.skyFired = true;
-        Level level = Minecraft.getInstance().level;
-        if (level != null && Config.fogged(level, camera.getPosition().y)) {
+        if (murk(camera)) {
             ci.cancel();
         }
     }
@@ -51,7 +53,7 @@ public class LevelRendererMixin {
                                           double camX, double camY, double camZ, CallbackInfo ci) {
         MixinHealthCheck.weatherFired = true;
         Level level = Minecraft.getInstance().level;
-        if (level != null && Config.fogged(level, camY)) {
+        if (level != null && Config.fogged(level, camY) && !Config.inFluid(level, camX, camY, camZ)) {
             ci.cancel();
         }
     }
@@ -61,8 +63,7 @@ public class LevelRendererMixin {
     @Inject(method = "tickRain", at = @At("HEAD"), cancellable = true, require = 0)
     private void fogged$skipRainSplashesInMurk(Camera camera, CallbackInfo ci) {
         MixinHealthCheck.rainTickFired = true;
-        Level level = Minecraft.getInstance().level;
-        if (level != null && Config.fogged(level, camera.getPosition().y)) {
+        if (murk(camera)) {
             ci.cancel();
         }
     }
@@ -81,8 +82,37 @@ public class LevelRendererMixin {
         Minecraft mc = Minecraft.getInstance();
         Level level = mc.level;
         var player = mc.player;
-        if (level != null && player != null && Config.fogged(level, player.getEyeY())) {
+        if (level != null && player != null && Config.fogged(level, player.getEyeY())
+                && player.getEyeInFluidType().isAir()) {
             ci.cancel();
         }
+    }
+
+    // Re-assert the murk fog at the head of every terrain layer draw.
+    //
+    // NeoForge's fog event fires inside FogRenderer.setupFog, so a mod injecting at that method's
+    // RETURN -- Distant Horizons does, to suppress vanilla fog -- overwrites the result and the murk
+    // disappears. There is no render stage between the terrain fog setup and this call, so this is the
+    // last place the fog can be claimed before the world is drawn with it. FogModifier only ever
+    // shortens what is already there, so a mod with genuinely tighter fog still wins.
+    //
+    // Cheap: five calls a frame, each of which usually decides it has nothing to do.
+    @Inject(method = "renderSectionLayer", at = @At("HEAD"), require = 0)
+    private void fogged$enforceMurkFog(net.minecraft.client.renderer.RenderType renderType, double camX,
+                                       double camY, double camZ, org.joml.Matrix4f frustumMatrix,
+                                       org.joml.Matrix4f projectionMatrix, CallbackInfo ci) {
+        MixinHealthCheck.terrainFogFired = true;
+        FogModifier.enforceMurkFog();
+    }
+
+    // Whether the camera is in the murk itself -- on the fogged side AND not inside a liquid. A liquid
+    // keeps its own fog and its own view of the sky (see FogModifier), so nothing is suppressed there.
+    @Unique
+    private static boolean murk(Camera camera) {
+        Level level = Minecraft.getInstance().level;
+        if (level == null || camera.getFluidInCamera() != FogType.NONE) {
+            return false;
+        }
+        return Config.fogged(level, camera.getPosition().y);
     }
 }

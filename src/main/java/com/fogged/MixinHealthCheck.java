@@ -38,6 +38,8 @@ public final class MixinHealthCheck {
     public static volatile boolean weatherFired = false;
     public static volatile boolean rainTickFired = false;
     public static volatile boolean cloudsFired = false;
+    /** The terrain-pass fog re-assert; without it another mod's fog override wins (see FogModifier). */
+    public static volatile boolean terrainFogFired = false;
 
     private static int ticks = 0;
     private static boolean checked = false;

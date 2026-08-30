@@ -2,35 +2,29 @@ package com.fogged;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import org.lwjgl.opengl.GL11;
 
-import net.minecraft.client.Camera;
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.util.Mth;
-import net.minecraft.world.level.material.FogType;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
-// The murk surface at the breathing boundary, drawn as a SCREEN-SPACE COMPOSITE: a full-screen quad
-// whose fragment shader rebuilds each pixel's view ray, intersects the horizontal boundary plane
-// analytically, and blends murk over the pixel when that intersection is nearer than the scene depth
-// already in the buffer. Foam comes from a world-space waterline map (WaterlineMap).
+// The murk surface at the breathing boundary. Geometry comes from FogPlaneMesh -- greedily merged
+// quads covering only the block columns where the surface is free to exist, so a solid block or a
+// liquid is a quad that was never emitted. Foam comes from a world-space waterline map
+// (WaterlineMap), and the soft edge from a depth snapshot (SceneDepth) compared per pixel.
 //
-// There is no plane geometry. Occlusion is one per-pixel comparison of two ray lengths, so anything
-// the scene rendered occludes the murk correctly and dissolves into it over OCCLUSION_FADE blocks --
-// terrain, mobs, block entities and Flywheel's instanced Create parts alike. The quad this used to
-// be needed a camera-sized extent, a rim fade derived from that extent, a separate camera-height
-// fade, backface culling off, and a dissolve-hole system with a 128-float uniform array to punch
-// entity-shaped gaps in the hard depth cut it produced. None of that exists any more.
+// This was briefly a screen-space composite that solved a ray/plane intersection per pixel. Correct,
+// but it shaded the whole screen -- sky included -- and wrote gl_FragDepth, which disables early-Z
+// for the entire pass. As geometry the rasteriser supplies depth, early-Z rejects occluded fragments
+// before any of the foam or noise work runs, and only the surface's own pixels are shaded at all.
 //
 // Which render stage it runs at is config (planeStage), defaulting to AFTER_TRANSLUCENT_BLOCKS --
 // see the stage() method for what each choice puts in the buffers first. Render order decides what
@@ -50,9 +44,24 @@ public class FogPlaneRenderer {
     // match FogVapor#NOISE_ANCHOR so the two layers anchor identically.
     static final double NOISE_ANCHOR = 4096.0;
 
+    // Blocks the mesh skirt grows by at a time (see the note where it is computed).
+    private static final int SKIRT_STEP = 64;
+
+    // Checked here, in base code, before anything reaches into DistantHorizonsCompatibility -- the same
+    // guard WaterlineMap keeps for Sable. Compat classes are never on the required path.
+    private static final boolean DISTANT_HORIZONS = ModList.get().isLoaded("distanthorizons");
+
+    // ...and the integration is off unless asked for, on top of that.
+    private static boolean dhWasOn;
+
+    static boolean dhCompat() {
+        return DISTANT_HORIZONS && Config.DH_COMPAT.getAsBoolean();
+    }
+
     // Reused so the per-frame matrix maths allocates nothing.
-    private static final Matrix4f viewProj = new Matrix4f();
+    private static final Matrix4f modelView = new Matrix4f();
     private static final Matrix4f invViewProj = new Matrix4f();
+    private static final Matrix4f farProjection = new Matrix4f();
 
     // Last frame's render state, for the debug HUD (FogDebugOverlay) to read back. Written only here.
     static double lastSurfaceY;
@@ -71,7 +80,7 @@ public class FogPlaneRenderer {
             lastDrawn = false;
             return;
         }
-        if (event.getStage() != stage(Config.PLANE_STAGE.get())) {
+        if (event.getStage() != murkStage()) {
             return;
         }
         ShaderInstance shader = FogShaders.FOG_PLANE;
@@ -88,6 +97,18 @@ public class FogPlaneRenderer {
         boolean below = (cam.y < surfaceY) != Config.FLIP_FOG.getAsBoolean();
         lastSurfaceY = surfaceY;
         lastBelow = below;
+
+        // Distant Horizons suppresses vanilla fog by default, which takes the murk with it and leaves
+        // the world under the plane clear out to the LOD horizon. Hand it the murk to draw instead.
+        boolean dh = dhCompat();
+        if (dh) {
+            DistantHorizonsCompatibility.applyMurkFog(below, Config.FOG_DISTANCE.getAsInt());
+        } else if (dhWasOn) {
+            // Just switched off: hand DH's fog settings back before we stop touching it, or they stay
+            // pinned to the murk for the rest of the session.
+            DistantHorizonsCompatibility.applyMurkFog(false, 0.0F);
+        }
+        dhWasOn = dh;
 
         // Keep the world-space waterline foam map up to date around the camera. Its radius follows the
         // render distance so the foam covers the part of the surface that is actually visible.
@@ -120,12 +141,17 @@ public class FogPlaneRenderer {
         // Config alpha (plane[3]) is ignored: the murk is composited opaque from both sides so it
         // always reads as murk (a low config alpha made it look like clear glass up close).
 
-        // Camera-relative world space <-> clip space. getModelViewMatrix() is the camera view at every
-        // stage (rotation only, since the world is drawn camera-relative), so the product below maps a
-        // point measured from the camera straight to clip space, and its inverse turns a pixel back
-        // into a ray. Both go to the shader: one to build rays, one to project the hit back for depth.
-        viewProj.set(event.getProjectionMatrix()).mul(event.getModelViewMatrix());
-        invViewProj.set(viewProj).invert();
+        // The mesh is in map-local block coords at y = 0, so the draw matrix is the camera view plus a
+        // translation to the map's world corner and the boundary height. Keeping that out of the
+        // vertices is what lets the mesh survive camera movement and a drifting boundary untouched.
+        float offX = (float) (WaterlineMap.originX() - cam.x);
+        float offY = (float) (surfaceY - cam.y);
+        float offZ = (float) (WaterlineMap.originZ() - cam.z);
+        modelView.set(event.getModelViewMatrix()).translate(offX, offY, offZ);
+
+        // Inverse of (projection * camera view) -- WITHOUT the mesh translation, since it turns a
+        // sampled scene depth back into a camera-relative position, not a mesh-local one.
+        invViewProj.set(event.getProjectionMatrix()).mul(event.getModelViewMatrix()).invert();
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -136,9 +162,7 @@ public class FogPlaneRenderer {
             RenderSystem.enableDepthTest(); // near geometry rejects the murk behind it
             RenderSystem.depthMask(true);   // dithered-away pixels write nothing, so this is safe
         }
-        // The clip-space quad below is wound back-facing under GL's default CCW-front convention, and
-        // the pass before this leaves terrain's backface culling on, which would discard it whole.
-        RenderSystem.disableCull();
+        RenderSystem.disableCull(); // the surface is seen from both sides
 
         // Sampler0 = waterline map (foam rings). Sampler3 = scene depth snapshot for soft edges.
         RenderSystem.setShaderTexture(0, WaterlineMap.textureId());
@@ -157,12 +181,13 @@ public class FogPlaneRenderer {
         double az = Math.rint(cam.z / NOISE_ANCHOR) * NOISE_ANCHOR;
 
         shader.safeGetUniform("InvViewProj").set(invViewProj);
-        shader.safeGetUniform("ViewProj").set(viewProj);
-        shader.safeGetUniform("RelSurfaceY").set((float) (surfaceY - cam.y));
+        shader.safeGetUniform("MeshOffset").set(offX, offY, offZ);
         // Inside the murk the ceiling keeps no distance fade, so it cannot open holes onto the world
         // above -- see the FoggedSide branch in the shader.
         shader.safeGetUniform("FoggedSide").set(below ? 1.0F : 0.0F);
-        shader.safeGetUniform("WorldOffsetXZ").set((float) (cam.x - ax), (float) (cam.z - az));
+        // Mesh vertices are map-local, so world XZ is reached from the map's own origin.
+        shader.safeGetUniform("WorldOffsetXZ").set((float) (WaterlineMap.originX() - ax),
+                (float) (WaterlineMap.originZ() - az));
         shader.safeGetUniform("PlaneColor").set(r, g, b, 1.0F);
         shader.safeGetUniform("Time").set(FogShaders.animTimeSeconds()); // monotonic boil clock
         shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
@@ -176,7 +201,7 @@ public class FogPlaneRenderer {
         // Foam/spot pixel-snap grid must match the map's actual resolution (Config.waterlineCellsPerBlock).
         shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
         // Fade out by ray distance so the murk never shows past where the world fades away.
-        float fadeEnd = visibleReach(mc, event.getCamera(), below);
+        float fadeEnd = visibleReach(mc, below);
         lastFadeEnd = fadeEnd;
         shader.safeGetUniform("PlaneFadeStart").set(fadeEnd * 0.8F);
         shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
@@ -201,7 +226,57 @@ public class FogPlaneRenderer {
             RenderSystem.setShaderFogColor(r, g, b, 1.0F); // murk colour, like the fog beneath it
         }
 
-        drawFullScreen();
+        // The mesh only reaches as far as the waterline map; past that there is no block data, so a
+        // skirt carries the surface out to wherever the fade ends (see FogPlaneMesh). Quantised,
+        // because the fade end moves continuously while the camera is in a fluid and a skirt that
+        // tracked it exactly would rebuild the mesh every single frame.
+        int skirt = Mth.ceil(Math.max(0.0F, fadeEnd - WaterlineMap.size() / 2.0F) / SKIRT_STEP) * SKIRT_STEP;
+        FogPlaneMesh.ensureBuilt(skirt);
+        boolean wireframe = Config.DEBUG_VIEW.get() == Config.DebugView.WIREFRAME;
+        if (wireframe) {
+            GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);
+        }
+
+        // Everything past the projection's far plane, drawn first and drawn differently. Distant
+        // Horizons keeps putting LOD terrain out there, so the murk has to as well, but vanilla's
+        // matrix clips at getDepthFar() and its depth buffer has no resolution to spare that far out.
+        // So this stretch gets a projection with the far plane pushed back, and no depth test at all:
+        // the shader's own occlusion term already compares against the depth SNAPSHOT, which was taken
+        // with the original matrix and is unaffected, and it hard-gates to nothing wherever the scene
+        // is in front. Drawn before the near mesh so the depth-tested half wins any overlap.
+        float lods = dh ? DistantHorizonsCompatibility.renderDistanceBlocks() : 0.0F;
+        if (lods > fadeEnd + SKIRT_STEP) {
+            // Where LOD terrain rises above the boundary the haze must not exist at all; the grid
+            // answers that from DH's own terrain data (see FarPlaneGrid), a few samples a tick.
+            if (Config.DH_LOD_CUT.getAsBoolean()) {
+                FarPlaneGrid.update(cam, lods, surfaceY);
+            }
+            extendFarPlane(event.getProjectionMatrix(), farProjection, lods * 1.5F);
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            // The haze starts where the near surface stops being drawn and thins out to the LOD edge,
+            // so the two meet without a seam instead of the flat slab the far skirt used to be.
+            shader.safeGetUniform("FarPass").set(1.0F);
+            shader.safeGetUniform("PlaneFadeStart").set(fadeEnd * 0.5F);
+            shader.safeGetUniform("PlaneFadeEnd").set(lods);
+            // The grid covers the near region too, so the haze runs under the near mesh rather than
+            // butting against it: the near mesh is drawn second and depth-tested, so it wins wherever
+            // both are visible, and there is no band left uncovered where the near mesh gets clipped.
+            FogPlaneMesh.drawFar(modelView, farProjection, shader);
+            // ...and back to the near pass's own state and fade range.
+            shader.safeGetUniform("FarPass").set(0.0F);
+            shader.safeGetUniform("PlaneFadeStart").set(fadeEnd * 0.8F);
+            shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
+            if (!debug) {
+                RenderSystem.enableDepthTest();
+                RenderSystem.depthMask(true);
+            }
+        }
+
+        FogPlaneMesh.draw(modelView, event.getProjectionMatrix(), shader);
+        if (wireframe) {
+            GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);
+        }
 
         RenderSystem.setShaderFogStart(savedFogStart);
         RenderSystem.setShaderFogEnd(savedFogEnd);
@@ -214,6 +289,48 @@ public class FogPlaneRenderer {
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();
         RenderSystem.disableBlend();
+    }
+
+    // The stage the murk actually draws at: the configured one, pushed later when Distant Horizons
+    // needs it to be.
+    //
+    // DH renders its LODs from the HEAD of LevelRenderer.renderSectionLayer, and that method is called
+    // for the tripwire layer too -- after NeoForge has already fired AFTER_TRANSLUCENT_BLOCKS. So a
+    // murk drawn at the default stage is painted over by LOD terrain: from below it shows through the
+    // ceiling, and from above the surface appears to stop dead exactly where the LODs begin. Anything
+    // from AFTER_PARTICLES on is past every renderSectionLayer call and safe.
+    //
+    // Only bumped when DH is actually drawing, and never pulled earlier -- a stage the user chose past
+    // this point is left alone.
+    static RenderLevelStageEvent.Stage murkStage() {
+        RenderLevelStageEvent.Stage configured = stage(Config.PLANE_STAGE.get());
+        if (!dhCompat() || DistantHorizonsCompatibility.renderDistanceBlocks() <= 0) {
+            return configured;
+        }
+        if (configured == RenderLevelStageEvent.Stage.AFTER_PARTICLES
+                || configured == RenderLevelStageEvent.Stage.AFTER_WEATHER) {
+            return configured;
+        }
+        return RenderLevelStageEvent.Stage.AFTER_WEATHER;
+    }
+
+    // A copy of {@code src} with its far plane moved out to {@code newFar}, everything else untouched.
+    //
+    // Solved out of the matrix rather than rebuilt from FOV and aspect, so it cannot drift from whatever
+    // projection the game actually handed us. For a standard perspective matrix m22 = -(f+n)/(f-n) and
+    // m32 = -2fn/(f-n), which invert to n = m32/(m22-1) and f = m32/(m22+1); only those two entries
+    // change, so the horizontal and vertical scale -- and therefore every pixel's view ray -- is
+    // identical to the near pass's.
+    private static void extendFarPlane(Matrix4f src, Matrix4f dst, float newFar) {
+        dst.set(src);
+        float a = src.m22();
+        float b = src.m32();
+        float near = b / (a - 1.0F);
+        if (!Float.isFinite(near) || near <= 0.0F || newFar <= near) {
+            return; // not a perspective matrix we recognise; leave it exactly as it came
+        }
+        dst.m22(-(newFar + near) / (newFar - near));
+        dst.m32(-2.0F * newFar * near / (newFar - near));
     }
 
     // The stage the composite runs at (config planeStage), and what each one means for it.
@@ -234,7 +351,7 @@ public class FogPlaneRenderer {
     // The last two run against a different framebuffer under Fabulous graphics (vanilla binds
     // translucentTarget / particlesTarget there); SceneDepth reads whichever is bound, so the depth
     // snapshot follows it, and the murk lands in that target rather than the main one.
-    private static RenderLevelStageEvent.Stage stage(Config.PlaneStage which) {
+    static RenderLevelStageEvent.Stage stage(Config.PlaneStage which) {
         return switch (which) {
             case AFTER_CUTOUT_BLOCKS -> RenderLevelStageEvent.Stage.AFTER_CUTOUT_BLOCKS;
             case AFTER_ENTITIES -> RenderLevelStageEvent.Stage.AFTER_ENTITIES;
@@ -245,29 +362,43 @@ public class FogPlaneRenderer {
         };
     }
 
-    // Clip-space quad covering the screen; fog_plane.vsh passes it through untransformed.
-    private static void drawFullScreen() {
-        Tesselator tess = Tesselator.getInstance();
-        BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
-        bb.addVertex(-1.0F, -1.0F, 0.0F);
-        bb.addVertex(-1.0F, 1.0F, 0.0F);
-        bb.addVertex(1.0F, 1.0F, 0.0F);
-        bb.addVertex(1.0F, -1.0F, 0.0F);
-        BufferUploader.drawWithShader(bb.buildOrThrow());
-    }
-
     // Distance at which the world fades away on the camera's side, i.e. how far the murk (and the
     // vapour above it) may reach before it must be gone. Below the boundary that wall is the murk fog;
-    // above it the render distance -- except with the camera in a fluid, where the vanilla scene fog
-    // ends the view much sooner (and closer still in the seconds after diving, while water vision ramps
-    // up). Without that clamp a surface far below the camera stayed a hard, depth-writing sheet across
-    // water the eye reads as empty: submerging over sections that were still rebuilding painted the
-    // whole gap murk, with a straight horizon cut where it ran out.
-    static float visibleReach(Minecraft mc, Camera camera, boolean below) {
+    // above it the render distance, stretched by Distant Horizons and pulled back in by whatever fog
+    // is actually in force.
+    //
+    // The pull-back is deliberately mod-agnostic: it reads the scene fog out of RenderSystem rather
+    // than asking any particular mod. IMB11's Fog mod, a biome pack, a resource pack and vanilla's own
+    // underwater fog all end the view early in exactly the same way -- through FogRenderer.setupFog --
+    // so clamping to what that produced covers all of them and anything else that ever does it. This
+    // started as a fluid-only clamp, which was that same problem seen once: a surface far below the
+    // camera stayed a hard, depth-writing sheet across water the eye reads as empty.
+    static float visibleReach(Minecraft mc, boolean below) {
         float reach = below ? Config.FOG_DISTANCE.getAsInt() : mc.options.getEffectiveRenderDistance() * 16.0F;
-        if (camera.getFluidInCamera() != FogType.NONE) {
-            reach = Math.min(reach, RenderSystem.getShaderFogEnd());
+
+        // Distant Horizons draws LOD terrain well past the vanilla render distance, so the murk has to
+        // reach that far or its far rim becomes a hard ring with the world beyond the boundary on open
+        // show past it. This applies on BOTH sides: from underneath the murk is a ceiling, and one that
+        // stops at fogDistance while DH keeps drawing sky and LODs past it is the same ring seen from
+        // below. The murk fog still hides everything out there -- the surface just has to be there to
+        // be hidden, rather than absent.
+        float lods = dhCompat() ? DistantHorizonsCompatibility.renderDistanceBlocks() : 0.0F;
+        reach = Math.max(reach, lods);
+
+        // ...but never past where the world itself stops being drawn. LODs are exempt from the clamp:
+        // DH keeps drawing them beyond the vanilla fog end, so letting the fog end cut the murk back
+        // would undo the reach above and put the ring back.
+        float viewEnd = Math.max(RenderSystem.getShaderFogEnd(), lods);
+        if (viewEnd > 0.0F) {
+            reach = Math.min(reach, viewEnd);
         }
-        return reach;
+
+        // Hard ceiling: the projection's own far plane. GameRenderer.getDepthFar() is
+        // renderDistance * 4 -- 768 blocks at 12 chunks -- and geometry past it is clipped away
+        // entirely, so a reach beyond this does not draw more murk, it just moves the fade out to
+        // where the mesh has already been cut off and leaves a hard ring at the far plane instead of
+        // a fade. This is why the murk cannot follow Distant Horizons all the way out: DH draws its
+        // LODs with its own extended projection, and ours is still vanilla's.
+        return Math.min(reach, mc.gameRenderer.getDepthFar());
     }
 }

@@ -29,7 +29,8 @@ public class MobSuppressor {
         }
         Mob mob = event.getEntity();
         Level level = mob.level();
-        if (Config.fogged(level, event.getY()) && !Config.mobAllowedUnderFog(mob.getType())) {
+        if (Config.fogged(level, event.getY()) && !Config.inFluid(level, event.getX(), event.getY(), event.getZ())
+                && !Config.mobAllowedUnderFog(mob.getType())) {
             event.setSpawnCancelled(true);
         }
     }
@@ -47,6 +48,7 @@ public class MobSuppressor {
 
         Level level = mob.level();
         boolean inMurk = Config.fogged(level, mob.getEyeY())
+                && mob.getEyeInFluidType().isAir() // a liquid has its own rules; the murk is cut out of it
                 && !Config.mobAllowedUnderFog(mob.getType())
                 && !BreatheSpheres.isBreathable(level, mob.getEyePosition()); // nozzle-filter sphere shelters mobs too
         if (!inMurk) {
