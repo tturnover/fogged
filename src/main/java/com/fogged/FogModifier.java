@@ -29,16 +29,17 @@ public class FogModifier {
         if (!belowBoundary(event.getCamera())) {
             return;
         }
-        // Compose with whatever vanilla or an earlier-run mod already set, rather than overwriting it
-        // outright: our murk fog only wins when it is actually the tighter constraint, so another mod's
-        // (or resource pack's) legitimate fog tightening is never silently discarded.
-        float vanillaFar = event.getFarPlaneDistance();
-        float far = Math.min(Config.FOG_DISTANCE.getAsInt(), vanillaFar);
+        // On the fogged side the murk OWNS the fog -- distance and colour both. This used to compose,
+        // taking whichever was tighter and leaving another mod's fog alone otherwise, which reads as
+        // politeness but is wrong here: the murk is the whole point of being under the boundary, and a
+        // biome fog that happens to be shorter left the world under the plane fogged in that biome's
+        // colour with the murk nowhere in it. Above the boundary every other mod's fog is untouched.
+        float far = Config.FOG_DISTANCE.getAsInt();
         event.setNearPlaneDistance(far * 0.25F);
         event.setFarPlaneDistance(far);
-        if (far < vanillaFar) {
-            event.setCanceled(true); // only override vanilla's own fog math when ours is actually tighter
-        }
+        // Cancelling is what makes NeoForge apply these at all -- see ClientHooks.onFogRender, which
+        // only writes the event's values back when the event was cancelled.
+        event.setCanceled(true);
     }
 
     @SubscribeEvent
@@ -64,8 +65,8 @@ public class FogModifier {
      * it is not worth chasing one mod at a time. There is no render stage between the terrain fog setup
      * and the terrain draw, so the last word has to be taken at the draw itself.
      *
-     * <p>Still composes rather than overrides: it only ever shortens the fog, so another mod's tighter
-     * fog is left alone exactly as the event listener leaves it.
+     * <p>Overrides rather than composes, matching the event listener: in the murk this fog is the
+     * effect, not a suggestion.
      */
     public static void enforceMurkFog() {
         Minecraft mc = Minecraft.getInstance();
@@ -73,10 +74,11 @@ public class FogModifier {
         if (mc.level == null || !belowBoundary(camera)) {
             return;
         }
+        // Unconditionally, for the same reason the event listener above is unconditional. The earlier
+        // version bailed out here whenever something else had already set a shorter fog -- and since
+        // that check came first, it skipped the COLOUR too, so under a biome fog tighter than the murk
+        // the world kept that biome's colour and the murk was neither hiding the plane nor tinting it.
         float murkEnd = Config.FOG_DISTANCE.getAsInt();
-        if (RenderSystem.getShaderFogEnd() <= murkEnd) {
-            return; // something already ends the view sooner; leave it be
-        }
         float[] c = Config.planeColor();
         RenderSystem.setShaderFogStart(murkEnd * 0.25F);
         RenderSystem.setShaderFogEnd(murkEnd);

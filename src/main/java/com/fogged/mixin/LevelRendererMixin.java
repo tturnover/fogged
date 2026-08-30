@@ -4,6 +4,10 @@ import com.fogged.Config;
 import com.fogged.FogModifier;
 import com.fogged.MixinHealthCheck;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+
+import org.lwjgl.opengl.GL11;
+
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -44,6 +48,15 @@ public class LevelRendererMixin {
                                       Camera camera, boolean isFoggy, Runnable skyFogSetup, CallbackInfo ci) {
         MixinHealthCheck.skyFired = true;
         if (murk(camera)) {
+            // Repaint the background to the murk colour before dropping the sky pass. Cancelling alone
+            // used to be enough because the framebuffer had already been cleared to the fog colour --
+            // but that clear colour comes out of FogRenderer.setupColor, and a mod injecting at its
+            // RETURN owns it. The result was the horizon left in that mod's colour while everything
+            // fogged came out murk: an empty hole above the terrain line. Nothing has been drawn yet
+            // at this point in renderLevel, so only the colour buffer is touched and only here.
+            float[] c = Config.planeColor();
+            RenderSystem.clearColor(c[0], c[1], c[2], 1.0F);
+            RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT, Minecraft.ON_OSX);
             ci.cancel();
         }
     }
