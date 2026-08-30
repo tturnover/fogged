@@ -123,6 +123,10 @@ dependencies {
     // are isolated in SableFoam and guarded by a ModList check so the mod still runs without Sable.
     compileOnly files("libs/sable-neoforge-1.21.1-2.0.3.jar")
     compileOnly files("libs/sable-companion-common-1.21.1-1.6.0.jar")
+
+    // YetAnotherConfigLib, compile-time only. Optional at runtime: the config screen falls back to
+    // NeoForge's own when it is absent, and every YACL reference is isolated in YaclCompatibility.
+    compileOnly files("libs/yet_another_config_lib_v3-3.8.2+1.21.1-neoforge.jar")
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

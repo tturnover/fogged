@@ -7,7 +7,7 @@
 // carves a drifting, PIXELATED wispy mask out of each quad and dissolves it into the world fog so it
 // matches the blocky look of the plane and never shows a hard rim.
 
-uniform sampler2D Sampler3;     // scene depth snapshot (terrain, before the plane) for the soft edge
+uniform sampler2D Sampler3;     // scene depth snapshot (taken just before the plane) for the soft edge
 
 uniform vec4 ColorModulator;
 uniform vec3 VaporColor;        // overall vapour tint, shared by every sheet (see the note on vertexColor below)

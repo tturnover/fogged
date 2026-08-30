@@ -5,17 +5,25 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.electronwill.nightconfig.core.UnmodifiableConfig;
-
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-// Mod config. Demonstrates how to use Neo's config APIs.
+// Mod config, split across two specs. Gameplay (the boundary and what suffocates under it) is COMMON,
+// so a server decides it; everything the client draws -- the plane, its vapour and the render debug
+// views -- is CLIENT, so it stays a local preference and a server can never dictate someone's visuals.
+//
+// Every option is a plain scalar, a boolean, an enum or a list of strings. That is deliberate: config
+// GUIs (NeoForge's own screen, Configured, and the YACL screen in YaclCompatibility) can edit those
+// with a real widget, while the nested TOML tables and mixed numeric lists this used to store could
+// only ever be a text box. Colours are stored as ARGB ints for the same reason -- that is what a
+// colour picker binds to.
 public class Config {
-    private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
+
+    private static final ModConfigSpec.Builder COMMON = new ModConfigSpec.Builder();
+    private static final ModConfigSpec.Builder CLIENT = new ModConfigSpec.Builder();
 
     // Vertical offset of the visible surface from the breathing boundary. Lowered 0.4 below the
     // boundary; the plane, fog, foam and breathing checks all use this so they move together and the
@@ -33,60 +41,85 @@ public class Config {
     //   FogPlaneRenderer.MAX_ENTITY_HOLES (32)
     //     == fog_plane.fsh  entity-hole loop bound (`for (int i = 0; i < 32; i++)`)
     //     == fog_plane.json / fog_plane.fsh  EntityHoles[128] (== MAX_ENTITY_HOLES * 4)
+    //   Config.DebugView ordinals
+    //     == fog_plane.fsh  DebugView uniform (0 = off, then one branch per constant, in order)
     // WaterlineMap's cellsPerBlock resolution is NOT in this list: it's threaded to the shaders as the
     // FoamPixelsPerBlock/PixelsPerBlock uniforms every frame (see FogPlaneRenderer/FogVapor) precisely
     // so it can change at runtime (waterlineCellsPerBlock) without needing a matching shader edit.
     // ====
 
-    // Config values below are grouped into TOML categories with BUILDER.push/pop. Those calls sit in
-    // static blocks so they run in declaration order, interleaved with the field initializers -- Java
-    // runs static initializer blocks and static field initializers top-to-bottom (JLS 12.4.2).
+    /** What the plane shader draws instead of the plane, for diagnosing the render path. */
+    public enum DebugView {
+        /** Normal rendering. */
+        OFF,
+        /** Red = foam edge factor, blue = surface-spot shading. */
+        FOAM,
+        /** The scene-depth snapshot the soft edge samples: grey = depth, blue = nothing behind. */
+        SCENE_DEPTH,
+        /** The plane's own opacity: green where it is solid (writes depth), red where it is softened. */
+        PLANE_OPACITY,
+        /** The dissolve holes: red = near-player disc, green = entity discs. */
+        DISSOLVE_HOLES,
+        /** The raw waterline map: red = distance to solid/entity, green = distance to plant. */
+        WATERLINE_MAP
+    }
 
-    // ==== [boundary] : underwater-breathing boundary ====
-    static { BUILDER.push("boundary"); }
+    // Config values below are grouped into TOML categories with push/pop. Those calls sit in static
+    // blocks so they run in declaration order, interleaved with the field initializers -- Java runs
+    // static initializer blocks and static field initializers top-to-bottom (JLS 12.4.2). The two
+    // builders are independent, so COMMON and CLIENT sections can interleave freely.
 
-    public static final ModConfigSpec.ConfigValue<UnmodifiableConfig> PLANE_HEIGHT_SCHEDULE = BUILDER
-            .comment("Breathing-boundary height over time, as a day -> height table. The boundary is the Y",
-                    "below which the player breathes as if underwater. Height is linearly interpolated",
-                    "between listed days; before the first day it holds the first height, after the last",
-                    "day it holds the last. Day is the world day count (dayTime / 24000).",
-                    "TOML table syntax, e.g.   planeHeightSchedule = { \"0\" = -30, \"10\" = 40, \"80\" = 100 }")
-            .define("planeHeightSchedule", Config::defaultSchedule, Config::isValidSchedule);
+    // ==== common [boundary] : underwater-breathing boundary ====
+    static { COMMON.push("boundary"); }
 
-    public static final ModConfigSpec.BooleanValue PLANE_HEIGHT_CYCLE = BUILDER
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> PLANE_HEIGHT_SCHEDULE = COMMON
+            .comment("Breathing-boundary height over time, one \"day=height\" entry per line. The boundary",
+                    "is the Y below which the player breathes as if underwater. Height is linearly",
+                    "interpolated between listed days; before the first day it holds the first height,",
+                    "after the last day it holds the last. Day is the world day count (dayTime / 24000).",
+                    "Example: planeHeightSchedule = [\"0=-30\", \"10=40\", \"80=100\"]")
+            .defineListAllowEmpty("planeHeightSchedule", Config::defaultSchedule, () -> "0=0",
+                    o -> o instanceof String s && parseScheduleEntry(s) != null);
+
+    public static final ModConfigSpec.BooleanValue PLANE_HEIGHT_CYCLE = COMMON
             .comment("On: loop the schedule back and forth (with default days 0/10/80: 0->10->80->10->0->...).",
                     "Off (default): hold the last height after the last day.")
             .define("planeHeightCycle", false);
 
-    public static final ModConfigSpec.ConfigValue<List<? extends Double>> OVERDAY_OFFSET = BUILDER
-            .comment("Daily height offset added on top of the scheduled height, as [minNoon, maxMidnight].",
-                    "It eases from the noon minimum to the midnight maximum and back over the day.")
-            .defineList("overdayOffset", List.of(0.0, 4.0), () -> 0.0, o -> o instanceof Number);
+    public static final ModConfigSpec.DoubleValue OVERDAY_OFFSET_NOON = COMMON
+            .comment("Height offset added on top of the scheduled height at noon -- the low point of the",
+                    "daily rise and fall.")
+            .defineInRange("overdayOffsetNoon", 0.0, -256.0, 256.0);
 
-    public static final ModConfigSpec.IntValue FOG_DISTANCE = BUILDER
+    public static final ModConfigSpec.DoubleValue OVERDAY_OFFSET_MIDNIGHT = COMMON
+            .comment("Height offset added on top of the scheduled height at midnight -- the high point.",
+                    "The boundary eases between the two over the day.")
+            .defineInRange("overdayOffsetMidnight", 4.0, -256.0, 256.0);
+
+    public static final ModConfigSpec.IntValue FOG_DISTANCE = COMMON
             .comment("Render distance (in blocks) of the thick fog applied while the camera is below the",
                     "breathing boundary. Lower = denser fog / shorter view, like being underwater.")
             .defineInRange("fogDistance", 24, 4, 256);
 
-    public static final ModConfigSpec.BooleanValue FLIP_FOG = BUILDER
+    public static final ModConfigSpec.BooleanValue FLIP_FOG = COMMON
             .comment("Flip the murk fog to the other side of the plane. Default (false) fogs BELOW the",
                     "boundary (underwater-style); true fogs ABOVE it instead. Affects the fog only, not",
                     "the breathing boundary.")
             .define("flipFog", false);
 
-    public static final ModConfigSpec.BooleanValue SUBMERGE_WORLD = BUILDER
+    public static final ModConfigSpec.BooleanValue SUBMERGE_WORLD = COMMON
             .comment("The murk drowns the world below the boundary like being underwater: snuffs fire and",
                     "soul fire, freezes lava to stone, drowns torches, and wilts plants / crops / leaves.",
                     "Off leaves the world untouched under the fog.")
             .define("submergeWorld", true);
 
-    public static final ModConfigSpec.IntValue SUBMERGE_SKIP = BUILDER
+    public static final ModConfigSpec.IntValue SUBMERGE_SKIP = COMMON
             .comment("Dead zone: the topmost blocks directly under the fog plane that the scour leaves alone.",
                     "The shallow layer right beneath the plane stays untouched; the scour acts on everything",
                     "from this offset down to the bottom of the world.")
             .defineInRange("submergeSkip", 5, 0, 64);
 
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> SNUFFED_DEVICES = BUILDER
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> SNUFFED_DEVICES = COMMON
             .comment("Block ids of fire-burning devices the murk snuffs out along with the loose fires: each",
                     "is unlit, its burn timer zeroed and any fuel inside it ejected, so it cannot keep",
                     "running under the fog. '*' matches any run of characters, and the 'minecraft:'",
@@ -95,43 +128,45 @@ public class Config {
             .defineListAllowEmpty("snuffedDevices", Config::defaultSnuffedDevices, () -> "minecraft:furnace",
                     o -> o instanceof String s && !s.isBlank());
 
-    static { BUILDER.pop(); }
+    static { COMMON.pop(); }   // [boundary]
 
-    // ==== [suffocation] : what the murk does to the things breathing in it, players and mobs alike ====
-    static { BUILDER.push("suffocation"); }
+    // ==== common [suffocation] : what the murk does to the things breathing in it ====
+    static { COMMON.push("suffocation"); }
 
-    public static final ModConfigSpec.BooleanValue PLAYER_SUFFOCATION = BUILDER
+    public static final ModConfigSpec.BooleanValue PLAYER_SUFFOCATION = COMMON
             .comment("Whether players drown under the breathing boundary: their air bar drains at",
                     "airLossPerTick and runs out into drowning damage. Off lets them breathe under the",
                     "fog freely, leaving only the fog itself. Mobs are unaffected either way.")
             .define("playerSuffocation", true);
 
-    public static final ModConfigSpec.IntValue AIR_LOSS_PER_TICK = BUILDER
+    public static final ModConfigSpec.IntValue AIR_LOSS_PER_TICK = COMMON
             .comment("Air a player loses per tick (out of 300) while below the breathing boundary.",
                     "Higher = drown faster.")
             .defineInRange("airLossPerTick", 1, 1, 300);
 
-    public static final ModConfigSpec.BooleanValue DEPTH_SCALING = BUILDER
+    public static final ModConfigSpec.BooleanValue DEPTH_SCALING = COMMON
             .comment("Make the murk bite harder the deeper you go: air drains faster and nozzle-filter",
-                    "breathing spheres shrink, both by depthScalingStep. Off = the same everywhere below",
-                    "the boundary.")
+                    "breathing spheres shrink, both by depthScalingPercent. Off = the same everywhere",
+                    "below the boundary.")
             .define("depthScaling", true);
 
-    public static final ModConfigSpec.ConfigValue<List<? extends Double>> DEPTH_SCALING_STEP = BUILDER
-            .comment("Depth scaling as [depth, percent]: every `depth` blocks below the breathing boundary,",
-                    "air loss goes up by `percent` and the nozzle-filter sphere radius goes down by it.",
-                    "The steps compound (default [10, 5]: -20 blocks = air x1.05^2, radius x0.95^2), and",
-                    "partial steps count, so the change is gradual rather than jumping at each step.")
-            .defineList("depthScalingStep", List.of(10.0, 5.0), () -> 0.0,
-                    o -> o instanceof Number n && n.doubleValue() >= 0.0);
+    public static final ModConfigSpec.DoubleValue DEPTH_SCALING_BLOCKS = COMMON
+            .comment("How many blocks below the boundary make up one depth step. 0 disables the scaling.")
+            .defineInRange("depthScalingBlocks", 10.0, 0.0, 512.0);
 
-    public static final ModConfigSpec.BooleanValue MOB_SUFFOCATION = BUILDER
+    public static final ModConfigSpec.DoubleValue DEPTH_SCALING_PERCENT = COMMON
+            .comment("Per depth step, the percent air loss goes up by and the nozzle-filter sphere radius",
+                    "goes down by. The steps compound (default 10 blocks / 5%: -20 blocks = air x1.05^2,",
+                    "radius x0.95^2), and partial steps count, so the change is gradual.")
+            .defineInRange("depthScalingPercent", 5.0, 0.0, 100.0);
+
+    public static final ModConfigSpec.BooleanValue MOB_SUFFOCATION = COMMON
             .comment("Whether the murk suffocates non-allowed mobs: they cannot spawn on the fogged side",
                     "and take damage once they have been under it past mobSuffocateDelaySeconds.",
                     "Off lets any mob live under the fog. Players are unaffected either way.")
             .define("mobSuffocation", true);
 
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLOWED_MOBS = BUILDER
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLOWED_MOBS = COMMON
             .comment("Entity-type IDs allowed to live under the fog (on the murk side of the boundary).",
                     "Anything NOT listed cannot spawn there and starts taking damage after",
                     "mobSuffocateDelaySeconds submerged. IDs may omit the 'minecraft:' namespace.",
@@ -139,99 +174,117 @@ public class Config {
             .defineListAllowEmpty("allowedMobs", Config::defaultAllowedMobs, () -> "minecraft:cod",
                     o -> o instanceof String s && ResourceLocation.tryParse(withNamespace(s)) != null);
 
-    public static final ModConfigSpec.IntValue MOB_SUFFOCATE_DELAY = BUILDER
+    public static final ModConfigSpec.IntValue MOB_SUFFOCATE_DELAY = COMMON
             .comment("Seconds a non-allowed mob can stay under the fog before it starts taking damage.")
             .defineInRange("mobSuffocateDelaySeconds", 5, 0, 600);
 
-    public static final ModConfigSpec.DoubleValue MOB_SUFFOCATE_DAMAGE = BUILDER
+    public static final ModConfigSpec.DoubleValue MOB_SUFFOCATE_DAMAGE = COMMON
             .comment("Damage dealt to a non-allowed mob each second once it has been under the fog past",
                     "the delay. 2.0 = one heart per second.")
             .defineInRange("mobSuffocateDamage", 2.0, 0.0, 1000.0);
 
-    static { BUILDER.pop(); }   // [suffocation]
+    static { COMMON.pop(); }   // [suffocation]
 
-    // ==== [plane] : separation plane (and its cold-vapour layer) ====
-    static { BUILDER.push("plane"); }
+    // ==== client [plane] : separation plane (and its cold-vapour layer) ====
+    static { CLIENT.push("plane"); }
 
-    public static final ModConfigSpec.BooleanValue RENDER_PLANE = BUILDER
+    public static final ModConfigSpec.BooleanValue RENDER_PLANE = CLIENT
             .comment("Whether to render the semi-transparent separation plane at the breathing boundary.")
             .define("renderPlane", true);
 
-    public static final ModConfigSpec.ConfigValue<String> PLANE_COLOR = BUILDER
-            .comment("Separation plane colour as hex RGBA (RRGGBBAA). Alpha 0 = invisible, FF = opaque.",
-                    "Keep alpha high so the plane reads as the same dense fog you see beneath it.")
-            .define("planeColor", "406440FF");
+    public static final ModConfigSpec.IntValue PLANE_COLOR = CLIENT
+            .comment("Separation plane colour, as a packed ARGB integer (a colour picker edits this",
+                    "directly). The alpha channel is ignored: the plane is always drawn opaque so it",
+                    "reads as the same dense fog you see beneath it. Default is hex FF406440.")
+            .defineInRange("planeColor", 0xFF406440, Integer.MIN_VALUE, Integer.MAX_VALUE);
 
-    public static final ModConfigSpec.ConfigValue<String> FOAM_COLOR = BUILDER
-            .comment("Foam base colour as hex RGBA (RRGGBBAA). Alpha scales how strongly the foam shows.")
-            .define("foamColor", "70947aFF");
+    public static final ModConfigSpec.IntValue FOAM_COLOR = CLIENT
+            .comment("Foam colour, as a packed ARGB integer. Alpha scales how strongly the foam shows.",
+                    "Default is hex FF70947A.")
+            .defineInRange("foamColor", 0xFF70947A, Integer.MIN_VALUE, Integer.MAX_VALUE);
 
-    public static final ModConfigSpec.DoubleValue FOAM_WIDTH = BUILDER
+    public static final ModConfigSpec.DoubleValue FOAM_WIDTH = CLIENT
             .comment("How far (in blocks) the white foam reaches from where the plane meets blocks and",
                     "entities. 0 disables the foam; larger = wider foam band around every edge.")
             .defineInRange("foamWidth", 2.25, 0.0, 8.0);
 
-    public static final ModConfigSpec.BooleanValue SABLE_FOAM = BUILDER
+    public static final ModConfigSpec.BooleanValue SABLE_FOAM = CLIENT
             .comment("If the Sable physics mod is installed, also generate foam around its sub-levels",
                     "(ships / contraptions) where they cross the boundary. No effect without Sable.")
             .define("sableFoam", true);
 
-    public static final ModConfigSpec.BooleanValue PLANE_SOFT_OCCLUSION = BUILDER
-            .comment("Soft-fade the plane and vapour against terrain/block silhouettes instead of a hard",
-                    "depth cut (uses a per-frame scene-depth snapshot -- see SceneDepth). Off skips that",
-                    "snapshot entirely (a small perf win) and always renders the edge hard-cut instead.")
+    public static final ModConfigSpec.BooleanValue PLANE_SOFT_OCCLUSION = CLIENT
+            .comment("Soft-fade the plane and vapour against the silhouettes of blocks, mobs and machines",
+                    "instead of a hard depth cut (uses a per-frame scene-depth snapshot -- see SceneDepth).",
+                    "Off skips that snapshot entirely (a small perf win) and cuts every edge hard.")
             .define("planeSoftOcclusion", true);
 
-    public static final ModConfigSpec.IntValue WATERLINE_CELLS_PER_BLOCK = BUILDER
+    public static final ModConfigSpec.IntValue WATERLINE_CELLS_PER_BLOCK = CLIENT
             .comment("Sub-block resolution of the foam distance-field grid (see WaterlineMap), in cells",
                     "per block. Lower trades a coarser foam ring for a smaller grid: halving this quarters",
                     "the cost of every per-tick foam pass (recompute / chamfer / ease / upload).")
             .defineInRange("waterlineCellsPerBlock", 4, 1, 4);
 
-    public static final ModConfigSpec.BooleanValue FOAM_DEBUG = BUILDER
-            .comment("Debug: render the plane as raw foam data instead of the normal look.",
-                    "Red = depth-proximity edge factor, Green = sampled scene depth. If Green is a flat",
-                    "single colour the depth buffer isn't being read; if Red is blank there's no edge.")
-            .define("foamDebug", false);
+    // ---- client [plane.vapor] : cold-vapour ("liquid nitrogen") layer ----
+    static { CLIENT.push("vapor"); }
 
-    // ---- [plane.vapor] : cold-vapour ("liquid nitrogen") layer ----
-    static { BUILDER.push("vapor"); }
-
-    public static final ModConfigSpec.BooleanValue RENDER_VAPOR = BUILDER
+    public static final ModConfigSpec.BooleanValue RENDER_VAPOR = CLIENT
             .comment("Render the cold-vapour layer on top of the plane: drifting horizontal mist sheets",
                     "(overall variation, densest at grazing angles far away) plus animated vertical splash",
                     "wisps near the camera, for a liquid-nitrogen look. No effect if renderPlane is off.")
             .define("renderVapor", true);
 
-    public static final ModConfigSpec.ConfigValue<List<? extends Double>> VAPOR_COLOR_OFFSET = BUILDER
-            .comment("Cold-vapour colour is derived from planeColor plus this per-channel offset [dR, dG, dB]",
-                    "(each -1..1, added then clamped), so the vapour tracks the plane but reads distinct.",
-                    "The default lightens it toward an icy white-blue.")
-            .defineList("vaporColorOffset", List.of(0.45, 0.50, 0.55),
-                    () -> 0.0, o -> o instanceof Number n && n.doubleValue() >= -1.0 && n.doubleValue() <= 1.0);
+    public static final ModConfigSpec.DoubleValue VAPOR_OFFSET_RED = CLIENT
+            .comment("Red offset from the plane colour to the vapour colour (-1..1, added then clamped),",
+                    "so the vapour tracks the plane but still reads distinct.")
+            .defineInRange("vaporColorOffsetRed", 0.45, -1.0, 1.0);
 
-    public static final ModConfigSpec.DoubleValue VAPOR_STRENGTH = BUILDER
+    public static final ModConfigSpec.DoubleValue VAPOR_OFFSET_GREEN = CLIENT
+            .comment("Green offset from the plane colour to the vapour colour (-1..1).")
+            .defineInRange("vaporColorOffsetGreen", 0.50, -1.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue VAPOR_OFFSET_BLUE = CLIENT
+            .comment("Blue offset from the plane colour to the vapour colour (-1..1). The defaults together",
+                    "lighten the plane colour toward an icy white-blue.")
+            .defineInRange("vaporColorOffsetBlue", 0.55, -1.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue VAPOR_STRENGTH = CLIENT
             .comment("Overall vapour strength (alpha). Lower for a fainter mist, 0 to hide it entirely.")
             .defineInRange("vaporStrength", 0.95, 0.0, 1.0);
 
-    public static final ModConfigSpec.IntValue VAPOR_SHEETS = BUILDER
+    public static final ModConfigSpec.IntValue VAPOR_SHEETS = CLIENT
             .comment("Number of stacked mist sheets over the plane. Each is a grid that rises and falls",
                     "(see vaporUndulation) so the plane never looks dead flat. More sheets = thicker, more",
                     "layered mist (and a touch more cost). 0 disables the sheets.")
             .defineInRange("vaporSheets", 5, 0, 8);
 
-    public static final ModConfigSpec.DoubleValue VAPOR_UNDULATION = BUILDER
+    public static final ModConfigSpec.DoubleValue VAPOR_UNDULATION = CLIENT
             .comment("Maximum height (in blocks) the mist sheets rise off the plane, giving the flat plane",
                     "rolling rises and falls. 0 = flat sheets.")
             .defineInRange("vaporUndulation", 1.5, 0.0, 16.0);
 
-    static { BUILDER.pop(); }   // [plane.vapor]
-    static { BUILDER.pop(); }   // [plane]
+    static { CLIENT.pop(); }   // [plane.vapor]
+    static { CLIENT.pop(); }   // [plane]
 
-    // ==== [compatibility] : diagnostics for when another mod's renderer conflicts with this one ====
-    static { BUILDER.push("compatibility"); }
+    // ==== client [debug] : diagnostics for the render path ====
+    static { CLIENT.push("debug"); }
 
-    public static final ModConfigSpec.BooleanValue LOG_RENDER_COMPAT_WARNINGS = BUILDER
+    public static final ModConfigSpec.EnumValue<DebugView> DEBUG_VIEW = CLIENT
+            .comment("Replace the separation plane with a raw view of one of the buffers that feed it.",
+                    "OFF renders normally. FOAM shows the foam edge (red) and surface spots (blue).",
+                    "SCENE_DEPTH shows the depth snapshot the soft edge samples -- flat blue means",
+                    "nothing is being read. PLANE_OPACITY shows where the plane is solid (green, writes",
+                    "depth) versus softened (red). DISSOLVE_HOLES shows the near-player disc (red) and",
+                    "the per-entity discs (green). WATERLINE_MAP shows the raw foam distance field.")
+            .defineEnum("debugView", DebugView.OFF);
+
+    public static final ModConfigSpec.BooleanValue DEBUG_HUD = CLIENT
+            .comment("Draw a text readout of the render state in the corner of the screen: boundary height,",
+                    "which side the camera is on, the plane's fade range, whether the scene-depth snapshot",
+                    "was captured, how many entity dissolve holes are active, and the foam map's size.")
+            .define("debugHud", false);
+
+    public static final ModConfigSpec.BooleanValue LOG_RENDER_COMPAT_WARNINGS = CLIENT
             .comment("Log a one-time warning when this mod detects it can't work correctly with the",
                     "current rendering setup (e.g. the scene-depth snapshot failed, or a sky/weather-",
                     "suppression hook never fired) -- see SceneDepth and LevelRendererMixin. These are",
@@ -239,9 +292,10 @@ public class Config {
                     "whether it is logged.")
             .define("logRenderCompatWarnings", true);
 
-    static { BUILDER.pop(); }   // [compatibility]
+    static { CLIENT.pop(); }   // [debug]
 
-    static final ModConfigSpec SPEC = BUILDER.build();
+    static final ModConfigSpec COMMON_SPEC = COMMON.build();
+    static final ModConfigSpec CLIENT_SPEC = CLIENT.build();
 
     // --- dynamic breathing-boundary height ---
 
@@ -286,14 +340,13 @@ public class Config {
 
     // --- depth scaling ---
 
-    // How many depthScalingStep steps deep world height y sits below the boundary. 0 at or above the
+    // How many depthScalingBlocks steps deep world height y sits below the boundary. 0 at or above the
     // boundary; fractional, so the scaling below eases in instead of jumping at every step.
     private static double depthSteps(Level level, double y) {
         if (!DEPTH_SCALING.get()) {
             return 0.0;
         }
-        List<? extends Double> s = DEPTH_SCALING_STEP.get();
-        double step = s.size() > 0 ? s.get(0) : 0.0;
+        double step = DEPTH_SCALING_BLOCKS.get();
         if (step <= 0.0) {
             return 0.0;
         }
@@ -301,15 +354,10 @@ public class Config {
         return below <= 0.0 ? 0.0 : below / step;
     }
 
-    private static double depthPercent() {
-        List<? extends Double> s = DEPTH_SCALING_STEP.get();
-        return s.size() > 1 ? s.get(1) : 0.0;
-    }
-
     // Air-loss multiplier at world height y: compounds +percent per step of depth.
     public static double depthAirFactor(Level level, double y) {
         double steps = depthSteps(level, y);
-        return steps <= 0.0 ? 1.0 : Math.pow(1.0 + depthPercent() / 100.0, steps);
+        return steps <= 0.0 ? 1.0 : Math.pow(1.0 + DEPTH_SCALING_PERCENT.get() / 100.0, steps);
     }
 
     // Breathing-sphere radius multiplier at world height y: compounds -percent per step of depth, so a
@@ -319,7 +367,7 @@ public class Config {
         if (steps <= 0.0) {
             return 1.0;
         }
-        return Math.pow(Math.max(0.0, 1.0 - depthPercent() / 100.0), steps);
+        return Math.pow(Math.max(0.0, 1.0 - DEPTH_SCALING_PERCENT.get() / 100.0), steps);
     }
 
     // Linear interpolation of the day -> height schedule, clamped flat outside the listed range.
@@ -357,51 +405,33 @@ public class Config {
         return heights[last];
     }
 
-    // Offset eased from the noon minimum to the midnight maximum and back over one day.
+    // Offset eased from the noon value to the midnight value and back over one day.
     private static double overdayOffset(int timeOfDay) {
-        List<? extends Double> o = OVERDAY_OFFSET.get();
-        double min = o.size() > 0 ? o.get(0) : 0.0;
-        double max = o.size() > 1 ? o.get(1) : min;
+        double min = OVERDAY_OFFSET_NOON.get();
+        double max = OVERDAY_OFFSET_MIDNIGHT.get();
         // f = 0 at noon (6000), 1 at midnight (18000); smooth cosine in between.
         double f = (1.0 - Math.cos(2.0 * Math.PI * (timeOfDay - NOON_TICK) / TICKS_PER_DAY)) / 2.0;
         return min + (max - min) * f;
     }
 
-    // Default day -> height table, written as an inline TOML table on first run.
-    private static UnmodifiableConfig defaultSchedule() {
-        com.electronwill.nightconfig.core.Config c = com.electronwill.nightconfig.core.Config.inMemory();
-        c.set("0", -30);
-        c.set("10", 40);
-        c.set("80", 100);
-        return c;
+    private static List<String> defaultSchedule() {
+        return new ArrayList<>(List.of("0=-30", "10=40", "80=100"));
     }
 
-    private static boolean isValidSchedule(Object o) {
-        if (!(o instanceof UnmodifiableConfig cfg)) {
-            return false;
-        }
-        for (UnmodifiableConfig.Entry e : cfg.entrySet()) {
-            if (parseEntry(e.getKey(), e.getValue()) == null) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // Parsed schedule, sorted ascending by day. Re-parsed when the underlying config table changes.
-    private static UnmodifiableConfig cachedRaw;
+    // Parsed schedule, sorted ascending by day. Re-parsed when the underlying list changes.
+    private static List<? extends String> cachedScheduleRaw;
     private static double[] schedDays = new double[0];
     private static double[] schedHeights = new double[0];
 
     private static void ensureSchedule() {
-        UnmodifiableConfig raw = PLANE_HEIGHT_SCHEDULE.get();
-        if (raw == cachedRaw) {
+        List<? extends String> raw = PLANE_HEIGHT_SCHEDULE.get();
+        if (raw == cachedScheduleRaw) {
             return;
         }
-        cachedRaw = raw;
+        cachedScheduleRaw = raw;
         List<double[]> entries = new ArrayList<>();
-        for (UnmodifiableConfig.Entry e : raw.entrySet()) {
-            double[] parsed = parseEntry(e.getKey(), e.getValue());
+        for (String s : raw) {
+            double[] parsed = parseScheduleEntry(s);
             if (parsed != null) {
                 entries.add(parsed);
             }
@@ -415,15 +445,16 @@ public class Config {
         }
     }
 
-    // Parses one "day -> height" table entry into {day, height}, or null if malformed. Day comes from
-    // the key string, height may be stored as a number or a quoted string.
-    private static double[] parseEntry(String key, Object value) {
+    // Parses one "day=height" entry into {day, height}, or null if malformed.
+    private static double[] parseScheduleEntry(String entry) {
+        int eq = entry.indexOf('=');
+        if (eq < 0) {
+            return null;
+        }
         try {
-            double day = Double.parseDouble(key.trim());
-            double height = value instanceof Number n
-                    ? n.doubleValue()
-                    : Double.parseDouble(String.valueOf(value).trim());
-            return new double[] { day, height };
+            return new double[] {
+                    Double.parseDouble(entry.substring(0, eq).trim()),
+                    Double.parseDouble(entry.substring(eq + 1).trim()) };
         } catch (NumberFormatException e) {
             return null;
         }
@@ -488,92 +519,73 @@ public class Config {
         return id.getNamespace().equals(Fogged.MODID) || allowedMobIds.contains(id);
     }
 
-    // --- hex RGBA helpers ---
+    // --- colour helpers ---
 
-    // These are read every frame by the renderers, so the parsed result is cached and only re-parsed
-    // when the underlying config string/value actually changes -- avoids per-frame hex parsing and
-    // float[] garbage. The returned arrays are shared and treated as read-only by every caller.
-    private static String planeColorRaw;
+    // These are read every frame by the renderers, so the unpacked result is cached and only rebuilt
+    // when the packed config value actually changes -- avoids per-frame float[] garbage. The returned
+    // arrays are shared and treated as read-only by every caller.
+    private static int planeColorRaw = 0;
     private static float[] planeColorCache;
 
     public static float[] planeColor() {
-        String s = PLANE_COLOR.get();
-        if (planeColorCache == null || !s.equals(planeColorRaw)) {
-            planeColorRaw = s;
-            planeColorCache = parseRgba(s);
+        int packed = PLANE_COLOR.getAsInt();
+        if (planeColorCache == null || packed != planeColorRaw) {
+            planeColorRaw = packed;
+            planeColorCache = unpackArgb(packed);
         }
         return planeColorCache;
     }
 
-    private static String foamColorRaw;
+    private static int foamColorRaw = 0;
     private static float[] foamColorCache;
 
     public static float[] foamColor() {
-        String s = FOAM_COLOR.get();
-        if (foamColorCache == null || !s.equals(foamColorRaw)) {
-            foamColorRaw = s;
-            foamColorCache = parseRgba(s);
+        int packed = FOAM_COLOR.getAsInt();
+        if (foamColorCache == null || packed != foamColorRaw) {
+            foamColorRaw = packed;
+            foamColorCache = unpackArgb(packed);
         }
         return foamColorCache;
     }
 
     // Vapour colour = plane colour + per-channel offset (clamped), with the configured strength as alpha.
     private static float[] vaporColorCache;
-    private static List<? extends Double> vaporOffsetRaw;
+    private static float[] planeColorForVapor;
+    private static double vaporOffsetRaw = Double.NaN;
     private static double vaporStrengthRaw = Double.NaN;
 
     public static float[] vaporColor() {
         float[] plane = planeColor();
-        List<? extends Double> off = VAPOR_COLOR_OFFSET.get();
+        double dr = VAPOR_OFFSET_RED.get();
+        double dg = VAPOR_OFFSET_GREEN.get();
+        double db = VAPOR_OFFSET_BLUE.get();
         double strength = VAPOR_STRENGTH.get();
-        if (vaporColorCache == null || plane != planeColorForVapor || off != vaporOffsetRaw
+        // One cheap fingerprint of the three offsets: they only ever change together, from the config.
+        double offsetKey = dr * 4.0 + dg * 2.0 + db;
+        if (vaporColorCache == null || plane != planeColorForVapor || offsetKey != vaporOffsetRaw
                 || strength != vaporStrengthRaw) {
             planeColorForVapor = plane;
-            vaporOffsetRaw = off;
+            vaporOffsetRaw = offsetKey;
             vaporStrengthRaw = strength;
-            float dr = off.size() > 0 ? off.get(0).floatValue() : 0.0F;
-            float dg = off.size() > 1 ? off.get(1).floatValue() : 0.0F;
-            float db = off.size() > 2 ? off.get(2).floatValue() : 0.0F;
             vaporColorCache = new float[] {
-                    clamp01(plane[0] + dr),
-                    clamp01(plane[1] + dg),
-                    clamp01(plane[2] + db),
+                    clamp01(plane[0] + (float) dr),
+                    clamp01(plane[1] + (float) dg),
+                    clamp01(plane[2] + (float) db),
                     (float) strength };
         }
         return vaporColorCache;
     }
 
-    // The plane-colour array vaporColor was last derived from; a new array means planeColor re-parsed.
-    private static float[] planeColorForVapor;
-
     private static float clamp01(float v) {
         return v < 0.0F ? 0.0F : Math.min(v, 1.0F);
     }
 
-    // Parses "RRGGBB" or "RRGGBBAA" (with an optional leading '#') into float[]{r, g, b, a} in 0..1.
-    // Falls back to opaque white on malformed input so a typo never crashes rendering.
-    private static float[] parseRgba(String s) {
-        s = s.trim();
-        if (s.startsWith("#")) {
-            s = s.substring(1);
-        }
-        try {
-            long v = Long.parseLong(s, 16);
-            if (s.length() <= 6) { // RGB only -> fully opaque
-                int rgb = (int) v;
-                return new float[] {
-                        ((rgb >> 16) & 0xFF) / 255.0F,
-                        ((rgb >> 8) & 0xFF) / 255.0F,
-                        (rgb & 0xFF) / 255.0F,
-                        1.0F };
-            }
-            return new float[] {
-                    ((v >> 24) & 0xFF) / 255.0F,
-                    ((v >> 16) & 0xFF) / 255.0F,
-                    ((v >> 8) & 0xFF) / 255.0F,
-                    (v & 0xFF) / 255.0F };
-        } catch (NumberFormatException e) {
-            return new float[] { 1.0F, 1.0F, 1.0F, 1.0F };
-        }
+    /** Unpacks a packed ARGB int into {@code float[]{r, g, b, a}} in 0..1. */
+    static float[] unpackArgb(int packed) {
+        return new float[] {
+                ((packed >> 16) & 0xFF) / 255.0F,
+                ((packed >> 8) & 0xFF) / 255.0F,
+                (packed & 0xFF) / 255.0F,
+                ((packed >>> 24) & 0xFF) / 255.0F };
     }
 }

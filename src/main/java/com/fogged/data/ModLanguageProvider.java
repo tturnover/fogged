@@ -57,39 +57,93 @@ public class ModLanguageProvider extends LanguageProvider {
     /** Config-screen translation keys, one per option in {@link com.fogged.Config}. */
     private void addConfigTranslations() {
         add("itemGroup.fogged", "Fogged");
+
         add("fogged.configuration.title", "Fogged Configs");
-        add("fogged.configuration.section.fogged.common.toml", "Fogged Configs");
-        add("fogged.configuration.section.fogged.common.toml.title", "Fogged Configs");
+        add("fogged.configuration.section.fogged.common.toml", "Fogged Gameplay");
+        add("fogged.configuration.section.fogged.common.toml.title", "Fogged Gameplay");
+        add("fogged.configuration.section.fogged.client.toml", "Fogged Rendering");
+        add("fogged.configuration.section.fogged.client.toml.title", "Fogged Rendering");
+        add("fogged.configuration.boundary", "Boundary");
+        add("fogged.configuration.suffocation", "Suffocation");
+        add("fogged.configuration.plane", "Separation Plane");
+        add("fogged.configuration.vapor", "Cold Vapour");
+        add("fogged.configuration.debug", "Debug");
+        cfg("planeHeightSchedule", "Boundary Height Schedule",
+                "One \"day=height\" entry per line; the boundary eases between them as the days pass.");
+        cfg("planeHeightCycle", "Cycle Height Schedule",
+                "Loop the schedule back and forth instead of holding the last height forever.");
+        cfg("overdayOffsetNoon", "Daily Offset At Noon",
+                "Height added to the schedule at noon -- the low point of the daily rise and fall.");
+        cfg("overdayOffsetMidnight", "Daily Offset At Midnight",
+                "Height added to the schedule at midnight -- the high point of the daily rise and fall.");
+        cfg("fogDistance", "Under-Plane Fog Distance",
+                "How far you can see (in blocks) once the camera is under the boundary. Lower = denser murk.");
+        cfg("flipFog", "Flip Fog Side",
+                "Put the murk above the boundary instead of below it. Does not move the breathing boundary.");
+        cfg("submergeWorld", "Submerge World",
+                "The murk drowns what is under it: snuffs fires, freezes lava, drowns torches, wilts plants.");
+        cfg("submergeSkip", "Submerge Dead Zone",
+                "Blocks directly under the plane that the scour leaves alone.");
+        cfg("snuffedDevices", "Snuffed Devices",
+                "Block ids of fire-burning devices the murk puts out. '*' matches any run of characters.");
+        cfg("playerSuffocation", "Player Suffocation",
+                "Players drown under the boundary: air drains, then drowning damage.");
+        cfg("airLossPerTick", "Air Loss Per Tick",
+                "Air a player loses per tick, out of 300. Higher = drown faster.");
+        cfg("depthScaling", "Depth Scaling",
+                "Make the murk bite harder the deeper you go.");
+        cfg("depthScalingBlocks", "Depth Step",
+                "How many blocks below the boundary make up one step of scaling. 0 disables it.");
+        cfg("depthScalingPercent", "Depth Step Percent",
+                "Per step: air loss up by this percent, nozzle-filter sphere radius down by it. Steps compound.");
+        cfg("mobSuffocation", "Mob Suffocation",
+                "Non-allowed mobs cannot spawn in the murk and take damage once they linger there.");
+        cfg("allowedMobs", "Mobs Allowed Under The Fog",
+                "Entity-type ids that may live in the murk. The 'minecraft:' namespace may be omitted.");
+        cfg("mobSuffocateDelaySeconds", "Mob Suffocation Delay",
+                "Seconds a non-allowed mob survives in the murk before it starts taking damage.");
+        cfg("mobSuffocateDamage", "Mob Suffocation Damage",
+                "Damage dealt each second once the delay is up. 2.0 = one heart.");
+        cfg("renderPlane", "Render Separation Plane",
+                "Draw the murk surface at the breathing boundary.");
+        cfg("planeColor", "Plane Colour",
+                "Colour of the murk surface. Its alpha is ignored -- the plane always draws opaque.");
+        cfg("foamColor", "Foam Colour",
+                "Colour of the foam ring around everything crossing the surface. Alpha scales how strongly it shows.");
+        cfg("foamWidth", "Foam Width",
+                "How far the foam reaches (in blocks) from every edge. 0 disables it.");
+        cfg("sableFoam", "Sable Sub-Level Foam",
+                "Also ring Sable ships and contraptions with foam. No effect without Sable installed.");
+        cfg("planeSoftOcclusion", "Soft Occlusion Edge",
+                "Dissolve the plane against blocks, mobs and machines instead of cutting them hard at the boundary.");
+        cfg("waterlineCellsPerBlock", "Foam Grid Resolution",
+                "Cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper.");
+        cfg("renderVapor", "Render Cold-Vapour Layer",
+                "Stacked mist sheets over the plane, for a liquid-nitrogen look.");
+        cfg("vaporColorOffsetRed", "Vapour Red Offset",
+                "Red added to the plane colour to get the vapour colour.");
+        cfg("vaporColorOffsetGreen", "Vapour Green Offset",
+                "Green added to the plane colour to get the vapour colour.");
+        cfg("vaporColorOffsetBlue", "Vapour Blue Offset",
+                "Blue added to the plane colour to get the vapour colour.");
+        cfg("vaporStrength", "Vapour Strength",
+                "Overall mist alpha. 0 hides the vapour entirely.");
+        cfg("vaporSheets", "Vapour Sheets",
+                "How many mist sheets are stacked over the plane.");
+        cfg("vaporUndulation", "Vapour Undulation",
+                "How high (in blocks) the mist sheets rise off the plane. 0 = flat.");
+        cfg("debugView", "Render Debug View",
+                "Replace the plane with a raw view of one of the buffers behind it.");
+        cfg("debugHud", "Debug Readout",
+                "Draw the render state (boundary, fade range, depth capture, hole count) in the corner.");
+        cfg("logRenderCompatWarnings", "Log Compatibility Warnings",
+                "Log once when this mod detects it cannot work with the current rendering setup.");
+    }
 
-        add("fogged.configuration.planeHeightSchedule", "Boundary Height Schedule");
-        add("fogged.configuration.planeHeightCycle", "Cycle Height Schedule");
-        add("fogged.configuration.overdayOffset", "Daily Height Offset");
-        add("fogged.configuration.fogDistance", "Under-Plane Fog Distance");
-        add("fogged.configuration.flipFog", "Flip Fog Side");
-        add("fogged.configuration.submergeWorld", "Submerge World");
-        add("fogged.configuration.submergeSkip", "Submerge Dead Zone");
-        add("fogged.configuration.snuffedDevices", "Snuffed Devices");
-
-        add("fogged.configuration.playerSuffocation", "Player Suffocation");
-        add("fogged.configuration.airLossPerTick", "Air Loss Per Tick");
-        add("fogged.configuration.depthScaling", "Depth Scaling");
-        add("fogged.configuration.depthScalingStep", "Depth Scaling Step [depth, percent]");
-        add("fogged.configuration.mobSuffocation", "Mob Suffocation");
-        add("fogged.configuration.allowedMobs", "Mobs Allowed Under The Fog");
-        add("fogged.configuration.mobSuffocateDelaySeconds", "Mob Suffocation Delay (seconds)");
-        add("fogged.configuration.mobSuffocateDamage", "Mob Suffocation Damage");
-
-        add("fogged.configuration.renderPlane", "Render Separation Plane");
-        add("fogged.configuration.planeColor", "Plane Colour (hex RGBA)");
-        add("fogged.configuration.foamColor", "Foam Colour (hex RGBA)");
-        add("fogged.configuration.foamWidth", "Foam Width");
-        add("fogged.configuration.sableFoam", "Sable Sub-Level Foam");
-        add("fogged.configuration.foamDebug", "Foam Debug View");
-        add("fogged.configuration.renderVapor", "Render Cold-Vapour Layer");
-        add("fogged.configuration.vaporColorOffset", "Vapour Colour Offset");
-        add("fogged.configuration.vaporStrength", "Vapour Strength");
-        add("fogged.configuration.vaporSheets", "Vapour Sheets");
-        add("fogged.configuration.vaporUndulation", "Vapour Undulation");
+    /** One config option: its display name and the tooltip both screens show under it. */
+    private void cfg(String key, String name, String tooltip) {
+        add("fogged.configuration." + key, name);
+        add("fogged.configuration." + key + ".tooltip", tooltip);
     }
 
     /** Display name for a registry path: the listed name if there is one, else the path spelled out. */

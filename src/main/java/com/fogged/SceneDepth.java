@@ -14,10 +14,11 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 
-// Per-frame snapshot of the scene depth buffer, taken BEFORE the fog plane draws so it holds only the
-// terrain/blocks (not the plane or its vapour). The plane and vapour shaders sample it to soft-fade
-// their alpha as they approach occluding geometry, so a block/shore silhouette reads as a gradient
-// instead of a hard depth cut.
+// Per-frame snapshot of the scene depth buffer, taken BEFORE the fog plane draws so it holds the
+// whole scene as it stands at that point -- terrain, entities, block entities and Flywheel's
+// instanced visuals -- but not the plane or its vapour. The plane and vapour shaders sample it to
+// soft-fade their alpha as they approach occluding geometry, so a block, shore, mob or machine
+// silhouette reads as a gradient instead of a hard depth cut.
 //
 // A separate copy is required because the plane WRITES depth: sampling the live depth attachment while
 // it is also the render target's depth buffer is a read/write feedback loop (undefined in GL). The copy
@@ -49,7 +50,7 @@ public final class SceneDepth {
     }
 
     // Copy the current main depth buffer into our own target. Must be called on the render thread, after
-    // the terrain passes and BEFORE the plane is drawn.
+    // everything that can cross the boundary has drawn and BEFORE the plane itself does.
     public static void capture() {
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
         int mw = main.width;

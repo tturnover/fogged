@@ -33,7 +33,8 @@ public class Fogged {
         ModBlockEntities.register(modEventBus);
         ModParticles.register(modEventBus);
 
-        // Register our mod's ModConfigSpec so that FML can create and load the config file for us
-        modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        // Gameplay config only. Everything the client draws lives in a CLIENT spec registered from
+        // FoggedClient, so a server never dictates someone's visuals.
+        modContainer.registerConfig(ModConfig.Type.COMMON, Config.COMMON_SPEC);
     }
 }

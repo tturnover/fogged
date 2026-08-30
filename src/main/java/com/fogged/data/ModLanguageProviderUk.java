@@ -54,39 +54,93 @@ public class ModLanguageProviderUk extends LanguageProvider {
 
     private void addConfigTranslations() {
         add("itemGroup.fogged", "Fogged");
+
         add("fogged.configuration.title", "Налаштування Fogged");
-        add("fogged.configuration.section.fogged.common.toml", "Налаштування Fogged");
-        add("fogged.configuration.section.fogged.common.toml.title", "Налаштування Fogged");
+        add("fogged.configuration.section.fogged.common.toml", "Ігролад Fogged");
+        add("fogged.configuration.section.fogged.common.toml.title", "Ігролад Fogged");
+        add("fogged.configuration.section.fogged.client.toml", "Графіка Fogged");
+        add("fogged.configuration.section.fogged.client.toml.title", "Графіка Fogged");
+        add("fogged.configuration.boundary", "Межа");
+        add("fogged.configuration.suffocation", "Задуха");
+        add("fogged.configuration.plane", "Розділова площина");
+        add("fogged.configuration.vapor", "Холодні випари");
+        add("fogged.configuration.debug", "Налагодження");
+        cfg("planeHeightSchedule", "Розклад висоти межі",
+                "Один запис \"день=висота\" на рядок; межа плавно переходить між ними з плином днів.");
+        cfg("planeHeightCycle", "Циклічний розклад висоти",
+                "Повторювати розклад туди й назад замість того, щоб назавжди тримати останню висоту.");
+        cfg("overdayOffsetNoon", "Добове зміщення опівдні",
+                "Висота, додана до розкладу опівдні -- нижня точка добового коливання.");
+        cfg("overdayOffsetMidnight", "Добове зміщення опівночі",
+                "Висота, додана до розкладу опівночі -- верхня точка добового коливання.");
+        cfg("fogDistance", "Дальність туману під площиною",
+                "Наскільки далеко видно (у блоках) під межею. Менше = густіша каламуть.");
+        cfg("flipFog", "Перевернути бік туману",
+                "Розмістити каламуть над межею замість під нею. Саму межу дихання не змінює.");
+        cfg("submergeWorld", "Затоплення світу",
+                "Каламуть топить усе під собою: гасить вогонь, застигає лаву, топить смолоскипи, в'ялить рослини.");
+        cfg("submergeSkip", "Мертва зона під площиною",
+                "Скільки блоків одразу під площиною залишаються недоторканими.");
+        cfg("snuffedDevices", "Пристрої, які гасить туман",
+                "Ідентифікатори блоків, які каламуть гасить. '*' відповідає будь-якому набору символів.");
+        cfg("playerSuffocation", "Задуха гравців",
+                "Під межею гравці тонуть: повітря спадає, далі йде шкода від утоплення.");
+        cfg("airLossPerTick", "Втрата повітря за тік",
+                "Скільки повітря гравець втрачає за тік із 300. Більше = швидше тоне.");
+        cfg("depthScaling", "Посилення з глибиною",
+                "Чим глибше, тим сильніше кусає каламуть.");
+        cfg("depthScalingBlocks", "Крок глибини",
+                "Скільки блоків під межею складають один крок посилення. 0 вимикає його.");
+        cfg("depthScalingPercent", "Відсоток на крок",
+                "За крок: втрата повітря зростає на цей відсоток, радіус сфери фільтра спадає. Кроки множаться.");
+        cfg("mobSuffocation", "Задуха мобів",
+                "Недозволені моби не з'являються в каламуті й отримують шкоду, якщо затримуються там.");
+        cfg("allowedMobs", "Моби, дозволені під туманом",
+                "Ідентифікатори істот, яким можна жити в каламуті. Простір імен 'minecraft:' можна не писати.");
+        cfg("mobSuffocateDelaySeconds", "Затримка задухи мобів",
+                "Скільки секунд недозволений моб витримує в каламуті до першої шкоди.");
+        cfg("mobSuffocateDamage", "Шкода від задухи мобів",
+                "Шкода щосекунди після затримки. 2.0 = одне серце.");
+        cfg("renderPlane", "Показувати розділову площину",
+                "Малювати поверхню каламуті на межі дихання.");
+        cfg("planeColor", "Колір площини",
+                "Колір поверхні каламуті. Альфа ігнорується -- площина завжди непрозора.");
+        cfg("foamColor", "Колір піни",
+                "Колір піни навколо всього, що перетинає поверхню. Альфа задає її помітність.");
+        cfg("foamWidth", "Ширина піни",
+                "Наскільки далеко (у блоках) сягає піна від кожного краю. 0 вимикає її.");
+        cfg("sableFoam", "Піна на підрівнях Sable",
+                "Обводити піною кораблі та контрапції Sable. Без Sable не діє.");
+        cfg("planeSoftOcclusion", "М'який край",
+                "Розчиняти площину біля блоків, мобів і механізмів замість різкого зрізу на межі.");
+        cfg("waterlineCellsPerBlock", "Роздільність сітки піни",
+                "Комірок на блок у полі відстаней піни. Менше = грубіша піна й помітно дешевше.");
+        cfg("renderVapor", "Показувати шар холодних випарів",
+                "Шари туману над площиною, для вигляду рідкого азоту.");
+        cfg("vaporColorOffsetRed", "Червоне зміщення випарів",
+                "Червоний, доданий до кольору площини, щоб отримати колір випарів.");
+        cfg("vaporColorOffsetGreen", "Зелене зміщення випарів",
+                "Зелений, доданий до кольору площини, щоб отримати колір випарів.");
+        cfg("vaporColorOffsetBlue", "Синє зміщення випарів",
+                "Синій, доданий до кольору площини, щоб отримати колір випарів.");
+        cfg("vaporStrength", "Насиченість випарів",
+                "Загальна прозорість туману. 0 повністю ховає випари.");
+        cfg("vaporSheets", "Кількість шарів випарів",
+                "Скільки шарів туману складено над площиною.");
+        cfg("vaporUndulation", "Хвилястість випарів",
+                "Наскільки високо (у блоках) шари туману піднімаються над площиною. 0 = пласко.");
+        cfg("debugView", "Налагоджувальний вигляд",
+                "Замінити площину сирим виглядом одного з буферів, що її формують.");
+        cfg("debugHud", "Налагоджувальний надпис",
+                "Малювати стан рендера (межа, згасання, знімок глибини, кількість отворів) у кутку.");
+        cfg("logRenderCompatWarnings", "Логувати попередження сумісності",
+                "Один раз записати в лог, коли мод не може працювати з поточним налаштуванням рендера.");
+    }
 
-        add("fogged.configuration.planeHeightSchedule", "Розклад висоти межі");
-        add("fogged.configuration.planeHeightCycle", "Циклічний розклад висоти");
-        add("fogged.configuration.overdayOffset", "Добове зміщення висоти");
-        add("fogged.configuration.fogDistance", "Дальність туману під площиною");
-        add("fogged.configuration.flipFog", "Перевернути бік туману");
-        add("fogged.configuration.submergeWorld", "Затоплення світу");
-        add("fogged.configuration.submergeSkip", "Мертва зона під площиною");
-        add("fogged.configuration.snuffedDevices", "Пристрої, які гасить туман");
-
-        add("fogged.configuration.playerSuffocation", "Задуха гравців");
-        add("fogged.configuration.airLossPerTick", "Втрата повітря за тік");
-        add("fogged.configuration.depthScaling", "Посилення з глибиною");
-        add("fogged.configuration.depthScalingStep", "Крок посилення [глибина, відсоток]");
-        add("fogged.configuration.mobSuffocation", "Задуха мобів");
-        add("fogged.configuration.allowedMobs", "Моби, дозволені під туманом");
-        add("fogged.configuration.mobSuffocateDelaySeconds", "Затримка задухи мобів (секунди)");
-        add("fogged.configuration.mobSuffocateDamage", "Шкода від задухи мобів");
-
-        add("fogged.configuration.renderPlane", "Показувати розділову площину");
-        add("fogged.configuration.planeColor", "Колір площини (hex RGBA)");
-        add("fogged.configuration.foamColor", "Колір піни (hex RGBA)");
-        add("fogged.configuration.foamWidth", "Ширина піни");
-        add("fogged.configuration.sableFoam", "Піна на підрівнях Sable");
-        add("fogged.configuration.foamDebug", "Налагоджувальний вигляд піни");
-        add("fogged.configuration.renderVapor", "Показувати шар холодних випарів");
-        add("fogged.configuration.vaporColorOffset", "Зміщення кольору випарів");
-        add("fogged.configuration.vaporStrength", "Насиченість випарів");
-        add("fogged.configuration.vaporSheets", "Кількість шарів випарів");
-        add("fogged.configuration.vaporUndulation", "Хвилястість випарів");
+    /** One config option: its display name and the tooltip both screens show under it. */
+    private void cfg(String key, String name, String tooltip) {
+        add("fogged.configuration." + key, name);
+        add("fogged.configuration." + key + ".tooltip", tooltip);
     }
 
     private static String name(String path) {

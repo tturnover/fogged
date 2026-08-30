@@ -106,7 +106,7 @@ public final class FogVapor {
         RenderSystem.depthMask(false);  // translucent: never writes depth
         RenderSystem.disableCull();     // seen from both sides
 
-        // Sampler3 = terrain depth snapshot (shared with the plane) for the soft occlusion edge.
+        // Sampler3 = scene depth snapshot (shared with the plane) for the soft occlusion edge.
         RenderSystem.setShaderTexture(3, SceneDepth.depthTextureId());
         // Degrades to "never occlude" in the shader when occlusion is off or FogPlaneRenderer's capture
         // this frame failed (see SceneDepth) -- mirrors FogPlaneRenderer's own DepthValid gating.
