@@ -134,6 +134,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "How high (in blocks) the mist sheets rise off the plane. 0 = flat.");
         cfg("debugView", "Render Debug View",
                 "Replace the plane with a raw view of one of the buffers behind it.");
+        cfg("planeStage", "Composite Render Stage",
+                "Which render stage the murk is composited at \u2014 i.e. what is already in the colour and depth buffers when it runs.");
         cfg("debugHud", "Debug Readout",
                 "Draw the render state (boundary, fade range, depth capture, hole count) in the corner.");
         cfg("logRenderCompatWarnings", "Log Compatibility Warnings",

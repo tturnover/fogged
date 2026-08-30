@@ -6,18 +6,19 @@
         { "name": "Sampler3" }
     ],
     "attributes": [
-        "Position",
-        "Color"
+        "Position"
     ],
     "uniforms": [
-        { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
-        { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
-        { "name": "ColorModulator", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0 ] },
+        { "name": "InvViewProj", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "ViewProj", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "RelSurfaceY", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "FoggedSide", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "WorldOffsetXZ", "type": "float", "count": 2, "values": [ 0.0, 0.0 ] },
+        { "name": "PlaneColor", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0 ] },
         { "name": "FogStart", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "FogEnd", "type": "float", "count": 1, "values": [ 1.0 ] },
         { "name": "FogColor", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] },
         { "name": "FogShape", "type": "int", "count": 1, "values": [ 0 ] },
-        { "name": "WorldOffset", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
         { "name": "WaterlineOrigin", "type": "float", "count": 2, "values": [ 0.0, 0.0 ] },
         { "name": "WaterlineSize", "type": "float", "count": 1, "values": [ 96.0 ] },
         { "name": "WaterlineMaxDist", "type": "float", "count": 1, "values": [ 8.0 ] },
@@ -25,14 +26,10 @@
         { "name": "Time", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "FoamWidth", "type": "float", "count": 1, "values": [ 1.25 ] },
         { "name": "FoamColor", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0 ] },
-        { "name": "DebugView", "type": "int", "count": 1, "values": [ 0 ] },
         { "name": "PlaneFadeStart", "type": "float", "count": 1, "values": [ 100000.0 ] },
         { "name": "PlaneFadeEnd", "type": "float", "count": 1, "values": [ 1000000.0 ] },
         { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1920.0, 1080.0 ] },
         { "name": "DepthValid", "type": "float", "count": 1, "values": [ 1.0 ] },
-        { "name": "HolesActive", "type": "float", "count": 1, "values": [ 1.0 ] },
-        { "name": "DepthPass", "type": "float", "count": 1, "values": [ 1.0 ] },
-        { "name": "EntityHoleCount", "type": "int", "count": 1, "values": [ 0 ] },
-        { "name": "EntityHoles", "type": "float", "count": 128, "values": [ 0.0 ] }
+        { "name": "DebugView", "type": "int", "count": 1, "values": [ 0 ] }
     ]
 }

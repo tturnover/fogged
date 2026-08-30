@@ -49,6 +49,8 @@
   "fogged.configuration.planeHeightSchedule.tooltip": "Один запис \"день=висота\" на рядок; межа плавно переходить між ними з плином днів.",
   "fogged.configuration.planeSoftOcclusion": "М'який край",
   "fogged.configuration.planeSoftOcclusion.tooltip": "Розчиняти площину біля блоків, мобів і механізмів замість різкого зрізу на межі.",
+  "fogged.configuration.planeStage": "Стадія рендера площини",
+  "fogged.configuration.planeStage.tooltip": "На якій стадії рендера накладається каламуть — тобто що вже є в буферах кольору та глибини на той момент.",
   "fogged.configuration.playerSuffocation": "Задуха гравців",
   "fogged.configuration.playerSuffocation.tooltip": "Під межею гравці тонуть: повітря спадає, далі йде шкода від утоплення.",
   "fogged.configuration.renderPlane": "Показувати розділову площину",

@@ -38,9 +38,6 @@ public class Config {
     //   FogPlaneRenderer.NOISE_ANCHOR (4096.0)
     //     == fog_plane.fsh  NOISE_PERIOD_BLOCKS
     //     == fog_vapor.fsh  NOISE_PERIOD_BLOCKS
-    //   FogPlaneRenderer.MAX_ENTITY_HOLES (32)
-    //     == fog_plane.fsh  entity-hole loop bound (`for (int i = 0; i < 32; i++)`)
-    //     == fog_plane.json / fog_plane.fsh  EntityHoles[128] (== MAX_ENTITY_HOLES * 4)
     //   Config.DebugView ordinals
     //     == fog_plane.fsh  DebugView uniform (0 = off, then one branch per constant, in order)
     // WaterlineMap's cellsPerBlock resolution is NOT in this list: it's threaded to the shaders as the
@@ -58,10 +55,21 @@ public class Config {
         SCENE_DEPTH,
         /** The plane's own opacity: green where it is solid (writes depth), red where it is softened. */
         PLANE_OPACITY,
-        /** The dissolve holes: red = near-player disc, green = entity discs. */
-        DISSOLVE_HOLES,
+        /** World XZ of the ray/boundary intersection: it must stay locked to the world as you move. */
+        RAY_HIT,
         /** The raw waterline map: red = distance to solid/entity, green = distance to plant. */
         WATERLINE_MAP
+    }
+
+    /** Render stage the murk composite is drawn at. Mapped to a RenderLevelStageEvent.Stage in
+     *  FogPlaneRenderer, which is where the trade-offs of each are written down. */
+    public enum PlaneStage {
+        AFTER_CUTOUT_BLOCKS,
+        AFTER_ENTITIES,
+        AFTER_BLOCK_ENTITIES,
+        AFTER_TRANSLUCENT_BLOCKS,
+        AFTER_PARTICLES,
+        AFTER_WEATHER
     }
 
     // Config values below are grouped into TOML categories with push/pop. Those calls sit in static
@@ -274,9 +282,24 @@ public class Config {
                     "OFF renders normally. FOAM shows the foam edge (red) and surface spots (blue).",
                     "SCENE_DEPTH shows the depth snapshot the soft edge samples -- flat blue means",
                     "nothing is being read. PLANE_OPACITY shows where the plane is solid (green, writes",
-                    "depth) versus softened (red). DISSOLVE_HOLES shows the near-player disc (red) and",
-                    "the per-entity discs (green). WATERLINE_MAP shows the raw foam distance field.")
+                    "depth) versus softened (red). RAY_HIT shows the world XZ where each pixel's view ray",
+                    "meets the boundary. WATERLINE_MAP shows the raw foam distance field.",
+                    "Every view draws with the depth test off, so it covers the whole plane quad rather",
+                    "than only the part that would have been visible.")
             .defineEnum("debugView", DebugView.OFF);
+
+    public static final ModConfigSpec.EnumValue<PlaneStage> PLANE_STAGE = CLIENT
+            .comment("Which render stage the murk is composited at -- i.e. what has already been drawn",
+                    "into the colour and depth buffers when it runs, and what is still to come.",
+                    "AFTER_TRANSLUCENT_BLOCKS (default) is the first stage where EVERYTHING the murk has",
+                    "to hide is already in those buffers: terrain, entities, block entities, Flywheel's",
+                    "instanced parts and water. Earlier stages leave whatever comes later drawing over",
+                    "the murk instead of being covered by it -- at AFTER_CUTOUT_BLOCKS that is every",
+                    "entity in the world. Later still puts particles (AFTER_PARTICLES) and then the",
+                    "whole level pass (AFTER_WEATHER) under it.",
+                    "Exposed because render order decides what the murk can cover, and that is worth",
+                    "being able to move without a rebuild.")
+            .defineEnum("planeStage", PlaneStage.AFTER_TRANSLUCENT_BLOCKS);
 
     public static final ModConfigSpec.BooleanValue DEBUG_HUD = CLIENT
             .comment("Draw a text readout of the render state in the corner of the screen: boundary height,",

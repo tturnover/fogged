@@ -9,8 +9,10 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 
-// Registers a POSITION_COLOR shader that, unlike vanilla's, samples the world fog uniforms so the
-// separation plane fades into the distance with the rest of the world (incl. our thick under-fog).
+// Registers this mod's core shaders. fog_plane is POSITION only -- it is a screen-space composite
+// fed by a clip-space quad (see FogPlaneRenderer); fog_vapor is still POSITION_COLOR world quads.
+// Both sample the world fog uniforms, unlike vanilla's, so they fade into the distance with the rest
+// of the world (incl. our thick under-fog).
 @EventBusSubscriber(modid = Fogged.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class FogShaders {
 
@@ -36,7 +38,7 @@ public class FogShaders {
         event.registerShader(
                 new ShaderInstance(event.getResourceProvider(),
                         ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "fog_plane"),
-                        DefaultVertexFormat.POSITION_COLOR),
+                        DefaultVertexFormat.POSITION),
                 shader -> FOG_PLANE = shader);
         event.registerShader(
                 new ShaderInstance(event.getResourceProvider(),

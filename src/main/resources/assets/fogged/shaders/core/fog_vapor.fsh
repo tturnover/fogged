@@ -7,8 +7,6 @@
 // carves a drifting, PIXELATED wispy mask out of each quad and dissolves it into the world fog so it
 // matches the blocky look of the plane and never shows a hard rim.
 
-uniform sampler2D Sampler3;     // scene depth snapshot (taken just before the plane) for the soft edge
-
 uniform vec4 ColorModulator;
 uniform vec3 VaporColor;        // overall vapour tint, shared by every sheet (see the note on vertexColor below)
 uniform float FogStart;
@@ -19,9 +17,7 @@ uniform float WispScale;        // world-space frequency of the wisp/terrace noi
 uniform float PixelsPerBlock;   // snap the noise to this grid (matches the plane's foam pixels)
 uniform float PlaneFadeStart;   // distance at which the vapour starts fading with the horizon
 uniform float PlaneFadeEnd;     // distance at which it is fully gone
-uniform mat4 ProjMat;           // reused to linearise depth for the soft-occlusion fade
-uniform vec2 ScreenSize;        // framebuffer size in pixels, to map gl_FragCoord into the depth sampler
-uniform float DepthValid;       // 0 if the scene-depth snapshot is unavailable/disabled this frame (see SceneDepth)
+uniform mat4 ProjMat;
 
 in vec4 vertexColor;
 in vec2 worldXZ;
@@ -31,11 +27,6 @@ out vec4 fragColor;
 
 const float WISP_STEPS = 4.0; // alpha quantised into this many chunky bands
 const float VAPOR_TIME_RATE = 0.1; // noise time-axis advance per second (~one reshuffle per 10 s)
-
-// Soft occlusion (fogged_softOcclusion, shared with fog_plane.fsh -- see fogged_occlusion.glsl); needs
-// Sampler3/ScreenSize/ProjMat/DepthValid, all declared above. The snapshot omits the plane, so the
-// vapour never fades against the surface it rides on.
-#moj_import <fogged:fogged_occlusion.glsl>
 
 // --- world-space 3D value-noise fbm (fogged_fbm3 etc., shared with fog_plane.fsh -- see
 // fogged_noise.glsl). TILEABLE: the spatial lattice (xy) wraps at a world period equal to the
@@ -90,8 +81,11 @@ void main() {
     // the surface than it can see, so it doesn't hang in the void after the world below fogs out.
     a *= 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, max(length(relPos.xz), abs(relPos.y)));
 
-    // Soft occlusion edge against terrain (see fogged_softOcclusion), so vapour grazing a block dissolves.
-    a *= fogged_softOcclusion();
+    // No depth-based fade here. The mist used to dissolve against the scene-depth snapshot, but the
+    // murk composite now runs after the translucent pass, so that snapshot contains WATER -- and the
+    // sheets ride a couple of blocks over the surface, which put nearly every pixel of mist over
+    // water inside the fade band and erased the layer. Hard occlusion by real geometry is already
+    // handled by the depth test; the murk hides everything past the surface on its own.
 
     if (a <= 0.003) {
         discard;

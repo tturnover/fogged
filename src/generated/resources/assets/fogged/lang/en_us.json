@@ -49,6 +49,8 @@
   "fogged.configuration.planeHeightSchedule.tooltip": "One \"day=height\" entry per line; the boundary eases between them as the days pass.",
   "fogged.configuration.planeSoftOcclusion": "Soft Occlusion Edge",
   "fogged.configuration.planeSoftOcclusion.tooltip": "Dissolve the plane against blocks, mobs and machines instead of cutting them hard at the boundary.",
+  "fogged.configuration.planeStage": "Composite Render Stage",
+  "fogged.configuration.planeStage.tooltip": "Which render stage the murk is composited at — i.e. what is already in the colour and depth buffers when it runs.",
   "fogged.configuration.playerSuffocation": "Player Suffocation",
   "fogged.configuration.playerSuffocation.tooltip": "Players drown under the boundary: air drains, then drowning damage.",
   "fogged.configuration.renderPlane": "Render Separation Plane",

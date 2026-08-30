@@ -1,7 +1,9 @@
 package com.fogged;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL30;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -19,6 +21,13 @@ import net.minecraft.client.renderer.ShaderInstance;
 // instanced visuals -- but not the plane or its vapour. The plane and vapour shaders sample it to
 // soft-fade their alpha as they approach occluding geometry, so a block, shore, mob or machine
 // silhouette reads as a gradient instead of a hard depth cut.
+//
+// The depth comes from whatever framebuffer is CURRENTLY BOUND FOR DRAWING, asked of GL directly,
+// not from Minecraft.getMainRenderTarget(). Those are not always the same buffer: vanilla itself
+// binds translucentTarget / particlesTarget (each with its own copied depth) under Fabulous
+// graphics, and a renderer that redirects the pipeline can move it anywhere. Reading main's depth
+// while the scene is being drawn somewhere else yields a snapshot of a different buffer -- which
+// looks exactly like a snapshot that is missing everything drawn this frame.
 //
 // A separate copy is required because the plane WRITES depth: sampling the live depth attachment while
 // it is also the render target's depth buffer is a read/write feedback loop (undefined in GL). The copy
@@ -42,11 +51,42 @@ public final class SceneDepth {
     private static boolean depthAvailable = true;
     private static boolean loggedFailure = false;
 
+    // What the last capture actually read, for the debug HUD: the framebuffer it came off, and
+    // whether that was the bound target's own depth texture or the fallback to the main target.
+    private static int sourceFbo;
+    private static boolean usedFallback;
+
     private SceneDepth() {
     }
 
     public static boolean depthAvailable() {
         return depthAvailable;
+    }
+
+    /** Framebuffer the last capture read its depth from (0 = the default framebuffer). */
+    public static int sourceFramebuffer() {
+        return sourceFbo;
+    }
+
+    /** True when the bound target had no sampleable depth texture and main's was used instead. */
+    public static boolean usedFallbackSource() {
+        return usedFallback;
+    }
+
+    // Depth texture of the framebuffer currently bound for drawing, or 0 if it has none we can sample
+    // (no depth attachment at all, or a renderbuffer -- renderbuffers cannot be bound as a texture).
+    private static int boundDepthTexture() {
+        sourceFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        if (sourceFbo == 0) {
+            return 0; // the default framebuffer's depth is never a texture we can sample
+        }
+        int type = GL30.glGetFramebufferAttachmentParameteri(GL30.GL_DRAW_FRAMEBUFFER,
+                GL30.GL_DEPTH_ATTACHMENT, GL30.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE);
+        if (type != GL11.GL_TEXTURE) {
+            return 0; // no depth attachment, or a renderbuffer (which cannot be bound as a texture)
+        }
+        return GL30.glGetFramebufferAttachmentParameteri(GL30.GL_DRAW_FRAMEBUFFER,
+                GL30.GL_DEPTH_ATTACHMENT, GL30.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
     }
 
     // Copy the current main depth buffer into our own target. Must be called on the render thread, after
@@ -67,10 +107,15 @@ public final class SceneDepth {
             depthAvailable = true; // retry after every resize, in case a prior failure was transient
         }
 
-        int mainDepthTex = main.getDepthTextureId();
-        if (mainDepthTex == 0) {
+        // Prefer the bound target's own depth; fall back to main's only when it has none to sample.
+        int depthTex = boundDepthTexture();
+        usedFallback = depthTex == 0;
+        if (usedFallback) {
+            depthTex = main.getDepthTextureId();
+        }
+        if (depthTex == 0) {
             depthAvailable = false;
-            logFailureOnce("the main render target has no sampleable depth texture");
+            logFailureOnce("no framebuffer in the pipeline exposes a sampleable depth texture");
             return;
         }
 
@@ -90,7 +135,7 @@ public final class SceneDepth {
         // terrain's leftover backface-cull state (still active from the pass just before this stage)
         // discards the whole draw and copy silently never receives any fragment writes at all.
         RenderSystem.disableCull();
-        RenderSystem.setShaderTexture(0, mainDepthTex);
+        RenderSystem.setShaderTexture(0, depthTex);
         RenderSystem.setShader(() -> shader);
 
         Tesselator tess = Tesselator.getInstance();
@@ -104,7 +149,10 @@ public final class SceneDepth {
         RenderSystem.colorMask(true, true, true, true);
         RenderSystem.depthFunc(GL11.GL_LEQUAL); // vanilla default
         RenderSystem.enableCull();
-        main.bindWrite(false); // restore the main framebuffer for the upcoming draws
+        // Rebind whatever was bound before this capture, not main: binding main unconditionally would
+        // redirect the rest of the frame away from a target another renderer had put in place.
+        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, sourceFbo);
+        GlStateManager._viewport(0, 0, mw, mh);
 
         // Defense-in-depth: check once per resize (not every frame -- an unconditional glGetError() call
         // forces a driver sync point, itself a frame-hitch risk) in case something about the copy target

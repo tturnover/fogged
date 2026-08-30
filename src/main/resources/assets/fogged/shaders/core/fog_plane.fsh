@@ -3,9 +3,9 @@
 #moj_import <fog.glsl>
 
 uniform sampler2D Sampler0; // world-space waterline map (R = solid/entity dist, G = plant dist)
-uniform sampler2D Sampler3; // scene depth snapshot (captured just before the plane) for soft edges
+uniform sampler2D Sampler3; // scene depth snapshot (captured just before this pass) for soft edges
 
-uniform vec4 ColorModulator;
+uniform vec4 PlaneColor;    // murk colour (rgb); alpha unused, the surface is always drawn opaque
 uniform vec4 FoamColor;     // foam base colour (rgb) and strength (a)
 uniform float FogStart;
 uniform float FogEnd;
@@ -13,31 +13,29 @@ uniform vec4 FogColor;
 uniform int FogShape;
 uniform float Time; // monotonic wall-clock seconds (FogShaders#animTimeSeconds), drives the spot morph
 uniform float FoamWidth;
-// Config.DebugView ordinal: 0 renders normally, anything else replaces the plane with a raw
-// view of one of the buffers behind it (see debugColor).
-uniform int DebugView;
 uniform vec2 WaterlineOrigin;   // world XZ of the waterline map's corner
 uniform float WaterlineSize;    // map edge length in blocks
 uniform float WaterlineMaxDist; // distance (blocks) the map's stored value of 1.0 represents
 uniform float FoamPixelsPerBlock; // waterline map's cells-per-block resolution (Config.waterlineCellsPerBlock)
-uniform float PlaneFadeStart;   // distance at which the surface starts fading to transparent
-uniform float PlaneFadeEnd;     // distance at which it is fully gone (reveals the real horizon)
-uniform mat4 ProjMat;           // reused to linearise depth for the soft-occlusion fade
+uniform float PlaneFadeStart;   // ray distance at which the surface starts fading out
+uniform float PlaneFadeEnd;     // ray distance at which it is fully gone (reveals the real horizon)
 uniform vec2 ScreenSize;        // framebuffer size in pixels, to map gl_FragCoord into the depth sampler
 uniform float DepthValid;       // 0 if the scene-depth snapshot is unavailable/disabled this frame (see SceneDepth)
-uniform float HolesActive;      // 1 on the fogged side (dissolve holes on), 0 on the dry side (solid plane)
-// Which half of the two-pass plane draw this is: 1 = the solid core (drawn with depth writes on),
-// 0 = everything softened by occlusion, holes or the rim fade (blended, no depth writes). Each pass
-// discards the fragments the other owns, so the plane only writes depth where it is solid.
-uniform float DepthPass;
-uniform int EntityHoleCount;    // number of active entity dissolve discs (0..MAX_ENTITY_HOLES)
-// Packed 4 floats per entity: camera-relative centre X, Z, horizontal radius (blocks), vertical gap to
-// the plane (blocks; 0 while the hitbox straddles it). Sized MAX_ENTITY_HOLES * 4 (see the renderer).
-uniform float EntityHoles[128];
 
-in vec4 vertexColor;
-in vec2 worldXZ;
-in vec3 relPos;
+// Camera-relative world space: the camera sits at the origin, so a ray is just a direction and the
+// boundary is the horizontal plane y == RelSurfaceY. Both matrices are the camera view (rotation
+// only, no translation) combined with the projection, so they map that space to and from clip space.
+uniform mat4 InvViewProj;
+uniform mat4 ViewProj;
+uniform float RelSurfaceY;      // surfaceY - cameraY
+uniform vec2 WorldOffsetXZ;     // camera XZ, minus the anchor tile (see FogPlaneRenderer.NOISE_ANCHOR)
+uniform float FoggedSide;       // 1 while the camera is inside the murk, 0 while it is on the dry side
+
+// Config.DebugView ordinal: 0 renders normally, anything else replaces the murk with a raw view of
+// one of the buffers behind it (see debugColor).
+uniform int DebugView;
+
+in vec2 ndc;
 
 out vec4 fragColor;
 
@@ -54,12 +52,38 @@ const float NOISE_PERIOD_BLOCKS = 4096.0; // MUST equal FogPlaneRenderer.NOISE_A
 // snap to this same grid so their pixels are identical in size and aligned.
 const float FOAM_STEPS = 4.0;
 
-// Soft occlusion (fogged_softOcclusion, shared with fog_vapor.fsh -- see fogged_occlusion.glsl); needs
-// Sampler3/ScreenSize/ProjMat/DepthValid, all declared above.
-#moj_import <fogged:fogged_occlusion.glsl>
+// Blocks of depth over which an occluding silhouette softens. The comparison is between two ray
+// lengths in the same space, so this is a true world-space distance at any view angle.
+const float OCCLUSION_FADE = 3.0;
 
-// Raw views of the buffers feeding the plane, selected by DebugView (== Config.DebugView's ordinal).
-vec3 debugColor(vec2 wl, float edge, float lum, float opacity, float nearHole, float entityHole) {
+// Ordered 4x4 Bayer threshold for screen-door transparency, indexed by the output pixel so a partial
+// coverage becomes a stable checker of kept/dropped pixels rather than a continuous alpha.
+//
+// The cells are offset by half a step, giving thresholds 1/32 .. 31/32 rather than 0 .. 15/16. A cell
+// of exactly 0 is never crossed by `opacity < threshold`, so one pixel in sixteen survived even at
+// ZERO coverage -- which past the far fade's end painted a sparse stipple across the whole sky above
+// the surface's horizon, out to wherever the quad reached.
+float bayerDither(vec2 fc) {
+    const float m[16] = float[16](
+         0.5/16.0,  8.5/16.0,  2.5/16.0, 10.5/16.0,
+        12.5/16.0,  4.5/16.0, 14.5/16.0,  6.5/16.0,
+         3.5/16.0, 11.5/16.0,  1.5/16.0,  9.5/16.0,
+        15.5/16.0,  7.5/16.0, 13.5/16.0,  5.5/16.0);
+    int x = int(mod(fc.x, 4.0));
+    int y = int(mod(fc.y, 4.0));
+    return m[y * 4 + x];
+}
+
+// Camera-relative world position of a point on this pixel's view ray, from a window-space depth in
+// [0,1]. The w-divide undoes the projection.
+vec3 unproject(float depth) {
+    vec4 p = InvViewProj * vec4(ndc, depth * 2.0 - 1.0, 1.0);
+    return p.xyz / p.w;
+}
+
+// Raw views of the buffers feeding the murk, selected by DebugView (== Config.DebugView's ordinal).
+vec3 debugColor(vec2 wl, float edge, float lum, float opacity, vec2 hitXZ, float sceneDepth,
+                vec3 dir, bool hasHit) {
     if (DebugView == 1) {                 // FOAM
         return vec3(edge, 0.0, lum);
     }
@@ -67,17 +91,20 @@ vec3 debugColor(vec2 wl, float edge, float lum, float opacity, float nearHole, f
         if (DepthValid < 0.5) {
             return vec3(1.0, 0.0, 1.0);   // magenta: nothing was captured / occlusion is off
         }
-        float sceneD = texture(Sampler3, gl_FragCoord.xy / ScreenSize).r;
-        if (sceneD >= 1.0) {
+        if (sceneDepth >= 1.0) {
             return vec3(0.0, 0.0, 1.0);   // blue: open sky behind, nothing to fade against
         }
-        return vec3(1.0 - clamp(fogged_viewDist(sceneD) / 64.0, 0.0, 1.0));
+        return vec3(1.0 - clamp(length(unproject(sceneDepth)) / 64.0, 0.0, 1.0));
     }
     if (DebugView == 3) {                 // PLANE_OPACITY
         return vec3(1.0 - opacity, opacity, 0.0);
     }
-    if (DebugView == 4) {                 // DISSOLVE_HOLES
-        return vec3(nearHole, entityHole * HolesActive, 0.0);
+    if (DebugView == 4) {                 // RAY_HIT
+        // Where this pixel's view ray meets the boundary, as fractional world XZ -- it must stay
+        // locked to the world as the camera moves. Pixels whose ray never reaches the boundary show
+        // the reconstructed direction instead (rgb = dir * 0.5 + 0.5), so a screen with NO hits
+        // anywhere says the ray maths is wrong rather than the plane being out of view.
+        return hasHit ? vec3(fract(hitXZ), 0.0) : dir * 0.5 + 0.5;
     }
     if (DebugView == 5) {                 // WATERLINE_MAP
         return vec3(1.0 - wl.r, 1.0 - wl.g, 0.0);
@@ -86,7 +113,51 @@ vec3 debugColor(vec2 wl, float edge, float lum, float opacity, float nearHole, f
 }
 
 void main() {
-    vec4 color = vertexColor * ColorModulator;
+    // The view ray for this pixel, in camera-relative world space.
+    vec3 dir = normalize(unproject(1.0));
+
+    // Where it meets the boundary. A ray running away from the plane (or along it) never does.
+    // Debug views must NOT be dropped for that: a pixel with no intersection would then show the
+    // scene drawn normally, which is indistinguishable from the buffer under test being empty there.
+    // They keep drawing with rayT pinned to 0 so the raw buffers still cover the whole screen.
+    float rayT = abs(dir.y) < 1e-6 ? -1.0 : RelSurfaceY / dir.y;
+    bool hasHit = rayT > 0.0;
+    if (!hasHit) {
+        if (DebugView == 0) {
+            discard;
+        }
+        rayT = 0.0;
+    }
+    vec3 hit = dir * rayT;              // camera-relative point on the surface
+    vec2 worldXZ = hit.xz + WorldOffsetXZ;
+
+    // Soft occlusion: how far the scene behind this pixel sits past the surface. Both distances are
+    // lengths along the same ray, so the gap is a real world-space distance however the view is
+    // angled -- and because the snapshot is taken after the entity, block-entity and Flywheel passes,
+    // a mob or a machine crossing the boundary softens the murk exactly like a terrain block does.
+    float sceneDepth = texture(Sampler3, gl_FragCoord.xy / ScreenSize).r;
+    float occlusion = 1.0;
+    if (DepthValid >= 0.5 && sceneDepth < 1.0) {
+        occlusion = clamp((length(unproject(sceneDepth)) - rayT) / OCCLUSION_FADE, 0.0, 1.0);
+    }
+
+    // Fade the surface out with ray distance, so it never reaches past where the world itself fades
+    // away. One distance covers both the far rim and "camera high above the plane" -- looking down
+    // from height makes every ray long -- where the old quad needed a separate camera-height term.
+    float farFade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, rayT);
+    // ...and a matching one over the last block, so the surface eases in as the eye crosses it rather
+    // than flooding the screen the instant the boundary passes eye level. At eye height every ray to
+    // the surface is short, so this is the same distance term acting at the near end -- not the old
+    // near-player dissolve disc, which was a hole punched to hide a hard depth cut.
+    const float NEAR_FADE = 1.0;
+    float nearFade = smoothstep(0.0, NEAR_FADE, rayT);
+
+    // From INSIDE the murk the surface is a ceiling, and a ceiling that fades out with distance is a
+    // hole onto the un-fogged world above, opening and closing as the camera turns. So the far fade
+    // is dropped on the fogged side -- the murk fog ends the view long before the ceiling would have
+    // faded anyway. The soft edge stays: it only ever dissolves right at a silhouette, where what it
+    // reveals is the rest of the block or machine crossing the boundary, which is the point of it.
+    float opacity = occlusion * nearFade * (FoggedSide > 0.5 ? 1.0 : farFade);
 
     // Foam edge: world-space distance to the nearest surface-crossing block/entity, ringed within
     // FoamWidth. World-space, so it never flickers with view angle. Snap to the foam pixel grid (so it
@@ -109,23 +180,41 @@ void main() {
     }
 
     // Surface spots: low-frequency world-space noise blobs, on the same pixel grid as the foam, that
-    // fade in/out in place (morph blends two offset noise layers over time, no translation).
+    // fade in/out in place (the noise's time axis advances, so they morph rather than drift).
     const float SPOT_CELL_BLOCKS = 4.0;    // blob feature size in blocks (divides NOISE_PERIOD for a tile)
     const float SPOT_TIME_RATE = 0.1;      // noise time-axis advance per second (~one reshuffle per 10 s)
-    vec2 sworld = floor(worldXZ * FoamPixelsPerBlock) / FoamPixelsPerBlock;
-    vec2 cell = sworld / SPOT_CELL_BLOCKS;
-    // Animate by advancing the noise's time axis: morphs in place, always forward (no ping-pong, no
-    // slide). Time is monotonic wall-clock seconds, so the rate below is per real second. The base
-    // period is the world period in cell space, so the noise tiles exactly with the anchor -> no seam.
+    vec2 cell = pworld / SPOT_CELL_BLOCKS;
     float s = fogged_fbm3(cell, Time * SPOT_TIME_RATE, NOISE_PERIOD_BLOCKS / SPOT_CELL_BLOCKS);
     // Map onto the two lowest foam bands only (0.25/0.50) so a spot reads as foam not next to an edge.
     float t = smoothstep(0.45, 0.70, s);
     float lum = t <= 0.0 ? 0.0 : (t < 0.5 ? 0.25 : 0.5);
     lum *= FoamColor.a; // same foam strength the edge foam uses
 
-    // Base that the foam and spots blend up from. Kept near the full plane colour: the plane is
+    // Debug views replace the murk wholesale, fully opaque so nothing shows through.
+    if (DebugView != 0) {
+        // Still write a depth: a shader that sets gl_FragDepth anywhere leaves it undefined on any
+        // path that does not.
+        vec4 dclip = ViewProj * vec4(hit, 1.0);
+        gl_FragDepth = hasHit ? dclip.z / dclip.w * 0.5 + 0.5 : 1.0;
+        fragColor = vec4(debugColor(wl, edge, lum, opacity, worldXZ, sceneDepth, dir, hasHit), 1.0);
+        return;
+    }
+
+    // Screen-door transparency: every softening term (the occlusion edge, the far fade, the near
+    // fade) drops a fraction of the pixels in a stable 4x4 checker instead of lowering alpha. That is
+    // the look this wants -- chunky and pixelated, matching the foam and the surface spots rather
+    // than a smooth gradient over them.
+    //
+    // It also means one draw does the whole job. A discarded fragment writes no depth, so the murk
+    // ends up writing depth exactly where it is solid, which an alpha fade could only achieve by
+    // splitting the surface into a depth-writing pass and a blended one.
+    if (opacity < bayerDither(gl_FragCoord.xy)) {
+        discard;
+    }
+
+    // Base that the foam and spots blend up from. Kept near the full plane colour: the murk is
     // opaque, so a heavily darkened base showed as a dark disc around the player (no fog there).
-    vec3 planarFog = color.rgb * 0.92;
+    vec3 planarFog = PlaneColor.rgb * 0.92;
 
     // Foam: distance-to-edge gradient, stair-stepped into FOAM_STEPS chunky bands. Follows the
     // contour of every block/entity. f = whichever is stronger, the edge foam or the surface spot.
@@ -135,99 +224,16 @@ void main() {
     float f = max(foam, lum);
 
     // Fog the base only, then lay foam on top, so foam is never blended away by the fog.
-    float fogDist = fog_distance(relPos, FogShape);
-    vec4 fogged = linear_fog(vec4(planarFog, color.a), fogDist, FogStart, FogEnd, FogColor);
+    float fogDist = fog_distance(hit, FogShape);
+    vec4 fogged = linear_fog(vec4(planarFog, 1.0), fogDist, FogStart, FogEnd, FogColor);
 
-    vec4 outColor = color;
-    outColor.rgb = mix(fogged.rgb, FoamColor.rgb, f);
-    outColor.a = max(fogged.a, f);
+    // Kept pixels are fully opaque; the dither above is what carries the softness.
+    vec4 outColor = vec4(mix(fogged.rgb, FoamColor.rgb, f), 1.0);
 
-    // Raise alpha by the fog amount so distant geometry behind the plane tints to the plane colour
-    // (the fragment is already that colour there) while the near footprint keeps the config alpha.
-    float fogA = clamp((fogDist - FogStart) / max(FogEnd - FogStart, 1e-4), 0.0, 1.0);
-    outColor.a = max(outColor.a, fogA);
-
-    // Fade the far rim by the larger of the HORIZONTAL radius and the VERTICAL drop to the surface.
-    // Horizontal keeps the murk disc at full render-distance radius no matter the camera height (a
-    // pure 3D distance shrank it as the player climbed); the vertical term then fades the whole
-    // plane once the camera is farther above the surface than it can see, so it doesn't hang in the
-    // void after the world below has fogged out. The outer rim reveals the real horizon.
-    float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, max(length(relPos.xz), abs(relPos.y)));
-
-    // Near-player dissolve: as the eye nears the plane, open a small soft disc around the player so
-    // the surface doesn't snap in as a hard sheet right at eye level. relPos.y is the eye-to-plane
-    // vertical gap, so the hole opens only near the boundary and fades shut as the eye moves away.
-    // Deliberately NOT gated by HolesActive: it must open symmetrically crossing in either direction.
-    // HolesActive is 1 only while already below the boundary, so gating this the same way as the
-    // entity holes below left it pre-opened while approaching from below (an exit) but still shut at
-    // the instant of crossing from above (an entry) -- the one moment it's needed most.
-    const float NEAR_HOLE_RADIUS = 5.0; // blocks, horizontal radius of the dissolve around the player
-    const float NEAR_HOLE_HEIGHT = 2.0; // eye-to-plane vertical gap over which it closes
-    float nearHole = (1.0 - smoothstep(0.0, NEAR_HOLE_RADIUS, length(relPos.xz)))
-                   * (1.0 - smoothstep(0.0, NEAR_HOLE_HEIGHT, abs(relPos.y)));
-
-    // Entity dissolve discs: the same hole opened around every entity near the plane, sized by its
-    // hitbox, so a crossing mob/player isn't hard-cut by the depth-writing plane -- it pokes through
-    // a soft hole instead. Each disc fades out radially past its hitbox radius and vertically as the
-    // entity separates from the plane (ENTITY_HOLE_HEIGHT). Constant loop bound for GLSL 150.
-    const float ENTITY_HOLE_HEIGHT = 1.0; // vertical gap past the hitbox over which a disc closes
-    float entityHole = 0.0;
-    for (int i = 0; i < 32; i++) {
-        if (i >= EntityHoleCount) {
-            break;
-        }
-        vec2 c = vec2(EntityHoles[i * 4], EntityHoles[i * 4 + 1]);
-        float radius = EntityHoles[i * 4 + 2];
-        float vgap = EntityHoles[i * 4 + 3];
-        float radial = 1.0 - smoothstep(0.0, radius, length(relPos.xz - c));
-        float vgate = 1.0 - smoothstep(0.0, ENTITY_HOLE_HEIGHT, vgap);
-        entityHole = max(entityHole, radial * vgate);
-    }
-    // Entity holes stay dry-side-gated: from the dry side (looking down onto the murk) a hole would
-    // be a clear, unfogged window straight through to the world the murk should hide; keep the plane
-    // solid there for OTHER entities. On the fogged side the revealed content sits in the murk fog,
-    // so it stays hidden.
-    float hole = max(nearHole, entityHole * HolesActive);
-
-    // Everything that makes the plane less than solid, in one opacity term: the soft occlusion edge
-    // against whatever is already in the depth snapshot (grazing shores, block silhouettes, and --
-    // since the snapshot is taken after them -- mobs and machines crossing the boundary), the
-    // near-player / entity holes, and the far rim + camera-height falloff.
-    float opacity = fogged_softOcclusion() * (1.0 - hole) * fade;
-
-    // Debug views replace the plane wholesale. They draw only in the depth-writing pass so the split
-    // below can't paint them twice, and they are always fully opaque so nothing shows through.
-    if (DebugView != 0) {
-        if (DepthPass < 0.5) {
-            discard;
-        }
-        fragColor = vec4(debugColor(wl, edge, lum, opacity, nearHole, entityHole), 1.0);
-        return;
-    }
-
-    // Split the draw in two on that opacity, so the plane can only ever write depth where it is
-    // fully solid. It is drawn twice: DepthPass 1 takes the solid core with depth writes on, then
-    // DepthPass 0 takes everything softer with them off. A depth-writing fragment the player can
-    // see through hides everything drawn later behind it -- that culled the translucent water pass
-    // (a hard cut where water falls past the boundary next to a block) and, while the plane still
-    // drew before entities, sliced every mob and machine at the boundary. The vertical part of the
-    // fade makes relPos.y-driven opacity uniform across the whole quad, so this also covers "camera
-    // high above the plane": the entire surface moves to the no-depth pass rather than turning into
-    // a see-through sheet that still occludes.
-    //
-    // Splitting this way is what lets the softness be plain alpha. It used to be a screen-door
-    // dither (a 4x4 Bayer discard) purely because the single draw always wrote depth; over a wide
-    // terrain gradient that reads as a smooth ramp, but over something mob-sized the whole
-    // silhouette sits at partial coverage and shows up as a chewed-looking checkerboard. FogVapor
-    // never writes depth and has always faded with straight alpha -- the plane now matches it.
-    bool solidHere = opacity >= 0.999;
-    if ((DepthPass > 0.5) != solidHere) {
-        discard;
-    }
-    outColor.a *= opacity;
-    if (outColor.a <= 0.003) {
-        discard;
-    }
-
+    // The surface's own depth, nudged very slightly away from the camera so anything drawn after it
+    // at the same height -- the vapour sheets ride right on the surface -- is not z-fought out of
+    // existence by a depth this shader derived through a different route than the rasteriser.
+    vec4 clip = ViewProj * vec4(hit * 1.0005, 1.0);
+    gl_FragDepth = clip.z / clip.w * 0.5 + 0.5;
     fragColor = outColor;
 }

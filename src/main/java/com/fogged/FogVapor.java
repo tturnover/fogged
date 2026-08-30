@@ -14,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -37,12 +38,15 @@ public final class FogVapor {
     private FogVapor() {
     }
 
-    @SubscribeEvent
+    // LOW priority so that when the murk composite is at this same stage (the default) it has already
+    // run: two handlers on one stage are otherwise ordered by registration, and the mist has to veil
+    // OVER the murk, not be painted out by it.
+    @SubscribeEvent(priority = EventPriority.LOW)
     static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (!Config.RENDER_PLANE.getAsBoolean() || !Config.RENDER_VAPOR.getAsBoolean()) {
             return;
         }
-        // After the translucent water pass: the depth buffer holds water/terrain/plane, so the mist
+        // After the translucent water pass: the depth buffer holds water/terrain/murk, so the mist
         // sits on top of the water rather than being darkened by it.
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             return;
@@ -102,15 +106,9 @@ public final class FogVapor {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.enableDepthTest(); // terrain / the plane occlude the vapour
+        RenderSystem.enableDepthTest(); // terrain and the murk occlude the vapour
         RenderSystem.depthMask(false);  // translucent: never writes depth
         RenderSystem.disableCull();     // seen from both sides
-
-        // Sampler3 = scene depth snapshot (shared with the plane) for the soft occlusion edge.
-        RenderSystem.setShaderTexture(3, SceneDepth.depthTextureId());
-        // Degrades to "never occlude" in the shader when occlusion is off or FogPlaneRenderer's capture
-        // this frame failed (see SceneDepth) -- mirrors FogPlaneRenderer's own DepthValid gating.
-        float depthValid = Config.PLANE_SOFT_OCCLUSION.getAsBoolean() && SceneDepth.depthAvailable() ? 1.0F : 0.0F;
 
         RenderSystem.setShader(() -> shader);
         // Anchor world coords to a tile near the camera so the floor()-snapped wisp noise stays precise
@@ -127,9 +125,6 @@ public final class FogVapor {
         shader.safeGetUniform("PixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
         shader.safeGetUniform("PlaneFadeStart").set(fogFar * 0.8F);
         shader.safeGetUniform("PlaneFadeEnd").set(fogFar);
-        // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
-        shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
-        shader.safeGetUniform("DepthValid").set(depthValid);
         // Overall vapour tint, shared by every sheet: Color's rgb channels are repurposed below to pack
         // per-sheet data instead (see the sheet loop), so the tint now travels as a uniform.
         shader.safeGetUniform("VaporColor").set(vr, vg, vb);

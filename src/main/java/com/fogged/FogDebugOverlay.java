@@ -42,7 +42,8 @@ public final class FogDebugOverlay {
         boolean fogged = Config.fogged(mc.level, cam.y);
 
         List<Line> lines = new ArrayList<>();
-        lines.add(new Line("Fogged  view=" + Config.DEBUG_VIEW.get(), PLAIN));
+        lines.add(new Line("Fogged  view=" + Config.DEBUG_VIEW.get()
+                + "  stage=" + Config.PLANE_STAGE.get(), PLAIN));
         lines.add(new Line(String.format("boundary %.2f  surface %.2f  camera %.2f",
                 boundary, FogPlaneRenderer.lastSurfaceY, cam.y), PLAIN));
         lines.add(new Line(fogged ? "camera: murk side" : "camera: dry side", PLAIN));
@@ -55,7 +56,10 @@ public final class FogDebugOverlay {
                         ? "scene depth: captured" : "scene depth: UNAVAILABLE",
                         FogPlaneRenderer.lastDepthValid ? OK : BAD)
                 : new Line("scene depth: off (planeSoftOcclusion)", PLAIN));
-        lines.add(new Line("entity holes " + FogPlaneRenderer.lastHoles + "/32", PLAIN));
+        lines.add(new Line(String.format("depth from fbo %d%s",
+                SceneDepth.sourceFramebuffer(),
+                SceneDepth.usedFallbackSource() ? " (fallback: main target)" : ""),
+                SceneDepth.usedFallbackSource() ? BAD : PLAIN));
         lines.add(new Line(String.format("waterline %d blk @ %d cells/blk  tex %d",
                 WaterlineMap.size(), WaterlineMap.cellsPerBlock(), WaterlineMap.textureId()), PLAIN));
         lines.add(new Line("vapor " + (Config.RENDER_VAPOR.getAsBoolean()

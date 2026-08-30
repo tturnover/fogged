@@ -1,23 +1,15 @@
 #version 150
 
 in vec3 Position;
-in vec4 Color;
 
-uniform mat4 ModelViewMat;
-uniform mat4 ProjMat;
-uniform vec3 WorldOffset;
+out vec2 ndc;
 
-out vec4 vertexColor;
-out vec2 worldXZ;
-out vec3 relPos;
-
+// Full-screen quad supplied directly in clip space (FogPlaneRenderer emits corners at +/-1), so no
+// ModelView/Proj transform is needed -- mirrors depth_copy.vsh and vanilla's own screen blits.
+//
+// The plane is no longer geometry: the fragment shader rebuilds a view ray per pixel and intersects
+// the boundary analytically, so this stage only has to hand it the pixel's clip-space position.
 void main() {
-    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
-
-    vertexColor = Color;
-    // Camera-relative position: interpolates correctly, so the fragment shader can take a true
-    // per-pixel distance (a per-vertex fog_distance would just average the far corners).
-    relPos = Position;
-    // Absolute world X/Z so the procedural foam pattern is anchored to the world, not the camera.
-    worldXZ = Position.xz + WorldOffset.xz;
+    gl_Position = vec4(Position, 1.0);
+    ndc = Position.xy;
 }
