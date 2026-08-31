@@ -121,7 +121,7 @@ public class ModLanguageProvider extends LanguageProvider {
         cfg("distantHorizonsLodCut", "Cut Distant Murk Against LOD",
                 "With Distant Horizons installed, let far-off LOD terrain rise through the distant murk instead of being covered by it.");
         cfg("waterlineCellsPerBlock", "Foam Grid Resolution",
-                "Cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper.");
+                "Highest cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper. A wide view drops it further on its own.");
         cfg("renderVapor", "Render Cold-Vapour Layer",
                 "Stacked mist sheets over the plane, for a liquid-nitrogen look.");
         cfg("vaporColorOffsetRed", "Vapour Red Offset",

@@ -42,9 +42,11 @@ public class Config {
     //     == fog_vapor.fsh  NOISE_PERIOD_BLOCKS
     //   Config.DebugView ordinals
     //     == fog_plane.fsh  DebugView uniform (0 = off, then one branch per constant, in order)
-    // WaterlineMap's cellsPerBlock resolution is NOT in this list: it's threaded to the shaders as the
-    // FoamPixelsPerBlock/PixelsPerBlock uniforms every frame (see FogPlaneRenderer/FogVapor) precisely
-    // so it can change at runtime (waterlineCellsPerBlock) without needing a matching shader edit.
+    // WaterlineMap's resolutions are NOT in this list: they are threaded to the shaders every frame
+    // (see FogPlaneRenderer/FogVapor) precisely so they can change at runtime without a shader edit --
+    // MapPixelsPerBlock is the distance field's own cells (waterlineCellsPerBlock, capped by the cell
+    // budget), and FoamPixelsPerBlock/PixelsPerBlock is the finer grid the foam, spots and mist are
+    // actually drawn on (WaterlineMap.effectPixelsPerBlock).
     // ====
 
     /** What the plane shader draws instead of the plane, for diagnosing the render path. */
@@ -250,9 +252,11 @@ public class Config {
             .define("distantHorizonsLodCut", true);
 
     public static final ModConfigSpec.IntValue WATERLINE_CELLS_PER_BLOCK = CLIENT
-            .comment("Sub-block resolution of the foam distance-field grid (see WaterlineMap), in cells",
-                    "per block. Lower trades a coarser foam ring for a smaller grid: halving this quarters",
-                    "the cost of every per-tick foam pass (recompute / chamfer / ease / upload).")
+            .comment("Highest sub-block resolution of the foam distance-field grid (see WaterlineMap), in",
+                    "cells per block. Lower trades a coarser foam ring for a smaller grid: halving this",
+                    "quarters the cost of every per-tick foam pass (recompute / chamfer / ease / upload).",
+                    "The grid widens with the render distance and drops below this on its own once it",
+                    "would cost more than a 192-block map at 4 cells per block.")
             .defineInRange("waterlineCellsPerBlock", 4, 1, 4);
 
     // ---- client [plane.vapor] : cold-vapour ("liquid nitrogen") layer ----

@@ -92,6 +92,13 @@ public class FogPlaneRenderer {
 
         Vec3 cam = event.getCamera().getPosition();
         double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
+        // Under the surface of a liquid the camera is in, the murk surface has nothing to be seen
+        // through: it is cut out of liquids, and drawing it anyway laid a slab of murk across the lake
+        // being swum in. SubmergedMurk paints the murk past that liquid's surface instead.
+        if (SubmergedMurk.hidesSurface(event.getCamera(), mc.level, surfaceY)) {
+            lastDrawn = false;
+            return;
+        }
         // On the fogged side of the boundary the camera is in the thick murk fog; the surface (and its
         // foam) must be obscured once it is out of that fog's reach. flipFog swaps which side that is.
         boolean below = (cam.y < surfaceY) != Config.FLIP_FOG.getAsBoolean();
@@ -199,7 +206,8 @@ public class FogPlaneRenderer {
         shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
         shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
         // Foam/spot pixel-snap grid must match the map's actual resolution (Config.waterlineCellsPerBlock).
-        shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
+        shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.effectPixelsPerBlock());
+        shader.safeGetUniform("MapPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
         // Fade out by ray distance so the murk never shows past where the world fades away.
         float fadeEnd = visibleReach(mc, below);
         lastFadeEnd = fadeEnd;

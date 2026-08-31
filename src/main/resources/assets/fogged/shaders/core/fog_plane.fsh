@@ -16,7 +16,8 @@ uniform float FoamWidth;
 uniform vec2 WaterlineOrigin;   // world XZ of the waterline map's corner
 uniform float WaterlineSize;    // map edge length in blocks
 uniform float WaterlineMaxDist; // distance (blocks) the map's stored value of 1.0 represents
-uniform float FoamPixelsPerBlock; // waterline map's cells-per-block resolution (Config.waterlineCellsPerBlock)
+uniform float FoamPixelsPerBlock; // pixels per block the foam and spots are drawn on
+uniform float MapPixelsPerBlock;  // cells per block the waterline map itself holds (Config.waterlineCellsPerBlock)
 uniform float PlaneFadeStart;   // eye distance at which the surface starts fading out
 uniform float PlaneFadeEnd;     // eye distance at which it is fully gone (reveals the real horizon)
 uniform vec2 ScreenSize;        // framebuffer size in pixels, to map gl_FragCoord into the depth sampler

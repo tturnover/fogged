@@ -129,13 +129,13 @@ public class LevelRendererMixin {
                                      net.minecraft.world.level.block.state.BlockState newState,
                                      int flags, CallbackInfo ci) {
         MixinHealthCheck.blockChangeFired = true;
-        WaterlineMap.markDirtyAt(pos.getY());
+        WaterlineMap.markDirtyAt(pos.getX(), pos.getY(), pos.getZ());
     }
 
     // Chunks loading in, and edits large enough to rebuild a whole section, never reach blockChanged.
     @Inject(method = "setSectionDirty(III)V", at = @At("HEAD"), require = 0)
     private void fogged$sectionDirty(int sectionX, int sectionY, int sectionZ, CallbackInfo ci) {
-        WaterlineMap.markSectionDirty(sectionY);
+        WaterlineMap.markSectionDirty(sectionX, sectionY, sectionZ);
     }
 
     // Whether the camera is in the murk itself -- on the fogged side AND not inside a liquid. A liquid

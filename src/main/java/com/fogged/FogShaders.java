@@ -22,6 +22,9 @@ public class FogShaders {
     // Copies the main render target's depth by sampling it (see SceneDepth) instead of glBlitFramebuffer,
     // so it never depends on the source/destination depth formats matching.
     public static ShaderInstance DEPTH_COPY;
+    // Screen-space murk for a camera inside a liquid, where fog uniforms cannot express it (see
+    // SubmergedMurk). POSITION only: it is a clip-space full-screen quad like depth_copy.
+    public static ShaderInstance SUBMERGED_MURK;
 
     // Monotonic wall clock for the surface boil. The game's per-frame partial tick can slip backward
     // between frames (esp. at uncapped FPS), which made the time-driven noise morph run forward then
@@ -50,5 +53,10 @@ public class FogShaders {
                         ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "depth_copy"),
                         DefaultVertexFormat.POSITION),
                 shader -> DEPTH_COPY = shader);
+        event.registerShader(
+                new ShaderInstance(event.getResourceProvider(),
+                        ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "submerged_murk"),
+                        DefaultVertexFormat.POSITION),
+                shader -> SUBMERGED_MURK = shader);
     }
 }

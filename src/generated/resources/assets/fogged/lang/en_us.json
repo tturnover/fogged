@@ -95,7 +95,7 @@
   "fogged.configuration.vaporUndulation": "Vapour Undulation",
   "fogged.configuration.vaporUndulation.tooltip": "How high (in blocks) the mist sheets rise off the plane. 0 = flat.",
   "fogged.configuration.waterlineCellsPerBlock": "Foam Grid Resolution",
-  "fogged.configuration.waterlineCellsPerBlock.tooltip": "Cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper.",
+  "fogged.configuration.waterlineCellsPerBlock.tooltip": "Highest cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper. A wide view drops it further on its own.",
   "fogged.tooltip.fog_detector.desc1": "Emits a _redstone signal_ by how deep it sits under the fog.",
   "fogged.tooltip.fog_detector.desc2": "Right-click with _another_ to stack it taller.",
   "fogged.tooltip.nozzle.desc1": "Apply a _Wool Block_ to filter out _thick fog_.",

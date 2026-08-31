@@ -19,7 +19,8 @@ uniform float PixelsPerBlock;   // snap the noise to this grid (matches the plan
 uniform vec2 WaterlineOrigin;   // world XZ of the waterline map's corner
 uniform float WaterlineSize;    // map edge length in blocks
 uniform float WaterlineMaxDist; // distance (blocks) the map's stored value of 1.0 represents
-uniform float FoamPixelsPerBlock; // the map's cells-per-block resolution
+uniform float FoamPixelsPerBlock; // pixels per block the foam and spots are drawn on
+uniform float MapPixelsPerBlock;  // cells per block the waterline map itself holds (Config.waterlineCellsPerBlock)
 uniform float FoamWidth;        // same foam band the surface draws, so the two line up
 uniform float PlaneFadeStart;   // distance at which the vapour starts fading with the horizon
 uniform float PlaneFadeEnd;     // distance at which it is fully gone

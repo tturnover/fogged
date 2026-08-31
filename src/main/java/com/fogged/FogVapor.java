@@ -72,6 +72,10 @@ public final class FogVapor {
 
         Vec3 cam = event.getCamera().getPosition();
         double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
+        // Follows the surface it sits on: both are hidden inside the liquid the camera is in.
+        if (SubmergedMurk.hidesSurface(event.getCamera(), mc.level, surfaceY)) {
+            return;
+        }
         float relY = (float) (surfaceY - cam.y);
         boolean below = (cam.y < surfaceY) != Config.FLIP_FOG.getAsBoolean();
         // Same fade range the plane uses (see FogPlaneRenderer#visibleReach).
@@ -139,16 +143,17 @@ public final class FogVapor {
         shader.safeGetUniform("WorldOffset").set((float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
         shader.safeGetUniform("Time").set((float) timeSeconds);
         shader.safeGetUniform("WispScale").set(WISP_SCALE);
-        // Must match the waterline map's actual resolution (Config.waterlineCellsPerBlock) so the vapour's
-        // pixel-snap grid lines up with the plane's foam grid.
-        shader.safeGetUniform("PixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
+        // The same grid the plane's foam and spots are drawn on (see WaterlineMap.effectPixelsPerBlock),
+        // so the mist's pixels line up with theirs instead of straddling them.
+        shader.safeGetUniform("PixelsPerBlock").set((float) WaterlineMap.effectPixelsPerBlock());
         // Where the foam map sits and how its stored distance scales -- the same values the surface
         // passes, anchored to the same tile, or the two would disagree about where the ring is.
         shader.safeGetUniform("WaterlineOrigin").set((float) (WaterlineMap.originX() - ax),
                 (float) (WaterlineMap.originZ() - az));
         shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
         shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
-        shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
+        shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.effectPixelsPerBlock());
+        shader.safeGetUniform("MapPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
         shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
         shader.safeGetUniform("PlaneFadeStart").set(fogFar * 0.8F);
         shader.safeGetUniform("PlaneFadeEnd").set(fogFar);
