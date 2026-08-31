@@ -62,6 +62,8 @@ public final class FogDebugOverlay {
                         ? "scene depth: captured" : "scene depth: UNAVAILABLE",
                         FogPlaneRenderer.lastDepthValid ? OK : BAD)
                 : new Line("scene depth: off (planeSoftOcclusion)", PLAIN));
+        lines.add(new Line("submerged murk: " + SubmergedMurk.status(),
+                SubmergedMurk.status().startsWith("band ") ? OK : PLAIN));
         lines.add(new Line(String.format("depth from fbo %d%s",
                 SceneDepth.sourceFramebuffer(),
                 SceneDepth.usedFallbackSource() ? " (fallback: main target)" : ""),

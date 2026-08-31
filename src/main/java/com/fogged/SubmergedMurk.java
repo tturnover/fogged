@@ -56,6 +56,15 @@ public final class SubmergedMurk {
 
     private static final Matrix4f invViewProj = new Matrix4f();
 
+    // What the last frame's pass decided, for the debug HUD (FogDebugOverlay) to show. This pass draws
+    // nothing at all in most frames by design, so "no murk" and "never ran" look identical in game.
+    private static volatile String status = "eye in air";
+
+    /** One line on what the submerged pass did last frame. */
+    public static String status() {
+        return status;
+    }
+
     private SubmergedMurk() {
     }
 
@@ -83,23 +92,28 @@ public final class SubmergedMurk {
         }
         Camera camera = event.getCamera();
         if (camera.getFluidInCamera() == FogType.NONE) {
-            return; // the eye is in air: the ordinary murk fog already covers this
+            status = "eye in air";
+            return; // the ordinary murk fog already covers this
         }
         Vec3 cam = camera.getPosition();
         if (!Config.fogged(level, cam.y)) {
-            return; // swimming on the clear side of the boundary
+            status = "swimming above the boundary";
+            return;
         }
         ShaderInstance shader = FogShaders.SUBMERGED_MURK;
         if (shader == null) {
-            return; // shaders not loaded yet
+            status = "SHADER MISSING";
+            return;
         }
         double top = fluidTopY(level, cam);
         if (Double.isNaN(top)) {
-            return; // deeper than the scan: the liquid's own fog is the whole view anyway
+            status = "deeper than " + MAX_RISE + " blocks";
+            return;
         }
         float fluidTopRel = (float) (top - cam.y);
         if (fluidTopRel <= 0.0F) {
-            return; // eye at or above the surface; the air-side fog owns this frame
+            status = "eye at the surface";
+            return;
         }
 
         // The murk ends at the plane on the way up -- unless flipFog put the murk on the upper side,
@@ -107,7 +121,9 @@ public final class SubmergedMurk {
         double surfaceY = FogBand.surfaceY(level);
         float murkEndRel = Config.FLIP_FOG.getAsBoolean() ? NO_CEILING : (float) (surfaceY - cam.y);
         if (murkEndRel <= fluidTopRel) {
-            return; // the liquid's surface is already at or above the murk's ceiling: no murk between
+            // The water reaches above the plane, so leaving it puts the eye in clear air: no band.
+            status = String.format("no band (surface %.1f above eye, plane %.1f)", fluidTopRel, murkEndRel);
+            return;
         }
 
         // This pass needs the scene depth to know where each ray stops; without it every pixel would
@@ -116,6 +132,7 @@ public final class SubmergedMurk {
         // skipped exactly when the camera is under the surface (see hidesSurface), so take it here.
         SceneDepth.capture();
         if (!SceneDepth.depthAvailable()) {
+            status = "NO SCENE DEPTH";
             return;
         }
 
@@ -137,10 +154,13 @@ public final class SubmergedMurk {
         shader.safeGetUniform("MurkColor").set(murk[0], murk[1], murk[2], 1.0F);
         shader.safeGetUniform("FluidTopRel").set(fluidTopRel);
         shader.safeGetUniform("MurkEndRel").set(murkEndRel);
-        // Same near/far the murk fog itself uses (see FogModifier), so surfacing from a dive hands the
-        // view over between the two with no step in density.
-        shader.safeGetUniform("MurkStart").set(far * 0.25F);
-        shader.safeGetUniform("MurkFull").set(far);
+        // Tied to the murk fog's own reach (see FogModifier): at fogDistance blocks of murk this is
+        // ~95% opaque, which is what that fog hides the world at, so surfacing hands the view over
+        // between the two without a step in density.
+        shader.safeGetUniform("MurkExtinction").set(far / 3.0F);
+
+        status = String.format("band %.1f blk (surface +%.1f, plane +%.1f), extinction %.1f",
+                murkEndRel - fluidTopRel, fluidTopRel, murkEndRel, far / 3.0F);
 
         Tesselator tess = Tesselator.getInstance();
         BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);

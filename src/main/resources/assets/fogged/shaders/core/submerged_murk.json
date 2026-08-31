@@ -13,7 +13,6 @@
         { "name": "MurkColor", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0 ] },
         { "name": "FluidTopRel", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "MurkEndRel", "type": "float", "count": 1, "values": [ 1000000.0 ] },
-        { "name": "MurkStart", "type": "float", "count": 1, "values": [ 0.0 ] },
-        { "name": "MurkFull", "type": "float", "count": 1, "values": [ 24.0 ] }
+        { "name": "MurkExtinction", "type": "float", "count": 1, "values": [ 8.0 ] }
     ]
 }

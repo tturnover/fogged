@@ -21,8 +21,7 @@ uniform vec4 MurkColor;     // murk colour (rgb); alpha unused, opacity comes fr
 
 uniform float FluidTopRel;  // height of the eye's liquid surface above the eye, in blocks (> 0)
 uniform float MurkEndRel;   // height of the murk's own ceiling above the eye (the plane), in blocks
-uniform float MurkStart;    // span (blocks) the murk stays clear over, matching the murk fog's near plane
-uniform float MurkFull;     // span (blocks) at which the murk is opaque, matching the murk fog's far plane
+uniform float MurkExtinction; // blocks of murk that hide 63% of what is behind them
 
 out vec4 fragColor;
 
@@ -50,12 +49,32 @@ void main() {
     float depth = texelFetch(Sampler0, ivec2(gl_FragCoord.xy), 0).r;
     float sceneT = depth >= 1.0 ? 1.0e9 : length(unproject(depth));
 
+    // ...except the liquid's own surface, which is geometry and writes depth like anything else. From
+    // underneath, every ray that leaves the water "stops" on it, one span of zero later, and the whole
+    // pass drew nothing at all. What those pixels actually show is the world above the surface, seen
+    // through it -- so a hit at the exit point is the surface itself and is not what stops the ray.
+    // Only a hit clear of it (a shore, a cliff, a boat hull) really does.
+    // Scaled with distance: a grazing ray meets the surface hundreds of blocks out, where the depth
+    // buffer's own precision is worth more than a block.
+    float surfaceSlop = max(1.0, exitT * 0.02);
+    if (abs(sceneT - exitT) < surfaceSlop) {
+        sceneT = 1.0e9;
+    }
+
     float span = min(ceilingT, sceneT) - exitT;
     if (span <= 0.0) {
         discard; // the pixel is still inside the liquid, or its scene sits below the surface
     }
 
-    float alpha = clamp((span - MurkStart) / max(MurkFull - MurkStart, 0.001), 0.0, 1.0);
+    // Extinction, not a ramp with a clear stretch in front of it. The murk fog can afford a near
+    // plane because it always starts at the eye; this span starts at the water's surface and is often
+    // only a few blocks long, and a linear ramp from a near plane renders every one of those spans as
+    // nothing at all -- which is what made a thin layer of murk over a lake invisible from below.
+    // Deliberately NOT attenuated by how much liquid the ray passes through on the way out. That was
+    // tried -- the murk is behind the liquid, so its own fog "should" hide it -- and it reads wrong:
+    // the murk thinned out exactly where there is most of it to see, and the view from under a lake
+    // went back to the clear daylight this pass exists to get rid of.
+    float alpha = 1.0 - exp(-span / max(MurkExtinction, 0.001));
     if (alpha <= 0.003) {
         discard;
     }
