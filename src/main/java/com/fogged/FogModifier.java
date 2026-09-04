@@ -22,11 +22,29 @@ import net.neoforged.neoforge.client.event.ViewportEvent;
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public class FogModifier {
 
+    // What each of the two paths below decided last frame, for the debug HUD. They can disagree, and
+    // when the murk fog fails to appear which one ran -- and what distance it was handed -- is the
+    // whole question, so both are reported rather than recomputed by the HUD.
+    private static volatile String eventStatus = "not run";
+    private static volatile String enforceStatus = "not run";
+
+    /** What the fog EVENT did last frame. */
+    public static String eventStatus() {
+        return eventStatus;
+    }
+
+    /** What the terrain-pass enforcement did last frame. */
+    public static String enforceStatus() {
+        return enforceStatus;
+    }
+
     // LOW priority: run after any other mod's own RenderFog listener, so the min-compose below sees
     // whatever distance that mod already computed rather than a stale vanilla default.
     @SubscribeEvent(priority = EventPriority.LOW)
     static void onRenderFog(ViewportEvent.RenderFog event) {
-        if (!murkSide(event.getCamera())) {
+        Camera cam = event.getCamera();
+        if (!murkSide(cam)) {
+            eventStatus = "off (dry side)";
             return;
         }
         // On the fogged side the murk OWNS the fog -- distance and colour both. This used to compose,
@@ -37,8 +55,16 @@ public class FogModifier {
         float far = Config.FOG_DISTANCE.getAsInt();
         // ...except inside a liquid, where it only ever SHORTENS the view and never recolours it (see
         // liquidEye). A liquid already denser than the murk keeps its own fog untouched.
-        if (liquidEye(event.getCamera()) && event.getFarPlaneDistance() <= far) {
-            return;
+        if (liquidEye(cam)) {
+            if (event.getFarPlaneDistance() <= far) {
+                eventStatus = String.format("%s fog %.0f already tighter than murk %.0f",
+                        cam.getFluidInCamera(), event.getFarPlaneDistance(), far);
+                return;
+            }
+            eventStatus = String.format("%s %.0f -> murk %.0f (distance only)",
+                    cam.getFluidInCamera(), event.getFarPlaneDistance(), far);
+        } else {
+            eventStatus = String.format("murk %.0f + colour", far);
         }
         event.setNearPlaneDistance(far * 0.25F);
         event.setFarPlaneDistance(far);
@@ -79,6 +105,7 @@ public class FogModifier {
         Minecraft mc = Minecraft.getInstance();
         Camera camera = mc.gameRenderer.getMainCamera();
         if (mc.level == null || !murkSide(camera)) {
+            enforceStatus = "off (dry side)";
             return;
         }
         // Unconditionally, for the same reason the event listener above is unconditional. The earlier
@@ -89,12 +116,17 @@ public class FogModifier {
         // Same split the event listener makes: in a liquid the murk only tightens the distance and
         // leaves the liquid's own colour alone.
         if (liquidEye(camera)) {
-            if (RenderSystem.getShaderFogEnd() > murkEnd) {
+            float live = RenderSystem.getShaderFogEnd();
+            if (live > murkEnd) {
                 RenderSystem.setShaderFogStart(murkEnd * 0.25F);
                 RenderSystem.setShaderFogEnd(murkEnd);
+                enforceStatus = String.format("%s: shader %.0f -> murk %.0f", camera.getFluidInCamera(), live, murkEnd);
+            } else {
+                enforceStatus = String.format("%s: shader %.0f already tighter", camera.getFluidInCamera(), live);
             }
             return;
         }
+        enforceStatus = String.format("murk %.0f + colour (shader was %.0f)", murkEnd, RenderSystem.getShaderFogEnd());
         float[] c = Config.planeColor();
         RenderSystem.setShaderFogStart(murkEnd * 0.25F);
         RenderSystem.setShaderFogEnd(murkEnd);
