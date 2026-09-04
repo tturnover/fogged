@@ -26,7 +26,7 @@ public class FogModifier {
     // whatever distance that mod already computed rather than a stale vanilla default.
     @SubscribeEvent(priority = EventPriority.LOW)
     static void onRenderFog(ViewportEvent.RenderFog event) {
-        if (!belowBoundary(event.getCamera())) {
+        if (!murkSide(event.getCamera())) {
             return;
         }
         // On the fogged side the murk OWNS the fog -- distance and colour both. This used to compose,
@@ -35,6 +35,11 @@ public class FogModifier {
         // biome fog that happens to be shorter left the world under the plane fogged in that biome's
         // colour with the murk nowhere in it. Above the boundary every other mod's fog is untouched.
         float far = Config.FOG_DISTANCE.getAsInt();
+        // ...except inside a liquid, where it only ever SHORTENS the view and never recolours it (see
+        // liquidEye). A liquid already denser than the murk keeps its own fog untouched.
+        if (liquidEye(event.getCamera()) && event.getFarPlaneDistance() <= far) {
+            return;
+        }
         event.setNearPlaneDistance(far * 0.25F);
         event.setFarPlaneDistance(far);
         // Cancelling is what makes NeoForge apply these at all -- see ClientHooks.onFogRender, which
@@ -44,7 +49,9 @@ public class FogModifier {
 
     @SubscribeEvent
     static void onComputeFogColor(ViewportEvent.ComputeFogColor event) {
-        if (!belowBoundary(event.getCamera())) {
+        // Colour, unlike distance, stays off inside a liquid: tinting the water the player is swimming
+        // in murk-green makes it disagree with the same water seen from outside.
+        if (!murkSide(event.getCamera()) || liquidEye(event.getCamera())) {
             return;
         }
         // Match the fog to the separation plane's colour so passing under it feels continuous.
@@ -71,7 +78,7 @@ public class FogModifier {
     public static void enforceMurkFog() {
         Minecraft mc = Minecraft.getInstance();
         Camera camera = mc.gameRenderer.getMainCamera();
-        if (mc.level == null || !belowBoundary(camera)) {
+        if (mc.level == null || !murkSide(camera)) {
             return;
         }
         // Unconditionally, for the same reason the event listener above is unconditional. The earlier
@@ -79,24 +86,40 @@ public class FogModifier {
         // that check came first, it skipped the COLOUR too, so under a biome fog tighter than the murk
         // the world kept that biome's colour and the murk was neither hiding the plane nor tinting it.
         float murkEnd = Config.FOG_DISTANCE.getAsInt();
+        // Same split the event listener makes: in a liquid the murk only tightens the distance and
+        // leaves the liquid's own colour alone.
+        if (liquidEye(camera)) {
+            if (RenderSystem.getShaderFogEnd() > murkEnd) {
+                RenderSystem.setShaderFogStart(murkEnd * 0.25F);
+                RenderSystem.setShaderFogEnd(murkEnd);
+            }
+            return;
+        }
         float[] c = Config.planeColor();
         RenderSystem.setShaderFogStart(murkEnd * 0.25F);
         RenderSystem.setShaderFogEnd(murkEnd);
         RenderSystem.setShaderFogColor(c[0], c[1], c[2], 1.0F);
     }
 
-    // True when the camera should get our thick fog: the fogged side of the boundary, and not inside a
-    // liquid. flipFog moves the fogged side to the one above.
-    //
-    // A liquid keeps its own fog. The murk is cut out of liquids entirely (see WaterlineMap's mask and
-    // the fog_plane shader), so a lake or lava pool the boundary passes through must not be tinted or
-    // shortened by it either -- otherwise the water you are swimming in disagrees with the water you
-    // are looking at.
-    private static boolean belowBoundary(Camera cam) {
+    // True when the camera is on the fogged side of the boundary. Says nothing about what it is
+    // standing or swimming in -- that is liquidEye's job. flipFog moves the fogged side to the one above.
+    private static boolean murkSide(Camera cam) {
         var level = Minecraft.getInstance().level;
-        if (level == null || cam.getFluidInCamera() != FogType.NONE) {
-            return false;
-        }
-        return Config.fogged(level, cam.getPosition().y);
+        return level != null && Config.fogged(level, cam.getPosition().y);
+    }
+
+    // True when the eye is inside a liquid, where the murk tightens the fog distance but leaves the
+    // colour to the liquid.
+    //
+    // Being in a liquid used to switch the murk fog off outright, on the grounds that a liquid keeps
+    // its own fog: the murk is cut out of liquids (see WaterlineMap's mask and the fog_plane shader),
+    // so a lake the boundary passes through should not be tinted or shortened by it. That is right at
+    // the boundary and badly wrong below it. Dive under the plane and vanilla's water fog is the only
+    // thing left limiting the view -- which at any normal render distance limits nothing -- so the
+    // whole world under the murk was visible through the water, plane included. Water was a hole in
+    // the murk. The distance now still applies; only the colour is left to the liquid, which is what
+    // kept the two disagreeing before.
+    private static boolean liquidEye(Camera cam) {
+        return cam.getFluidInCamera() != FogType.NONE;
     }
 }
