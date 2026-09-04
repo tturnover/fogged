@@ -239,7 +239,7 @@ public class FogPlaneRenderer {
         // because the fade end moves continuously while the camera is in a fluid and a skirt that
         // tracked it exactly would rebuild the mesh every single frame.
         int skirt = Mth.ceil(Math.max(0.0F, fadeEnd - WaterlineMap.size() / 2.0F) / SKIRT_STEP) * SKIRT_STEP;
-        FogPlaneMesh.ensureBuilt(skirt);
+        FogPlaneMesh.ensureBuilt(mc.level, Mth.floor(surfaceY), skirt);
         boolean wireframe = Config.DEBUG_VIEW.get() == Config.DebugView.WIREFRAME;
         if (wireframe) {
             GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);
