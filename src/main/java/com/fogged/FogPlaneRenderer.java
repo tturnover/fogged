@@ -126,12 +126,20 @@ public class FogPlaneRenderer {
         // live buffer while writing it is a read/write feedback loop. Reused by FogVapor. Skipped when
         // soft occlusion is off -- the only case where capturing it buys nothing this frame.
         boolean wantSoftOcclusion = Config.PLANE_SOFT_OCCLUSION.getAsBoolean();
-        if (wantSoftOcclusion) {
+        // The far haze needs the snapshot even when the near surface does not: it draws with the depth
+        // test OFF (its geometry is past the projection's far plane), so the shader's own comparison
+        // against the snapshot is the only thing keeping it off the terrain in front of it. Without
+        // that it lies over the entire view.
+        boolean needDepth = wantSoftOcclusion || dh;
+        if (needDepth) {
             SceneDepth.capture();
         }
-        // Degrades to "never occlude" in the shader rather than sampling stale/garbage depth when
-        // occlusion is off or the capture above failed (see SceneDepth).
+        // Degrades to "never occlude" in the shader rather than sampling stale/garbage depth when the
+        // snapshot was not taken or the capture failed (see SceneDepth). Tracked separately for the two
+        // passes: the far haze uses it to cut against the scene, which it always needs, while the near
+        // surface uses it to soften its edges, which is what the config turns off.
         float depthValid = wantSoftOcclusion && SceneDepth.depthAvailable() ? 1.0F : 0.0F;
+        float farDepthValid = needDepth && SceneDepth.depthAvailable() ? 1.0F : 0.0F;
         lastDepthValid = depthValid > 0.0F;
 
         // Debug views are diagnostics, not the surface: they draw with the depth test off so they show
@@ -265,6 +273,7 @@ public class FogPlaneRenderer {
             // The haze starts where the near surface stops being drawn and thins out to the LOD edge,
             // so the two meet without a seam instead of the flat slab the far skirt used to be.
             shader.safeGetUniform("FarPass").set(1.0F);
+            shader.safeGetUniform("DepthValid").set(farDepthValid);
             shader.safeGetUniform("PlaneFadeStart").set(fadeEnd * 0.5F);
             shader.safeGetUniform("PlaneFadeEnd").set(lods);
             // The grid covers the near region too, so the haze runs under the near mesh rather than
@@ -273,6 +282,7 @@ public class FogPlaneRenderer {
             FogPlaneMesh.drawFar(modelView, farProjection, shader);
             // ...and back to the near pass's own state and fade range.
             shader.safeGetUniform("FarPass").set(0.0F);
+            shader.safeGetUniform("DepthValid").set(depthValid);
             shader.safeGetUniform("PlaneFadeStart").set(fadeEnd * 0.8F);
             shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
             if (!debug) {

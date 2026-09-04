@@ -228,10 +228,15 @@ public class Config {
             .define("sableFoam", true);
 
     public static final ModConfigSpec.BooleanValue PLANE_SOFT_OCCLUSION = CLIENT
-            .comment("Soft-fade the plane and vapour against the silhouettes of blocks, mobs and machines",
-                    "instead of a hard depth cut (uses a per-frame scene-depth snapshot -- see SceneDepth).",
-                    "Off skips that snapshot entirely (a small perf win) and cuts every edge hard.")
-            .define("planeSoftOcclusion", true);
+            .comment("Soft-fade the plane against the silhouettes of blocks, mobs and machines instead of",
+                    "a hard depth cut (uses a per-frame scene-depth snapshot -- see SceneDepth).",
+                    "",
+                    "Off by default: the fade is a screen-door dither, so where the surface meets a block",
+                    "it drops pixels and the murk behind it can be seen through the gaps. That reads as a",
+                    "hole around everything the boundary touches, and through water it is worse still --",
+                    "the surface is translucent there already. Off cuts every edge hard, and skips the",
+                    "snapshot when nothing else that frame needs it (a small perf win).")
+            .define("planeSoftOcclusion", false);
 
     public static final ModConfigSpec.BooleanValue DH_COMPAT = CLIENT
             .comment("Master switch for the Distant Horizons integration: extending the murk out to the",
