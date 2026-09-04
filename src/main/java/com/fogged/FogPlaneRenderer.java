@@ -26,9 +26,9 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 // for the entire pass. As geometry the rasteriser supplies depth, early-Z rejects occluded fragments
 // before any of the foam or noise work runs, and only the surface's own pixels are shaded at all.
 //
-// Which render stage it runs at is config (planeStage), defaulting to AFTER_TRANSLUCENT_BLOCKS --
-// see the stage() method for what each choice puts in the buffers first. Render order decides what
-// the murk can cover and what covers it, so it is worth being able to move without a rebuild.
+// Which render stage it runs at is config (planeStage), defaulting to AFTER_CUTOUT_BLOCKS -- see the
+// stage() method for what each choice puts in the buffers first. Render order decides what the murk
+// can cover and what covers it, so it is worth being able to move without a rebuild.
 //
 // Softness -- the occlusion edge and the distance fades -- is a screen-door DITHER, not an alpha
 // ramp: a stable 4x4 checker of kept and dropped pixels, matching the chunky pixelated look of the
@@ -353,15 +353,20 @@ public class FogPlaneRenderer {
 
     // The stage the composite runs at (config planeStage), and what each one means for it.
     //
-    //   AFTER_CUTOUT_BLOCKS       terrain only. Entities, block entities and Flywheel all draw AFTER
-    //                             the murk, so they appear in front of it whatever side they are on.
+    //   AFTER_CUTOUT_BLOCKS       DEFAULT. Terrain only, and crucially BEFORE the translucent pass, so
+    //                             water is drawn over the murk and veils it like anything else beneath
+    //                             it. The cost is that entities, block entities and Flywheel all draw
+    //                             after the murk too, so they appear in front of it whatever side of
+    //                             the boundary they are on.
     //   AFTER_ENTITIES            entities are in, block entities and Flywheel are not.
     //   AFTER_BLOCK_ENTITIES      entity batches, the block-entity pass and Flywheel (which
     //                             dispatches at the "blockentities" profiler push just ahead of
     //                             vanilla's own) are all in -- but not water.
-    //   AFTER_TRANSLUCENT_BLOCKS  DEFAULT, and the first stage where everything the murk has to hide
-    //                             is already in the buffers, water included. Found by testing: the
-    //                             stages before this each left something drawing over the murk.
+    //   AFTER_TRANSLUCENT_BLOCKS  The first stage where everything the murk has to hide is already in
+    //                             the buffers, water included -- which is why it was the default for a
+    //                             while. It puts the murk ON TOP of the water instead of under it, and
+    //                             water is translucent: the surface then reads straight through every
+    //                             lake as a hard line, with the view past it not hidden at all.
     //   AFTER_PARTICLES           as above, plus particles.
     //   AFTER_WEATHER             last stage in the level pass, nothing left to draw over it. This is
     //                             where RisingToxicity puts its own toxic plane.

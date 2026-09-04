@@ -345,15 +345,20 @@ public class Config {
     public static final ModConfigSpec.EnumValue<PlaneStage> PLANE_STAGE = CLIENT
             .comment("Which render stage the murk is composited at -- i.e. what has already been drawn",
                     "into the colour and depth buffers when it runs, and what is still to come.",
-                    "AFTER_TRANSLUCENT_BLOCKS (default) is the first stage where EVERYTHING the murk has",
-                    "to hide is already in those buffers: terrain, entities, block entities, Flywheel's",
-                    "instanced parts and water. Earlier stages leave whatever comes later drawing over",
-                    "the murk instead of being covered by it -- at AFTER_CUTOUT_BLOCKS that is every",
-                    "entity in the world. Later still puts particles (AFTER_PARTICLES) and then the",
-                    "whole level pass (AFTER_WEATHER) under it.",
+                    "AFTER_CUTOUT_BLOCKS (default) draws it on terrain alone, before the translucent",
+                    "pass, so WATER GOES OVER THE MURK and veils it the way it veils anything else",
+                    "underneath. Composited after the translucent pass instead, the murk lands on top of",
+                    "the water and is read straight through it -- water is translucent, so the surface",
+                    "shows as a hard line across every lake and the view past it is not hidden at all.",
+                    "The cost of drawing this early is that everything later draws OVER the murk:",
+                    "entities, block entities and Flywheel's instanced parts appear in front of it",
+                    "whichever side of the boundary they are on.",
+                    "AFTER_TRANSLUCENT_BLOCKS is the first stage where everything the murk has to hide",
+                    "is already in the buffers. Later still puts particles (AFTER_PARTICLES) and then",
+                    "the whole level pass (AFTER_WEATHER) under it.",
                     "Exposed because render order decides what the murk can cover, and that is worth",
                     "being able to move without a rebuild.")
-            .defineEnum("planeStage", PlaneStage.AFTER_TRANSLUCENT_BLOCKS);
+            .defineEnum("planeStage", PlaneStage.AFTER_CUTOUT_BLOCKS);
 
     public static final ModConfigSpec.BooleanValue DEBUG_HUD = CLIENT
             .comment("Draw a text readout of the render state in the corner of the screen: boundary height,",
