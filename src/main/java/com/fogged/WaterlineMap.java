@@ -46,6 +46,12 @@ public final class WaterlineMap {
     // How far out spray from crossing entities is thrown, bounded by the map that feeds the query.
     private static final int PARTICLE_RADIUS_MAX = 48;
 
+    // How far the spray's tint is blended toward white, 0 = the foam colour as painted, 1 = white.
+    // The sprites carry their own soft shading, so multiplying them by the full foam colour lands much
+    // darker than the flat ring drawn on the surface -- and spray is water thrown into the air, which
+    // reads lighter than the surface it came off, not the same. One number to tune.
+    private static final float SPRAY_WHITENING = 0.6F;
+
     // A crossing entity throws spray in proportion to how fast it is going, piled up ahead of it.
     private static final double FULL_SPEED = 0.4;          // blocks/tick counting as "fast"
     private static final int WAKE_MAX = 6;                 // particles per entity per tick at full speed
@@ -366,7 +372,8 @@ public final class WaterlineMap {
         // Tinted campfire smoke (see FoamParticle): big, soft and slow-rising, which reads as foam
         // mist lying on the surface. The nozzle filter's own puffs are a separate, smaller particle.
         float[] pc = Config.foamColor();
-        ParticleOptions foam = ColorParticleOption.create(ModParticles.FOAM.get(), pc[0], pc[1], pc[2]);
+        ParticleOptions foam = ColorParticleOption.create(ModParticles.FOAM.get(),
+                whitened(pc[0]), whitened(pc[1]), whitened(pc[2]));
         RandomSource rnd = level.getRandom();
 
         // Standing foam along the waterline comes from FoamSites, which remembers where the boundary
@@ -376,6 +383,11 @@ public final class WaterlineMap {
         // Spray thrown by things crossing it is per-entity and stays close, since that is where the
         // entities are.
         emitWakeFoam(level, camPos, surfaceY, foam, rnd);
+    }
+
+    // One channel of the foam colour, lifted toward white by SPRAY_WHITENING.
+    private static float whitened(float c) {
+        return c + (1.0F - c) * SPRAY_WHITENING;
     }
 
     // How far out spray is emitted: the map's own half-extent, capped. The entities that throw it are
