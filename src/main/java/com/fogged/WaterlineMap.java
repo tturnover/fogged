@@ -54,8 +54,12 @@ public final class WaterlineMap {
 
     // A crossing entity throws spray in proportion to how fast it is going, piled up ahead of it.
     private static final double FULL_SPEED = 0.4;          // blocks/tick counting as "fast"
-    private static final int WAKE_MAX = 9;                 // particles per entity per tick at full speed
-    private static final float STATIC_CHANCE = 0.18F;      // ...and how often a still one manages one
+    private static final double WAKE_MAX = 4.5;            // particles per entity per tick at full speed
+    private static final float STATIC_CHANCE = 0.09F;      // ...and how often a still one manages one
+    // The same for a moored sub-level, per probe. Kept where the entity rate used to be: a hull the
+    // size of a ship is what this fires against, and halving the entity rate was about the crowd of
+    // spray a moving mob throws, not about ships.
+    private static final float SUBLEVEL_STATIC_CHANCE = 0.18F;
     private static final double FRONT_ARC = 0.9;           // radians of spread the bow wave piles into
     private static final double WAKE_DRAG = 0.6;           // how much of the entity's motion the spray keeps
     private static final double WAKE_SPREAD = 0.06;        // blocks/tick the wave travels outward at
@@ -467,7 +471,7 @@ public final class WaterlineMap {
             SableCompatibility.sampleWakes(level, surfaceY, SUBLEVEL_PROBES, rnd, (wx, wz, motion) -> {
                 double speed = Math.sqrt(motion.x * motion.x + motion.z * motion.z);
                 double strength = Math.min(1.0, speed / FULL_SPEED);
-                if (strength <= 0.0 && rnd.nextFloat() >= STATIC_CHANCE) {
+                if (strength <= 0.0 && rnd.nextFloat() >= SUBLEVEL_STATIC_CHANCE) {
                     return; // moored: the odd puff along the hull, no more
                 }
                 // No centre to push away from here -- the probe landed somewhere along the hull, so
