@@ -39,10 +39,10 @@ public final class FogVapor {
     // wisps repeat exactly with the anchor -> no seam.
     private static final float WISP_SCALE = 0.09375F;
 
-    // Above the surface and below it: every sheet is drawn on both faces (see the sheet loop), unless
-    // vaporUnderside says over only.
+    // The two faces of the surface, in the order they are drawn: the clear side first (see the sheet
+    // loop), then the murk's own, which vaporUnderside decides whether to draw at all.
     private static final float[] BOTH_SIDES = { 1.0F, -1.0F };
-    private static final float[] OVER_ONLY = { 1.0F };
+    private static final float[] CLEAR_ONLY = { 1.0F };
 
     private FogVapor() {
     }
@@ -195,7 +195,13 @@ public final class FogVapor {
         // camera, which meant the whole layer flipped across the boundary at the instant of a crossing --
         // the one moment both sides are in view at once. Whichever side is hidden is hidden by the
         // plane's own depth, so the pair costs a draw's worth of quads and nothing else.
-        for (float side : Config.VAPOR_UNDERSIDE.getAsBoolean() ? BOTH_SIDES : OVER_ONLY) {
+        // The mist lies on the surface from the clear side, the way fog sits over water -- so which way
+        // that is flips with flipFog, which is what moves the murk to the other side of the boundary.
+        // Without this the mist stayed above a murk that had gone above it: inside the ceiling, where
+        // there is nothing to see it, and absent from the open air below where it belongs.
+        float clearSide = Config.FLIP_FOG.getAsBoolean() ? -1.0F : 1.0F;
+        for (float face : Config.VAPOR_UNDERSIDE.getAsBoolean() ? BOTH_SIDES : CLEAR_ONLY) {
+            float side = face * clearSide;
             for (int i = 0; i < sheets; i++) {
                 // Bottom plane carries most of the alpha (so the mist reads up close, face-on); higher
                 // planes fall off fast so grazing overlaps at distance don't pile into a solid wall.
