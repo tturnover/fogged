@@ -81,6 +81,18 @@ public final class WaterlineMap {
     private static float[] targetP = new float[0];  // distance to nearest plant
     private static float[] shownP = new float[0];    // eased version of targetP (G channel)
     private static float[] scratch = new float[0];
+    // Distance to the nearest solid BLOCK only, chamfered, kept between rescans. Entities and Sable
+    // sub-levels are stamped onto a copy of it every tick (see restampDynamic), so what moves is
+    // re-seeded at tick rate while the expensive block scan keeps its own slower cadence.
+    private static float[] blockDist = new float[0];
+
+    // Cell boxes stamped by whatever was crossing last time, so only those get relaxed back in. On
+    // overflow the whole field is chamfered instead, which is what the map did every rescan anyway.
+    private static final int MAX_STAMP_BOXES = 32;
+    private static final int[] stampBoxes = new int[MAX_STAMP_BOXES * 4];
+    private static int stampBoxCount;
+    private static boolean stampOverflow;
+    private static boolean lastStamped;
     private static int originX;           // world block X of the map's corner
     private static int originZ;           // world block Z of the map's corner
     private static int lastBoundaryY = Integer.MIN_VALUE;
@@ -138,6 +150,7 @@ public final class WaterlineMap {
             shiftField(shownP, dx, dz);
             shiftField(target, dx, dz);
             shiftField(targetP, dx, dz);
+            shiftField(blockDist, dx, dz);
             originX = cx;
             originZ = cz;
         }
@@ -154,18 +167,21 @@ public final class WaterlineMap {
             lastBoundaryY = boundaryY;
             lastRecomputeTick = tick;
             reseedAll(level, boundaryY);
-            finishRecompute(level, boundaryY);
+            finishRecompute();
             recomputed = true;
         }
 
         // Ease + re-upload at most once per tick (bounded cost), or immediately after a re-centre.
         if (newTick || originMoved) {
+            // Whatever moves is re-stamped every tick, so a boat's ring keeps up with it rather than
+            // waiting on the block rescan's cadence above.
+            boolean restamped = restampDynamic(level, boundaryY);
             long elapsed = lastTick == Long.MIN_VALUE ? 1 : Math.max(1, tick - lastTick);
             float step = EASE_CELLS_PER_TICK * elapsed;
             boolean changed = ease(target, shown, step);
             changed |= ease(targetP, shownP, step);
             lastTick = tick;
-            if (changed || originMoved || recomputed) {
+            if (changed || originMoved || recomputed || restamped) {
                 upload();
             }
             if (newTick) {
@@ -222,31 +238,99 @@ public final class WaterlineMap {
         return state.blocksMotion() || (!fluid.isEmpty() && !fluid.isSource());
     }
 
-    // Entity + Sable sub-level stamping followed by the chamfer distance transform. Always runs
+    // The block half of the field: chamfer what reseedAll seeded and keep a copy. Always runs
     // immediately after reseedAll, in the same call (see update()), on fully fresh block-state data.
-    private static void finishRecompute(Level level, int boundaryY) {
-        final int C = cellsPerBlock;
+    // Everything that moves is stamped on top of that copy every tick instead (see restampDynamic).
+    private static void finishRecompute() {
+        chamferDistance(target);
+        System.arraycopy(target, 0, blockDist, 0, target.length);
+        chamferDistance(targetP);
+    }
 
-        // Entities whose bounding box straddles the boundary seed the full field (foam rings them).
+    /**
+     * Stamp everything that MOVES -- crossing entities and Sable sub-levels -- onto a fresh copy of
+     * the block field. Runs every tick, and returns whether the field actually changed.
+     *
+     * <p>This used to happen inside the rescan, so a boat's ring only caught up every
+     * RECOMPUTE_INTERVAL ticks and visibly stepped along behind anything moving at speed. Splitting it
+     * out costs an arraycopy a tick, plus a chamfer around each stamp on the ticks where something is
+     * actually near the boundary -- with nothing crossing, there is nothing to do at all.
+     *
+     * <p>Restoring the block-only field is what un-stamps what moved off: it is exact, so nothing has
+     * to be un-chamfered, and only the new seeds need relaxing back in.
+     */
+    private static boolean restampDynamic(Level level, int boundaryY) {
+        final int C = cellsPerBlock;
         AABB area = new AABB(originX, boundaryY - 2.0, originZ, originX + size, boundaryY + 2.0, originZ + size);
-        for (Entity e : level.getEntities((Entity) null, area,
-                e -> e.getBoundingBox().minY <= boundaryY + 0.5 && e.getBoundingBox().maxY >= boundaryY - 0.5)) {
+        var crossing = level.getEntities((Entity) null, area,
+                e -> e.getBoundingBox().minY <= boundaryY + 0.5 && e.getBoundingBox().maxY >= boundaryY - 0.5);
+        boolean sable = SABLE && Config.SABLE_FOAM.getAsBoolean();
+        if (crossing.isEmpty() && !sable && !lastStamped) {
+            return false; // nothing crossed last tick and nothing crosses now: the field is untouched
+        }
+
+        System.arraycopy(blockDist, 0, target, 0, target.length);
+        stampBoxCount = 0;
+        stampOverflow = false;
+
+        for (Entity e : crossing) {
             AABB b = e.getBoundingBox();
             int x0 = Mth.floor((b.minX - originX) * C);
             int x1 = Mth.floor((b.maxX - originX) * C);
             int z0 = Mth.floor((b.minZ - originZ) * C);
             int z1 = Mth.floor((b.maxZ - originZ) * C);
             fillCells(target, x0, z0, x1, z1, 0.0F);
+            addStampBox(x0, z0, x1, z1);
         }
 
-        // Sable sub-levels (ships / contraptions) that cross the boundary also seed the full field.
-        if (SABLE && Config.SABLE_FOAM.getAsBoolean()) {
+        // A sub-level's stamped cells are scattered over its hull's footprint, so one box covers the lot.
+        if (sable) {
+            int[] u = { Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE };
             SableCompatibility.stampSubLevels(level, boundaryY, originX, originZ, size, C,
-                    (cellX, cellZ) -> target[cellZ * cells + cellX] = 0.0F);
+                    (cellX, cellZ) -> {
+                        target[cellZ * cells + cellX] = 0.0F;
+                        u[0] = Math.min(u[0], cellX);
+                        u[1] = Math.min(u[1], cellZ);
+                        u[2] = Math.max(u[2], cellX);
+                        u[3] = Math.max(u[3], cellZ);
+                    });
+            if (u[0] <= u[2]) {
+                addStampBox(u[0], u[1], u[2], u[3]);
+            }
         }
 
-        chamferDistance(target);
-        chamferDistance(targetP);
+        boolean stamped = stampBoxCount > 0 || stampOverflow;
+        // A seed only reaches MAX_DIST blocks, so relaxing that far around each stamp is the whole of
+        // its effect -- where re-running the transform over the map would cost cells^2 a tick.
+        if (stampOverflow) {
+            chamferDistance(target);
+        } else {
+            int reach = Mth.ceil(MAX_DIST) * C;
+            for (int i = 0; i < stampBoxCount; i++) {
+                int b = i * 4;
+                chamferRegion(target, stampBoxes[b] - reach, stampBoxes[b + 1] - reach,
+                        stampBoxes[b + 2] + reach, stampBoxes[b + 3] + reach);
+            }
+        }
+        boolean changed = stamped || lastStamped; // the tick the last one leaves still has to be redrawn
+        lastStamped = stamped;
+        return changed;
+    }
+
+    // Remember one stamped box, or give up on tracking them and chamfer the whole field instead.
+    private static void addStampBox(int x0, int z0, int x1, int z1) {
+        if (stampOverflow) {
+            return;
+        }
+        if (stampBoxCount == MAX_STAMP_BOXES) {
+            stampOverflow = true;
+            return;
+        }
+        int b = stampBoxCount++ * 4;
+        stampBoxes[b] = x0;
+        stampBoxes[b + 1] = z0;
+        stampBoxes[b + 2] = x1;
+        stampBoxes[b + 3] = z1;
     }
 
     private static void fillCells(float[] field, int x0, int z0, int x1, int z1, float value) {
@@ -257,6 +341,46 @@ public final class WaterlineMap {
         for (int z = z0; z <= z1; z++) {
             for (int x = x0; x <= x1; x++) {
                 field[z * cells + x] = value;
+            }
+        }
+    }
+
+    /**
+     * The same transform over one rectangle only, for relaxing a fresh seed back into a field that is
+     * already a valid distance map everywhere else (see restampDynamic).
+     *
+     * <p>Neighbours outside the rectangle are read but never written: they hold the block field's own
+     * distances, which is exactly what a seed at the edge of the box has to relax against. The box is
+     * the stamp widened by MAX_DIST, past which a new seed cannot lower anything the shader can tell
+     * apart from "nothing near".
+     */
+    private static void chamferRegion(float[] field, int x0, int z0, int x1, int z1) {
+        final float d1 = 1.0F;
+        final float d2 = 1.41421356F;
+        x0 = Math.max(0, x0);
+        z0 = Math.max(0, z0);
+        x1 = Math.min(cells - 1, x1);
+        z1 = Math.min(cells - 1, z1);
+        for (int z = z0; z <= z1; z++) {
+            for (int x = x0; x <= x1; x++) {
+                int i = z * cells + x;
+                float d = field[i];
+                if (x > 0) d = Math.min(d, field[i - 1] + d1);
+                if (z > 0) d = Math.min(d, field[i - cells] + d1);
+                if (x > 0 && z > 0) d = Math.min(d, field[i - cells - 1] + d2);
+                if (x < cells - 1 && z > 0) d = Math.min(d, field[i - cells + 1] + d2);
+                field[i] = d;
+            }
+        }
+        for (int z = z1; z >= z0; z--) {
+            for (int x = x1; x >= x0; x--) {
+                int i = z * cells + x;
+                float d = field[i];
+                if (x < cells - 1) d = Math.min(d, field[i + 1] + d1);
+                if (z < cells - 1) d = Math.min(d, field[i + cells] + d1);
+                if (x < cells - 1 && z < cells - 1) d = Math.min(d, field[i + cells + 1] + d2);
+                if (x > 0 && z < cells - 1) d = Math.min(d, field[i + cells - 1] + d2);
+                field[i] = d;
             }
         }
     }
@@ -510,6 +634,8 @@ public final class WaterlineMap {
         targetP = new float[cells * cells];
         shownP = new float[cells * cells];
         scratch = new float[cells * cells];
+        blockDist = new float[cells * cells];
+        java.util.Arrays.fill(blockDist, maxCells);
         java.util.Arrays.fill(target, maxCells);
         java.util.Arrays.fill(targetP, maxCells);
         java.util.Arrays.fill(shown, maxCells); // start with no foam so it eases in
