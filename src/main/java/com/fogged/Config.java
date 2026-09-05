@@ -68,7 +68,12 @@ public class Config {
     // builders are independent, so COMMON and CLIENT sections can interleave freely.
 
     // ==== common [boundary] : underwater-breathing boundary ====
-    static { COMMON.push("boundary"); }
+    static {
+        COMMON.comment("Where the boundary sits, how the murk behaves at it, and what it does to the",
+                "world underneath. Everything here is shared by the server and its clients: it is",
+                "gameplay, not looks.");
+        COMMON.push("boundary");
+    }
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> PLANE_HEIGHT_SCHEDULE = COMMON
             .comment("Breathing-boundary height over time, one \"day=height\" entry per line. The boundary",
@@ -220,7 +225,11 @@ public class Config {
     static { COMMON.pop(); }   // [boundary]
 
     // ==== common [suffocation] : what the murk does to the things breathing in it ====
-    static { COMMON.push("suffocation"); }
+    static {
+        COMMON.comment("What the murk does to the things breathing in it -- players and mobs -- and how",
+                "much worse that gets with depth.");
+        COMMON.push("suffocation");
+    }
 
     public static final ModConfigSpec.BooleanValue PLAYER_SUFFOCATION = COMMON
             .comment("Whether players drown under the breathing boundary: their air bar drains at",
@@ -278,7 +287,11 @@ public class Config {
     static { COMMON.pop(); }   // [suffocation]
 
     // ==== client [plane] : separation plane (and its cold-vapour layer) ====
-    static { CLIENT.push("plane"); }
+    static {
+        CLIENT.comment("The murk's visible surface: its colour, the foam along its waterline, and how it",
+                "meets the blocks that cross it. Client-side, so a server cannot dictate any of it.");
+        CLIENT.push("plane");
+    }
 
     public static final ModConfigSpec.BooleanValue RENDER_PLANE = CLIENT
             .comment("Whether to render the semi-transparent separation plane at the breathing boundary.")
@@ -325,7 +338,11 @@ public class Config {
             .defineInRange("waterlineCellsPerBlock", 4, 1, 4);
 
     // ---- client [plane.vapor] : cold-vapour ("liquid nitrogen") layer ----
-    static { CLIENT.push("vapor"); }
+    static {
+        CLIENT.comment("The cold-vapour layer: stacked mist sheets over the surface, terraced by a noise",
+                "field so the plane never reads as dead flat.");
+        CLIENT.push("vapor");
+    }
 
     public static final ModConfigSpec.DoubleValue VAPOR_OFFSET_RED = CLIENT
             .comment("Red offset from the plane colour to the vapour colour (-1..1, added then clamped),",
@@ -375,7 +392,11 @@ public class Config {
     static { CLIENT.pop(); }   // [plane]
 
     // ==== client [debug] : diagnostics for the render path ====
-    static { CLIENT.push("debug"); }
+    static {
+        CLIENT.comment("Ways of seeing what the renderer is doing: raw views of the buffers behind the",
+                "murk, a readout of its state, and whether compatibility trouble is logged.");
+        CLIENT.push("debug");
+    }
 
     public static final ModConfigSpec.EnumValue<DebugView> DEBUG_VIEW = CLIENT
             .comment("Replace the separation plane with a raw view of one of the buffers that feed it.",

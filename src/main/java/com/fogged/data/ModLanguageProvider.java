@@ -91,6 +91,12 @@ public class ModLanguageProvider extends LanguageProvider {
         cfg("worldChangeSkip", "Untouched Layer",
                 "How many blocks directly under the boundary the murk leaves alone.");
         add("fogged.configuration.group.murkActions", "What The Murk Does");
+        add("fogged.configuration.boundary.tooltip", "Where the boundary sits, how the murk behaves at it, and what it does to the world underneath. Shared by the server and its clients: gameplay, not looks.");
+        add("fogged.configuration.suffocation.tooltip", "What the murk does to the things breathing in it -- players and mobs -- and how much worse that gets with depth.");
+        add("fogged.configuration.plane.tooltip", "The murk's visible surface: its colour, the foam along its waterline, and how it meets the blocks that cross it. Yours alone; a server cannot dictate it.");
+        add("fogged.configuration.vapor.tooltip", "The cold-vapour layer: stacked mist sheets over the surface, terraced by a noise field so the plane never reads as dead flat.");
+        add("fogged.configuration.debug.tooltip", "Ways of seeing what the renderer is doing: raw views of the buffers behind the murk, a readout of its state, and whether compatibility trouble is logged.");
+        add("fogged.configuration.group.murkActions.tooltip", "Three switches over everything the murk does to blocks and items, each one governing the list of the same name below.");
         cfg("enableExtinguish", "Extinguish Fire",
                 "The murk puts fire out under the boundary: fires vanish, lava freezes, torches fall, "
                         + "and the devices below are unlit and emptied of fuel.");

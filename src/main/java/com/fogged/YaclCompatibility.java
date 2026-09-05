@@ -67,6 +67,7 @@ final class YaclCompatibility {
     private static ConfigCategory boundary() {
         return ConfigCategory.createBuilder()
                 .name(Component.translatable(KEY + "boundary"))
+                .tooltip(Component.translatable(KEY + "boundary.tooltip"))
                 .group(strings("planeHeightSchedule", Config.PLANE_HEIGHT_SCHEDULE))
                 .option(bool("planeHeightCycle", Config.PLANE_HEIGHT_CYCLE))
                 .option(dbl("overdayOffsetNoon", Config.OVERDAY_OFFSET_NOON, -64.0, 64.0, 0.25))
@@ -81,6 +82,7 @@ final class YaclCompatibility {
                 // every loose option BEFORE any of its groups, and a list IS a group.
                 .group(OptionGroup.createBuilder()
                         .name(Component.translatable(KEY + "group.murkActions"))
+                        .description(describe("group.murkActions"))
                         .option(bool("enableExtinguish", Config.ENABLE_EXTINGUISH))
                         .option(bool("enableScour", Config.ENABLE_SCOUR))
                         .option(bool("enableTransforms", Config.ENABLE_TRANSFORMS))
@@ -94,6 +96,7 @@ final class YaclCompatibility {
     private static ConfigCategory suffocation() {
         return ConfigCategory.createBuilder()
                 .name(Component.translatable(KEY + "suffocation"))
+                .tooltip(Component.translatable(KEY + "suffocation.tooltip"))
                 .option(bool("playerSuffocation", Config.PLAYER_SUFFOCATION))
                 .option(integer("airLossPerTick", Config.AIR_LOSS_PER_TICK, 1, 300, 1))
                 .option(bool("depthScaling", Config.DEPTH_SCALING))
@@ -109,6 +112,7 @@ final class YaclCompatibility {
     private static ConfigCategory plane() {
         return ConfigCategory.createBuilder()
                 .name(Component.translatable(KEY + "plane"))
+                .tooltip(Component.translatable(KEY + "plane.tooltip"))
                 .option(bool("renderPlane", Config.RENDER_PLANE))
                 // Plane alpha is ignored by the renderer (it always draws opaque), so don't offer it.
                 .option(color("planeColor", Config.PLANE_COLOR, false))
@@ -119,6 +123,7 @@ final class YaclCompatibility {
                 .option(integer("waterlineCellsPerBlock", Config.WATERLINE_CELLS_PER_BLOCK, 1, 4, 1))
                 .group(OptionGroup.createBuilder()
                         .name(Component.translatable(KEY + "vapor"))
+                        .description(describe("vapor"))
                         .option(dbl("vaporColorOffsetRed", Config.VAPOR_OFFSET_RED, -1.0, 1.0, 0.05))
                         .option(dbl("vaporColorOffsetGreen", Config.VAPOR_OFFSET_GREEN, -1.0, 1.0, 0.05))
                         .option(dbl("vaporColorOffsetBlue", Config.VAPOR_OFFSET_BLUE, -1.0, 1.0, 0.05))
@@ -134,6 +139,7 @@ final class YaclCompatibility {
     private static ConfigCategory debug() {
         return ConfigCategory.createBuilder()
                 .name(Component.translatable(KEY + "debug"))
+                .tooltip(Component.translatable(KEY + "debug.tooltip"))
                 .option(Option.<Config.DebugView>createBuilder()
                         .name(Component.translatable(KEY + "debugView"))
                         .description(describe("debugView"))
