@@ -299,13 +299,17 @@ public class FogPlaneRenderer {
     // Queried via an AABB bounded to ENTITY_HOLE_RANGE/ENTITY_HOLE_VERT (mirroring WaterlineMap's entity
     // query) rather than level.entitiesForRendering(), which scans every rendering entity in the whole
     // loaded world every frame regardless of how far it is from the boundary.
+    //
+    // The camera's own entity is excluded. A disc centred on the player is a hole that follows them
+    // around -- the surface opening up wherever they stand, and closing behind them -- which is the one
+    // shape this is not for. Everything else crossing the boundary still gets one.
     private static int gatherEntityHoles(ClientLevel level, Vec3 cam, double surfaceY) {
         int count = 0;
         final double rangeSq = ENTITY_HOLE_RANGE * ENTITY_HOLE_RANGE;
         double vertMargin = ENTITY_HOLE_VERT + 4.0; // generous margin for tall mobs/boats straddling the plane
         AABB area = new AABB(cam.x - ENTITY_HOLE_RANGE, surfaceY - vertMargin, cam.z - ENTITY_HOLE_RANGE,
                 cam.x + ENTITY_HOLE_RANGE, surfaceY + vertMargin, cam.z + ENTITY_HOLE_RANGE);
-        for (Entity e : level.getEntities((Entity) null, area, e -> true)) {
+        for (Entity e : level.getEntities(Minecraft.getInstance().getCameraEntity(), area, e -> true)) {
             AABB b = e.getBoundingBox();
             // Vertical gap from the plane to the entity's box (0 while it straddles); skip once it clears.
             double vgap = Math.max(0.0, Math.max(surfaceY - b.maxY, b.minY - surfaceY));
