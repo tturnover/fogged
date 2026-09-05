@@ -36,6 +36,7 @@
   "fogged.configuration.fogDistance.tooltip": "Наскільки далеко видно (у блоках) під межею. Менше = густіша каламуть.",
   "fogged.configuration.fogStartRaise": "Зміщення початку каламуті",
   "fogged.configuration.fogStartRaise.tooltip": "Де починається каламуть відносно площини: вище, 0 — на ній, або нижче.",
+  "fogged.configuration.group.murkActions": "Що робить каламуть",
   "fogged.configuration.itemTransforms": "Перетворення предметів",
   "fogged.configuration.itemTransforms.tooltip": "Заміни \"з=на\" для кинутих предметів, за ідентифікатором. Усі показані в JEI.",
   "fogged.configuration.logRenderCompatWarnings": "Логувати попередження сумісності",

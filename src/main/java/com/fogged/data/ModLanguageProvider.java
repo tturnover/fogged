@@ -88,6 +88,7 @@ public class ModLanguageProvider extends LanguageProvider {
                 "The murk drowns what is under it: snuffs fires, freezes lava, drowns torches, wilts plants.");
         cfg("submergeSkip", "Submerge Dead Zone",
                 "Blocks directly under the plane that the scour leaves alone.");
+        add("fogged.configuration.group.murkActions", "What The Murk Does");
         cfg("enableExtinguish", "Extinguish Fire",
                 "The murk puts fire out under the boundary: fires vanish, lava freezes, torches fall, "
                         + "and the devices below are unlit and emptied of fuel.");
