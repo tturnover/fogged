@@ -105,7 +105,7 @@ public class Config {
                     "line everything asks about which side of the boundary something is on -- the fog, the",
                     "plane, the weather suppression and mob suffocation all move together with it. The",
                     "breathing boundary itself does not move; that is the plane's own height.")
-            .defineInRange("fogStartRaise", 0.0, -8.0, 8.0);
+            .defineInRange("fogStartRaise", 0.15, -8.0, 8.0);
 
     public static final ModConfigSpec.BooleanValue FLIP_FOG = COMMON
             .comment("Flip the murk fog to the other side of the plane. Default (false) fogs BELOW the",
