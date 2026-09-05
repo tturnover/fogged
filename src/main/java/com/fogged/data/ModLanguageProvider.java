@@ -118,8 +118,10 @@ public class ModLanguageProvider extends LanguageProvider {
                 "How far the foam reaches (in blocks) from every edge. 0 disables it.");
         cfg("sableFoam", "Sable Sub-Level Foam",
                 "Also ring Sable ships and contraptions with foam. No effect without Sable installed.");
-        cfg("planeSoftOcclusion", "Soft Occlusion Edge",
-                "Dissolve the plane against blocks, mobs and machines instead of cutting them hard at the boundary.");
+        cfg("planeSoftOcclusion", "Soft Occlusion Edge (experimental)",
+                "Dissolve the plane against blocks, mobs and machines instead of cutting them hard at the "
+                        + "boundary. Experimental: it reads the scene's depth buffer, which other rendering "
+                        + "mods can move or replace. Turn it off first if the murk looks wrong.");
         cfg("waterlineCellsPerBlock", "Foam Grid Resolution",
                 "Cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper.");
         cfg("renderVapor", "Render Cold-Vapour Layer",
