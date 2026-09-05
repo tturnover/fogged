@@ -145,7 +145,7 @@ public class FoggedJeiPlugin implements IModPlugin {
         // rather than in the corner of the category, so it reads as part of the picture: this far below
         // that line. Nothing is drawn there by the art, so nothing is covered.
         private static final int DEPTH_X = MARK_X;
-        private static final int DEPTH_Y = 33;
+        private static final int DEPTH_Y = 43;
         private static final int DEPTH_COLOR = 0xFF404040;
 
         private final IDrawable mark;
