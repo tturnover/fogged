@@ -258,15 +258,23 @@ public final class ScourRules {
                         + "skipped. (A mod that owns it may simply not be installed.)", entry, parsed.to());
                 continue;
             }
-            // A block target replaces a placed block; an item target breaks it. Something that is both
-            // is treated as a block, which is what a player writing "stone" means.
+            // A block target replaces a placed block; an item target breaks it and drops. Something
+            // that is both is treated as a block, which is what a player writing "stone" means.
             Rule rule = new Rule(parsed.fromCount(), toBlock, toBlock == null ? toItem : null,
                     parsed.toCount(), parsed.depth());
             Item shownTo = toItem != null ? toItem : toBlock.asItem();
 
+            // Whether the rule touches PLACED blocks at all. A count above one is about stacks: you
+            // cannot take four of a block that is standing there, and you cannot put three in the one
+            // space it occupies. Rather than breaking the block to honour a count -- which is not what
+            // "turns into stone" means -- such an entry is left to the dropped stacks, and whatever is
+            // standing is passed on to the rules below. A count on an ITEM target is the exception: it
+            // says how many drop, and breaking is what that entry asks for in the first place.
+            boolean forPlaced = parsed.fromCount() == 1 && (toBlock == null || parsed.toCount() == 1);
+
             if (parsed.from().startsWith("#")) {
                 String tagId = parsed.from().substring(1);
-                TagKey<Block> blockTag = blockTag(tagId);
+                TagKey<Block> blockTag = forPlaced ? blockTag(tagId) : null;
                 if (blockTag != null) {
                     blockTags.add(new TagRule(blockTag, rule));
                 }
@@ -282,8 +290,10 @@ public final class ScourRules {
             }
 
             Pattern glob = Config.idGlob(parsed.from());
-            for (Block from : matchingBlocks(List.of(glob))) {
-                blocks.putIfAbsent(from, rule);
+            if (forPlaced) {
+                for (Block from : matchingBlocks(List.of(glob))) {
+                    blocks.putIfAbsent(from, rule);
+                }
             }
             List<Item> fromItems = matchingItems(glob);
             for (Item from : fromItems) {
