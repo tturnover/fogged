@@ -112,16 +112,11 @@ public class FoggedJeiPlugin implements IModPlugin {
         private static final int MARK_V = 3;
         private static final int MARK_W = 43;
         private static final int MARK_H = 52;
-        private static final int ICON_SHEET = 32;
-        private static final int ICON_U = 8;
-        private static final int ICON_V = 7;
-        private static final int ICON_W = 16;
-        private static final int ICON_H = 18;
-        // Drawn smaller than it is authored: at full size the cube fills its tab edge to edge, where
-        // every other category's icon is an item render with air around it, so ours read as the odd
-        // one out. Three quarters, keeping the sheet's aspect.
-        private static final int ICON_DRAW_W = 12;
-        private static final int ICON_DRAW_H = 14;
+        private static final int ICON_SHEET = 16;
+        private static final int ICON_U = 2;
+        private static final int ICON_V = 1;
+        private static final int ICON_W = 12;
+        private static final int ICON_H = 14;
 
         // Laid out from the sizes JEI actually draws, not from the 16x16 ingredient areas: a standard
         // slot background is 18x18 around its ingredient (offset -1) and an OUTPUT slot background is
@@ -145,31 +140,13 @@ public class FoggedJeiPlugin implements IModPlugin {
         MurkTransformCategory(IGuiHelper guiHelper) {
             super(MURK_TRANSFORM,
                     Component.translatable("fogged.jei.murk_transform"),
-                    new ScaledIcon(),
+                    guiHelper.drawableBuilder(ICON_TEXTURE, ICON_U, ICON_V, ICON_W, ICON_H)
+                            .setTextureSize(ICON_SHEET, ICON_SHEET)
+                            .build(),
                     WIDTH, HEIGHT);
             this.mark = guiHelper.drawableBuilder(MARK_TEXTURE, MARK_U, MARK_V, MARK_W, MARK_H)
                     .setTextureSize(MARK_SHEET, MARK_SHEET)
                     .build();
-        }
-
-        // JEI's own drawables blit a region at its authored size; this one blits it into a smaller
-        // rectangle instead, which is the only reason it exists.
-        private static class ScaledIcon implements IDrawable {
-            @Override
-            public int getWidth() {
-                return ICON_DRAW_W;
-            }
-
-            @Override
-            public int getHeight() {
-                return ICON_DRAW_H;
-            }
-
-            @Override
-            public void draw(GuiGraphics graphics, int x, int y) {
-                graphics.blit(ICON_TEXTURE, x, y, ICON_DRAW_W, ICON_DRAW_H,
-                        ICON_U, ICON_V, ICON_W, ICON_H, ICON_SHEET, ICON_SHEET);
-            }
         }
 
         @Override
