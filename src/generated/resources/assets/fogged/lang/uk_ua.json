@@ -14,6 +14,8 @@
   "fogged.configuration.debugHud.tooltip": "Малювати стан рендера (межа, згасання, знімок глибини, кількість отворів) у кутку.",
   "fogged.configuration.debugView": "Налагоджувальний вигляд",
   "fogged.configuration.debugView.tooltip": "Замінити площину сирим виглядом одного з буферів, що її формують.",
+  "fogged.configuration.depthScaling": "Посилення з глибиною",
+  "fogged.configuration.depthScaling.tooltip": "Чим глибше, тим сильніше кусає каламуть: повітря спадає швидше, сфери дихання меншають.",
   "fogged.configuration.depthScalingBlocks": "Крок глибини",
   "fogged.configuration.depthScalingBlocks.tooltip": "Скільки блоків під межею складають один крок посилення. 0 вимикає його.",
   "fogged.configuration.depthScalingPercent": "Відсоток на крок",

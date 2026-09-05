@@ -88,6 +88,7 @@ final class YaclCompatibility {
                 .name(Component.translatable(KEY + "suffocation"))
                 .option(bool("playerSuffocation", Config.PLAYER_SUFFOCATION))
                 .option(integer("airLossPerTick", Config.AIR_LOSS_PER_TICK, 1, 300, 1))
+                .option(bool("depthScaling", Config.DEPTH_SCALING))
                 .option(dbl("depthScalingBlocks", Config.DEPTH_SCALING_BLOCKS, 0.0, 128.0, 1.0))
                 .option(dbl("depthScalingPercent", Config.DEPTH_SCALING_PERCENT, 0.0, 100.0, 0.5))
                 .option(bool("mobSuffocation", Config.MOB_SUFFOCATION))

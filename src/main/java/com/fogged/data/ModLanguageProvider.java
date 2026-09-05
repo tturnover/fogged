@@ -132,6 +132,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Players drown under the boundary: air drains, then drowning damage.");
         cfg("airLossPerTick", "Air Loss Per Tick",
                 "Air a player loses per tick, out of 300. Higher = drown faster.");
+        cfg("depthScaling", "Depth Scaling",
+                "The murk bites harder the deeper you go: air drains faster and breathing spheres shrink.");
         cfg("depthScalingBlocks", "Depth Step",
                 "How many blocks below the boundary make up one step of scaling. 0 disables it.");
         cfg("depthScalingPercent", "Depth Step Percent",

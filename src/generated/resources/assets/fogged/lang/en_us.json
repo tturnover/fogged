@@ -14,6 +14,8 @@
   "fogged.configuration.debugHud.tooltip": "Draw the render state (boundary, fade range, depth capture, hole count) in the corner.",
   "fogged.configuration.debugView": "Render Debug View",
   "fogged.configuration.debugView.tooltip": "Replace the plane with a raw view of one of the buffers behind it.",
+  "fogged.configuration.depthScaling": "Depth Scaling",
+  "fogged.configuration.depthScaling.tooltip": "The murk bites harder the deeper you go: air drains faster and breathing spheres shrink.",
   "fogged.configuration.depthScalingBlocks": "Depth Step",
   "fogged.configuration.depthScalingBlocks.tooltip": "How many blocks below the boundary make up one step of scaling. 0 disables it.",
   "fogged.configuration.depthScalingPercent": "Depth Step Percent",

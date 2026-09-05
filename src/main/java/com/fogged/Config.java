@@ -212,16 +212,22 @@ public class Config {
                     "Higher = drown faster.")
             .defineInRange("airLossPerTick", 1, 1, 300);
 
+    public static final ModConfigSpec.BooleanValue DEPTH_SCALING = COMMON
+            .comment("Make the murk bite harder the deeper you go: air drains faster and nozzle-filter",
+                    "breathing spheres shrink, by depthScalingPercent for every depthScalingBlocks below",
+                    "the boundary. Off = the same everywhere below it.")
+            .define("depthScaling", true);
+
     public static final ModConfigSpec.DoubleValue DEPTH_SCALING_BLOCKS = COMMON
             .comment("How many blocks below the boundary count as one step of depth. Each step makes the",
                     "murk bite harder by depthScalingPercent: air drains faster and nozzle-filter",
-                    "breathing spheres shrink.",
-                    "0 is how depth scaling is turned off: the murk is then the same everywhere below.")
-            .defineInRange("depthScalingBlocks", 10.0, 0.0, 512.0);
+                    "breathing spheres shrink. Smaller = the depth tells on you sooner.",
+                    "No effect with depthScaling off.")
+            .defineInRange("depthScalingBlocks", 5.0, 0.0, 512.0);
 
     public static final ModConfigSpec.DoubleValue DEPTH_SCALING_PERCENT = COMMON
             .comment("Per depth step, the percent air loss goes up by and the nozzle-filter sphere radius",
-                    "goes down by. The steps compound (default 10 blocks / 5%: -20 blocks = air x1.05^2,",
+                    "goes down by. The steps compound (default 5 blocks / 5%: -10 blocks = air x1.05^2,",
                     "radius x0.95^2), and partial steps count, so the change is gradual.")
             .defineInRange("depthScalingPercent", 5.0, 0.0, 100.0);
 
@@ -423,6 +429,9 @@ public class Config {
     // How many depthScalingBlocks steps deep world height y sits below the boundary. 0 at or above the
     // boundary; fractional, so the scaling below eases in instead of jumping at every step.
     private static double depthSteps(Level level, double y) {
+        if (!DEPTH_SCALING.get()) {
+            return 0.0;
+        }
         double step = DEPTH_SCALING_BLOCKS.get();
         if (step <= 0.0) {
             return 0.0;
