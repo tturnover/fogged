@@ -50,16 +50,21 @@ public final class WaterlineMap {
     // The sprites carry their own soft shading, so multiplying them by the full foam colour lands much
     // darker than the flat ring drawn on the surface -- and spray is water thrown into the air, which
     // reads lighter than the surface it came off, not the same. One number to tune.
-    private static final float SPRAY_WHITENING = 0.6F;
+    private static final float SPRAY_WHITENING = 0.3F;
 
     // A crossing entity throws spray in proportion to how fast it is going, piled up ahead of it.
     private static final double FULL_SPEED = 0.4;          // blocks/tick counting as "fast"
-    private static final int WAKE_MAX = 6;                 // particles per entity per tick at full speed
-    private static final float STATIC_CHANCE = 0.12F;      // ...and how often a still one manages one
+    private static final int WAKE_MAX = 9;                 // particles per entity per tick at full speed
+    private static final float STATIC_CHANCE = 0.18F;      // ...and how often a still one manages one
     private static final double FRONT_ARC = 0.9;           // radians of spread the bow wave piles into
     private static final double WAKE_DRAG = 0.6;           // how much of the entity's motion the spray keeps
     private static final double WAKE_SPREAD = 0.06;        // blocks/tick the wave travels outward at
-    private static final int SUBLEVEL_PROBES = 24;         // waterline samples per Sable sub-level per tick
+    // Waterline samples per Sable sub-level per tick. A probe only spawns spray when it lands on a
+    // solid block of the hull, and it is thrown at the sub-level's whole bounding box -- most of which
+    // is the water around the hull, not the hull -- so the hit rate is well under half and a ship threw
+    // visibly less spray than a boat with a player in it. Roughly twice the probes to close that gap,
+    // and half again on top for the rate below.
+    private static final int SUBLEVEL_PROBES = 72;
 
     private static DynamicTexture texture;
     private static int size = 0;          // current block edge length of the map
