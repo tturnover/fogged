@@ -21,7 +21,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 /**
  * Drives the under-fog "drowned world" scour: below the fog plane the murk snuffs fire, freezes lava,
  * drowns torches and unmakes farmland, as if the world were underwater. Server-side only, gated by
- * {@link Config#SUBMERGE_WORLD}. The block-Y range it acts on comes from {@link FogBand}.
+ * {@link Config#ENABLE_WORLD_CHANGES}. The block-Y range it acts on comes from {@link FogBand}.
  *
  * <p>What happens to the vegetation, and to the ground it grows in, is config: the leaves, flowers,
  * grasses and berry bushes are {@link Config#SCOURED_BLOCKS} defaults, and grass block going back to
@@ -41,7 +41,7 @@ public final class FogScour {
 
     @SubscribeEvent
     static void onLevelTick(LevelTickEvent.Post event) {
-        if (!Config.SUBMERGE_WORLD.get()) {
+        if (!Config.ENABLE_WORLD_CHANGES.get()) {
             return;
         }
         if (!(event.getLevel() instanceof ServerLevel level)) {
@@ -70,7 +70,7 @@ public final class FogScour {
         // Same scour for blocks riding Sable sub-levels (ships / contraptions) under the plane. Run once
         // per sweep to keep it cheap.
         if (SABLE && phase == 0) {
-            double activeSurfaceY = FogBand.surfaceY(level) - Config.SUBMERGE_SKIP.getAsInt();
+            double activeSurfaceY = FogBand.surfaceY(level) - Config.WORLD_CHANGE_SKIP.getAsInt();
             SableCompatibility.rotSubLevels(level, activeSurfaceY, FogScour::rot);
         }
     }
@@ -83,7 +83,7 @@ public final class FogScour {
      */
     @SubscribeEvent
     static void onChunkWatch(ChunkWatchEvent.Sent event) {
-        if (!Config.SUBMERGE_WORLD.get()) {
+        if (!Config.ENABLE_WORLD_CHANGES.get()) {
             return;
         }
         ServerLevel level = event.getLevel();

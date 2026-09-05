@@ -22,7 +22,7 @@ public final class FogBand {
 
     /** Highest block-Y the scour acts on: just below the untouched dead zone under the plane. */
     public static int activeTopY(Level level) {
-        return bandTopY(level) - Config.SUBMERGE_SKIP.getAsInt();
+        return bandTopY(level) - Config.WORLD_CHANGE_SKIP.getAsInt();
     }
 
     /** True when the block at {@code y} is in the active scour range: below the dead zone, down to the floor. */

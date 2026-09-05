@@ -113,30 +113,34 @@ public class Config {
                     "the breathing boundary.")
             .define("flipFog", false);
 
-    public static final ModConfigSpec.BooleanValue SUBMERGE_WORLD = COMMON
-            .comment("The murk drowns the world below the boundary like being underwater: snuffs fire and",
-                    "soul fire, freezes lava to stone, drowns torches, and wilts plants / crops / leaves.",
-                    "Off leaves the world untouched under the fog.")
-            .define("submergeWorld", true);
+    public static final ModConfigSpec.BooleanValue ENABLE_WORLD_CHANGES = COMMON
+            .comment("Whether the murk works on the world at all under the boundary. This is the master",
+                    "switch over the three below it -- enableExtinguish, enableScour and",
+                    "enableTransforms -- and over dropped stacks turning, so off leaves the world exactly",
+                    "as it was built: nothing put out, nothing taken, nothing turned into anything else.",
+                    "The fog, the plane, the foam and what the murk does to breathing are not affected;",
+                    "this is only about blocks and items.",
+                    "(Was submergeWorld, which named the feeling rather than the switch.)")
+            .define("enableWorldChanges", true);
 
-    public static final ModConfigSpec.IntValue SUBMERGE_SKIP = COMMON
-            .comment("Dead zone: the topmost blocks directly under the fog plane that the scour leaves alone.",
-                    "The shallow layer right beneath the plane stays untouched; the scour acts on everything",
-                    "from this offset down to the bottom of the world.")
-            .defineInRange("submergeSkip", 5, 0, 64);
+    public static final ModConfigSpec.IntValue WORLD_CHANGE_SKIP = COMMON
+            .comment("Dead zone: the topmost blocks directly under the boundary the murk leaves alone. The",
+                    "shallow layer right beneath the plane stays as it was; everything from this offset",
+                    "down to the bottom of the world is worked on. (Was submergeSkip.)")
+            .defineInRange("worldChangeSkip", 5, 0, 64);
 
     public static final ModConfigSpec.BooleanValue ENABLE_EXTINGUISH = COMMON
             .comment("The murk puts fire out under the boundary: loose fire and soul fire vanish, lava",
                     "freezes to obsidian or cobble with a fizz, torches are knocked down, and every device",
                     "in the list below is unlit, its burn timer zeroed and its fuel ejected. Off leaves all",
-                    "of it burning. Needs submergeWorld.")
+                    "of it burning. Needs enableWorldChanges.")
             .define("enableExtinguish", true);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SNUFFED_DEVICES = COMMON
             .comment("Block ids of fire-burning devices the murk snuffs out along with the loose fires: each",
                     "is unlit, its burn timer zeroed and any fuel inside it ejected, so it cannot keep",
                     "running under the fog. '*' matches any run of characters, and the 'minecraft:'",
-                    "namespace may be omitted. Empty list = leave devices burning. Needs submergeWorld.",
+                    "namespace may be omitted. Empty list = leave devices burning. Needs enableWorldChanges.",
                     "Example: snuffedDevices = [\"furnace\", \"create:lit_blaze_burner\"]")
             .defineListAllowEmpty("snuffedDevices", Config::defaultSnuffedDevices, () -> "minecraft:furnace",
                     o -> o instanceof String s && !s.isBlank());
@@ -144,7 +148,7 @@ public class Config {
     public static final ModConfigSpec.BooleanValue ENABLE_SCOUR = COMMON
             .comment("The murk takes things out under the boundary: everything in the list below, broken",
                     "without drops, and farmland, which reverts to dirt and takes whatever was planted on",
-                    "it. Off leaves them all standing. Needs submergeWorld.")
+                    "it. Off leaves them all standing. Needs enableWorldChanges.")
             .define("enableScour", true);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SCOURED_BLOCKS = COMMON
@@ -153,7 +157,7 @@ public class Config {
                     "its own; fires, lava, torches, devices and farmland are still built in.",
                     "Each entry is a block id or, with a leading '#', a block tag. '*' matches any run of",
                     "characters in an id, and the 'minecraft:' namespace may be omitted.",
-                    "Needs submergeWorld.",
+                    "Needs enableWorldChanges.",
                     "Example: scouredBlocks = [\"cobweb\", \"#minecraft:banners\", \"create:*_casing\"]")
             .defineListAllowEmpty("scouredBlocks", Config::defaultScouredBlocks, () -> "minecraft:cobweb",
                     o -> o instanceof String s && !s.isBlank());
@@ -163,7 +167,7 @@ public class Config {
                     "anything -- no copper weathering, no coal ore going back to stone, no dropped stack",
                     "turning over. The list is left as it is, so this can be flipped back without losing",
                     "it, and JEI stops listing the conversions while it is off. What the murk takes",
-                    "outright (scouredBlocks) and what it snuffs are not affected. Needs submergeWorld.")
+                    "outright (scouredBlocks) and what it snuffs are not affected. Needs enableWorldChanges.")
             .define("enableTransforms", true);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> TRANSFORMS = COMMON
@@ -206,7 +210,7 @@ public class Config {
                     "Applied before the built-in scour, so an entry here overrides what the murk would",
                     "otherwise do to that block. A transform whose result matches another rule is itself",
                     "converted on the next pass, so do not point one at something another rule takes.",
-                    "Needs submergeWorld.")
+                    "Needs enableWorldChanges.")
             .defineListAllowEmpty("transforms", Config::defaultTransforms,
                     () -> "minecraft:coal_ore=minecraft:stone !silent",
                     o -> o instanceof String s && parseTransform(s) != null);

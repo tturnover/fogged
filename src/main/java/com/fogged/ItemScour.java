@@ -19,7 +19,7 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
  * take several of a thing to make something -- "4 diamond=2 dirt" -- and a remainder too small to
  * convert stays what it was.
  *
- * <p>Server-side only, gated by {@link Config#SUBMERGE_WORLD} along with the rest of the scour.
+ * <p>Server-side only, gated by {@link Config#ENABLE_WORLD_CHANGES} along with the rest of the scour.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class ItemScour {
@@ -38,7 +38,7 @@ public final class ItemScour {
         if (level.isClientSide || item.tickCount % CHECK_INTERVAL != 0) {
             return;
         }
-        if (!Config.SUBMERGE_WORLD.get()) {
+        if (!Config.ENABLE_WORLD_CHANGES.get()) {
             return;
         }
         if (!Config.fogged(level, item.getY())) {

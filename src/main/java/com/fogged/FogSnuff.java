@@ -193,14 +193,14 @@ public final class FogSnuff {
      */
     public static boolean isolated(SignalGetter getter, BlockPos pos) {
         ensureDevices();
-        if (devices.isEmpty() || !(getter instanceof Level level) || !Config.SUBMERGE_WORLD.get()) {
+        if (devices.isEmpty() || !(getter instanceof Level level) || !Config.ENABLE_WORLD_CHANGES.get()) {
             return false;
         }
         if (!devices.contains(level.getBlockState(pos).getBlock())) {
             return false;
         }
         // World-space height, so a device riding a Sable sub-level is judged where it actually floats.
-        double activeSurfaceY = FogBand.surfaceY(level) - Config.SUBMERGE_SKIP.getAsInt();
+        double activeSurfaceY = FogBand.surfaceY(level) - Config.WORLD_CHANGE_SKIP.getAsInt();
         return PlaneSensor.worldY(level, pos) < activeSurfaceY;
     }
 

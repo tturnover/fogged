@@ -74,8 +74,8 @@ final class YaclCompatibility {
                 .option(integer("fogDistance", Config.FOG_DISTANCE, 4, 256, 1))
                 .option(dbl("fogStartRaise", Config.FOG_START_RAISE, -8.0, 8.0, 0.05))
                 .option(bool("flipFog", Config.FLIP_FOG))
-                .option(bool("submergeWorld", Config.SUBMERGE_WORLD))
-                .option(integer("submergeSkip", Config.SUBMERGE_SKIP, 0, 64, 1))
+                .option(bool("enableWorldChanges", Config.ENABLE_WORLD_CHANGES))
+                .option(integer("worldChangeSkip", Config.WORLD_CHANGE_SKIP, 0, 64, 1))
                 // The three switches together, under one heading, and then the three lists they govern
                 // in the same order. They cannot be interleaved with their lists: a category renders
                 // every loose option BEFORE any of its groups, and a list IS a group.

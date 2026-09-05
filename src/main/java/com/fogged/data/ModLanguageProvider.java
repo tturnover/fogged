@@ -84,10 +84,12 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Where the murk begins, from the plane: above it, 0 at it, or below it.");
         cfg("flipFog", "Flip Fog Side",
                 "Put the murk above the boundary instead of below it. Does not move the breathing boundary.");
-        cfg("submergeWorld", "Submerge World",
-                "The murk drowns what is under it: snuffs fires, freezes lava, drowns torches, wilts plants.");
-        cfg("submergeSkip", "Submerge Dead Zone",
-                "Blocks directly under the plane that the scour leaves alone.");
+        cfg("enableWorldChanges", "Change The World",
+                "Master switch over everything the murk does to blocks and items below the boundary: "
+                        + "putting fire out, taking things, turning them into other things. Off leaves "
+                        + "the world exactly as it was built.");
+        cfg("worldChangeSkip", "Untouched Layer",
+                "How many blocks directly under the boundary the murk leaves alone.");
         add("fogged.configuration.group.murkActions", "What The Murk Does");
         cfg("enableExtinguish", "Extinguish Fire",
                 "The murk puts fire out under the boundary: fires vanish, lava freezes, torches fall, "
