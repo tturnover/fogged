@@ -105,8 +105,8 @@ public class FoggedJeiPlugin implements IModPlugin {
                 ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "textures/gui/jei/murk_transform_icon.png");
 
         // Where the drawn content sits within each sheet: both are authored on a square canvas with the
-        // art somewhere inside it, so the region is taken rather than the whole file -- padding is
-        // added here instead, where it can be seen next to everything else.
+        // art somewhere inside it, so the region is taken rather than the whole file. Both are drawn at
+        // the size they were authored -- no padding around them, and nothing scaled.
         private static final int MARK_SHEET = 64;
         private static final int MARK_U = 11;
         private static final int MARK_V = 3;
@@ -117,7 +117,6 @@ public class FoggedJeiPlugin implements IModPlugin {
         private static final int ICON_V = 7;
         private static final int ICON_W = 16;
         private static final int ICON_H = 18;
-        private static final int ICON_PAD = 4;  // breathing room around the cube in the category tab
 
         // Laid out from the sizes JEI actually draws, not from the 16x16 ingredient areas: a standard
         // slot background is 18x18 around its ingredient (offset -1) and an OUTPUT slot background is
@@ -143,7 +142,6 @@ public class FoggedJeiPlugin implements IModPlugin {
                     Component.translatable("fogged.jei.murk_transform"),
                     guiHelper.drawableBuilder(ICON_TEXTURE, ICON_U, ICON_V, ICON_W, ICON_H)
                             .setTextureSize(ICON_SHEET, ICON_SHEET)
-                            .addPadding(ICON_PAD, ICON_PAD, ICON_PAD, ICON_PAD)
                             .build(),
                     WIDTH, HEIGHT);
             this.mark = guiHelper.drawableBuilder(MARK_TEXTURE, MARK_U, MARK_V, MARK_W, MARK_H)
