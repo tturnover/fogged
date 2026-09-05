@@ -144,51 +144,43 @@ public class Config {
             .defineListAllowEmpty("scouredBlocks", ArrayList::new, () -> "minecraft:cobweb",
                     o -> o instanceof String s && !s.isBlank());
 
-    public static final ModConfigSpec.BooleanValue TRANSFORM_DROPPED_ITEMS = COMMON
-            .comment("Dropped items turn as well as placed blocks: a stack lying on the fogged side becomes",
-                    "whatever its block form would become, by the same transform rules and at the same",
-                    "depths. Only items whose block form has a rule are touched. Needs submergeWorld.")
-            .define("transformDroppedItems", true);
-
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> SILENT_TRANSFORMS = COMMON
-            .comment("Blocks the murk turns into something else under the boundary, one \"from=to\" entry",
-                    "per line. 'from' is a block id, an id with '*' wildcards, or a '#' block tag; 'to' is",
-                    "a single block id. Properties the two blocks share are carried over, so a stair keeps",
-                    "its facing and a door its hinge. Applied before the built-in scour, so an entry here",
-                    "overrides what the murk would otherwise do to that block. A transform whose result",
-                    "matches another rule is itself scoured on the next pass, so do not point one at a",
-                    "block another rule takes.",
-                    "Append '@N' to require the block to be at least N blocks BELOW the surface before it",
-                    "turns; without one it turns anywhere the scour reaches.",
-                    "These are the SILENT ones: they happen, and nothing documents them. The default is",
-                    "coal ore going back to the rock it sat in. Needs submergeWorld.",
-                    "Example: silentTransforms = [\"minecraft:coal_ore=minecraft:stone\"]")
-            .defineListAllowEmpty("silentTransforms", Config::defaultSilentTransforms,
-                    () -> "minecraft:coal_ore=minecraft:stone",
-                    o -> o instanceof String s && parseTransformEntry(s) != null);
-
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> RECIPE_TRANSFORMS = COMMON
-            .comment("The same thing, in the same form ('@N' depths included), for conversions worth",
-                    "telling players about: each is also shown in JEI as a recipe of its own, under",
-                    "\"Murk Conversion\", with the depth it asks for drawn in the corner of the recipe.",
-                    "Keep this list short -- a tag entry here can put hundreds of blocks in that category.",
-                    "Defaults are the unwaxed copper, which the murk carries straight to fully oxidised, and",
-                    "moss, which cannot hold on fifty blocks down. Needs submergeWorld.",
-                    "Example: recipeTransforms = [\"minecraft:moss_block=minecraft:coarse_dirt@50\"]")
-            .defineListAllowEmpty("recipeTransforms", Config::defaultRecipeTransforms,
-                    () -> "minecraft:copper_block=minecraft:oxidized_copper",
-                    o -> o instanceof String s && parseTransformEntry(s) != null);
-
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> ITEM_TRANSFORMS = COMMON
-            .comment("Dropped ITEMS the murk turns into other items, in the same \"from=to\" form as the",
-                    "block lists, '@N' depths included. Both sides are item ids -- '*' wildcards and '#'",
-                    "item tags work on the left, one plain id on the right -- and the target may be any",
-                    "item, a block's item included. Unlike transformDroppedItems, which only follows the",
-                    "block rules, these are rules of their own and can name items that are not blocks.",
-                    "All of them are shown in JEI, under \"Murk Conversion\". Needs submergeWorld.",
-                    "Example: itemTransforms = [\"minecraft:diamond=minecraft:dirt\", \"#c:seeds=stick@30\"]")
-            .defineListAllowEmpty("itemTransforms", ArrayList::new, () -> "minecraft:diamond=minecraft:dirt",
-                    o -> o instanceof String s && parseTransformEntry(s) != null);
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> TRANSFORMS = COMMON
+            .comment("What the murk turns things into under the boundary, one entry per line. One list for",
+                    "everything: blocks it finds placed, and stacks dropped in it.",
+                    "",
+                    "  [count] from = [count] to [@depth] [!silent]",
+                    "",
+                    "FROM: a block id, an item id, an id with '*' wildcards, or a '#' tag. Whatever it names",
+                    "  is converted -- placed blocks if it names a block, dropped stacks if it names an",
+                    "  item, both if it names both. The 'minecraft:' namespace may be left off.",
+                    "TO: one id, no wildcards and no tag. Name a BLOCK and a placed block is replaced by it,",
+                    "  keeping every property the two share (a stair its facing, a door its hinge). Name an",
+                    "  ITEM that is not a block and the placed block breaks and drops it instead.",
+                    "COUNTS: a number before either id. \"4 diamond=2 dirt\" takes four out of a dropped",
+                    "  stack and leaves two, over and over, while at least four are left; a remainder stays",
+                    "  as it was. Counts are about stacks only -- a placed block is one block and ignores",
+                    "  them. Both default to 1, and neither may exceed 64.",
+                    "@N: only convert at least N blocks BELOW the surface. Measured from the surface, so it",
+                    "  moves with the boundary rather than sitting at a fixed Y. Default 0, anywhere the",
+                    "  scour reaches; at most 512.",
+                    "!silent: keep this one out of JEI. Everything else is listed there under \"Murk",
+                    "  Conversion\", with any depth it asks for drawn on the picture.",
+                    "",
+                    "Examples:",
+                    "  \"minecraft:coal_ore=minecraft:stone !silent\"   ore back to the rock it sat in",
+                    "  \"copper_block=oxidized_copper\"                 weathered right through, listed in JEI",
+                    "  \"moss_block=coarse_dirt @50\"                   only fifty blocks down or deeper",
+                    "  \"4 minecraft:diamond=2 minecraft:dirt\"         four diamonds become two dirt",
+                    "  \"#minecraft:leaves=1 minecraft:stick !silent\"  every leaf breaks into one stick",
+                    "  \"create:*_casing=minecraft:mud @20\"            wildcards match a whole family",
+                    "",
+                    "Applied before the built-in scour, so an entry here overrides what the murk would",
+                    "otherwise do to that block. A transform whose result matches another rule is itself",
+                    "converted on the next pass, so do not point one at something another rule takes.",
+                    "Needs submergeWorld.")
+            .defineListAllowEmpty("transforms", Config::defaultTransforms,
+                    () -> "minecraft:coal_ore=minecraft:stone !silent",
+                    o -> o instanceof String s && parseTransform(s) != null);
 
     static { COMMON.pop(); }   // [boundary]
 
@@ -566,17 +558,14 @@ public class Config {
 
     // Coal is what the murk eats: an ore left in the dark under the boundary comes back as the rock it
     // sat in. Silent -- it is the murk taking something, not a process to look up.
-    private static List<String> defaultSilentTransforms() {
-        return new ArrayList<>(List.of(
-                "minecraft:coal_ore=minecraft:stone",
-                "minecraft:deepslate_coal_ore=minecraft:deepslate"));
-    }
-
-    // Every unwaxed weathering-copper block, in each of its three un-oxidised stages, and the fully
-    // oxidised block that stage belongs to. Waxed copper is deliberately absent: wax is what stops the
-    // weather getting at it, and the murk is weather. Listed rather than driven off vanilla's
-    // WeatheringCopper so a pack can edit any line of it -- take a family out, or send it somewhere
-    // else entirely.
+    //
+    // Copper it weathers, all the way through, which IS worth looking up: someone who finds their roof
+    // green should be able to ask why. Every unwaxed weathering block, in each of its three
+    // un-oxidised stages. Waxed copper is deliberately absent -- wax is what stops the weather getting
+    // at it, and the murk is weather. Listed rather than driven off vanilla's WeatheringCopper so a
+    // pack can edit any line of it.
+    //
+    // And moss, which cannot hold on fifty blocks down; that depth is what makes it worth showing.
     private static final String[][] COPPER_FAMILIES = {
             { "copper_block", "exposed_copper", "weathered_copper", "oxidized_copper" },
             { "cut_copper", "exposed_cut_copper", "weathered_cut_copper", "oxidized_cut_copper" },
@@ -593,12 +582,11 @@ public class Config {
             { "copper_bulb", "exposed_copper_bulb", "weathered_copper_bulb", "oxidized_copper_bulb" },
     };
 
-    private static List<String> defaultRecipeTransforms() {
+    private static List<String> defaultTransforms() {
         List<String> out = new ArrayList<>();
-        // Moss cannot hold on that far down: fifty blocks under the surface it gives up and is coarse
-        // dirt. The depth is exactly what makes it worth showing -- it is a rule you would otherwise
-        // have to find by digging.
-        out.add("minecraft:moss_block=minecraft:coarse_dirt@50");
+        out.add("minecraft:coal_ore=minecraft:stone !silent");
+        out.add("minecraft:deepslate_coal_ore=minecraft:deepslate !silent");
+        out.add("minecraft:moss_block=minecraft:coarse_dirt @50");
         for (String[] family : COPPER_FAMILIES) {
             String oxidized = "minecraft:" + family[family.length - 1];
             for (int i = 0; i < family.length - 1; i++) {
@@ -610,49 +598,104 @@ public class Config {
 
     /** Deepest a transform may ask to be, in blocks below the surface. Past the world's own height. */
     static final int MAX_TRANSFORM_DEPTH = 512;
+    /** Most a transform may take from a stack, or leave in its place. A stack is 64 at the widest. */
+    static final int MAX_TRANSFORM_COUNT = 64;
+
+    private static final String FLAG_SILENT = "!silent";
 
     /**
-     * Split one transform entry, "from=to" or "from=to@depth". Returns {from, to, depth} with
-     * namespaces filled in and depth as a plain integer string ("0" when the entry names none), or
-     * null if it is not usable -- which is also what the config validator tests, so a malformed line
-     * is rejected at load rather than silently ignored later.
+     * One parsed line of {@link #TRANSFORMS}: "[N ]from=[M ]to [@depth] [!silent]".
      *
-     * <p>'@' cannot appear in a resource location, so it can never be part of either id.
+     * <p>{@code from} keeps its '#' (a tag) or its '*' wildcards; both ids have had a namespace filled
+     * in. Counts are 1 unless the line says otherwise, and are about stacks -- a placed block is one
+     * block and ignores them.
      */
-    static String[] parseTransformEntry(String rawEntry) {
-        String entry = rawEntry;
-        String depth = "0";
+    record Transform(int fromCount, String from, int toCount, String to, int depth, boolean silent) {}
+
+    /**
+     * Parse one transform line, or return null if it is not usable -- which is what the config
+     * validator tests, so a malformed line is rejected at load rather than ignored later.
+     *
+     * <p>Neither '@', '!' nor a space can appear in a resource location, so none of the three markers
+     * can ever be part of an id.
+     */
+    static Transform parseTransform(String rawEntry) {
+        String entry = rawEntry.trim();
+        boolean silent = false;
+        int flag = entry.toLowerCase(java.util.Locale.ROOT).indexOf(FLAG_SILENT);
+        if (flag >= 0) {
+            silent = true;
+            entry = (entry.substring(0, flag) + entry.substring(flag + FLAG_SILENT.length())).trim();
+        }
+        if (entry.indexOf('!') >= 0) {
+            return null; // some other flag: a typo, not something to quietly drop
+        }
+
+        int depth = 0;
         int at = entry.lastIndexOf('@');
         if (at >= 0) {
-            String tail = entry.substring(at + 1).trim();
-            entry = entry.substring(0, at);
-            try {
-                int blocks = Integer.parseInt(tail);
-                if (blocks < 0 || blocks > MAX_TRANSFORM_DEPTH) {
-                    return null;
-                }
-                depth = Integer.toString(blocks);
-            } catch (NumberFormatException e) {
-                return null; // '@' followed by something that is not a depth is a typo, not an id
+            Integer parsed = number(entry.substring(at + 1), MAX_TRANSFORM_DEPTH);
+            if (parsed == null) {
+                return null;
             }
+            depth = parsed;
+            entry = entry.substring(0, at).trim();
         }
+
         int eq = entry.indexOf('=');
         if (eq <= 0 || eq == entry.length() - 1) {
             return null;
         }
-        String from = entry.substring(0, eq).trim();
-        String to = entry.substring(eq + 1).trim();
-        if (from.isEmpty() || to.isEmpty() || to.startsWith("#") || to.indexOf('*') >= 0) {
-            return null; // the target has to be one concrete block
-        }
-        if (ResourceLocation.tryParse(withNamespace(to)) == null) {
+        String[] left = side(entry.substring(0, eq), true);
+        String[] right = side(entry.substring(eq + 1), false);
+        if (left == null || right == null) {
             return null;
         }
-        String fromId = from.startsWith("#") ? "#" + withNamespace(from.substring(1)) : withNamespace(from);
-        if (fromId.startsWith("#") && ResourceLocation.tryParse(fromId.substring(1)) == null) {
+        return new Transform(Integer.parseInt(left[0]), left[1],
+                Integer.parseInt(right[0]), right[1], depth, silent);
+    }
+
+    // One side of the '=': an optional count, then an id. Returns {count, id} or null.
+    private static String[] side(String raw, boolean isFrom) {
+        String text = raw.trim();
+        int count = 1;
+        int space = text.indexOf(' ');
+        if (space > 0) {
+            Integer parsed = number(text.substring(0, space), MAX_TRANSFORM_COUNT);
+            if (parsed == null || parsed < 1) {
+                return null;
+            }
+            count = parsed;
+            text = text.substring(space + 1).trim();
+        }
+        if (text.isEmpty() || text.indexOf(' ') >= 0) {
             return null;
         }
-        return new String[] { fromId, withNamespace(to), depth };
+        if (text.startsWith("#")) {
+            if (!isFrom) {
+                return null; // a tag names many things; there is nothing to turn INTO
+            }
+            String id = withNamespace(text.substring(1));
+            return ResourceLocation.tryParse(id) == null
+                    ? null : new String[] { Integer.toString(count), "#" + id };
+        }
+        String id = withNamespace(text);
+        if (!isFrom && id.indexOf('*') >= 0) {
+            return null; // the target has to be one concrete thing
+        }
+        if (id.indexOf('*') < 0 && ResourceLocation.tryParse(id) == null) {
+            return null;
+        }
+        return new String[] { Integer.toString(count), id };
+    }
+
+    private static Integer number(String raw, int max) {
+        try {
+            int value = Integer.parseInt(raw.trim());
+            return value < 0 || value > max ? null : value;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

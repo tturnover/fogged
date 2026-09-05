@@ -22,111 +22,83 @@ import net.minecraft.world.level.block.state.properties.Property;
 
 /**
  * The configurable half of the under-fog scour: the blocks {@link Config#SCOURED_BLOCKS} says the murk
- * takes, and the swaps it makes ("from=to"): {@link Config#SILENT_TRANSFORMS}, which just happen, and
- * {@link Config#RECIPE_TRANSFORMS}, which are also shown in JEI. Copper weathering all the way through
- * is a silent default; coal ore going back to stone is a shown one.
+ * takes, and everything {@link Config#TRANSFORMS} says it turns into something else.
  *
- * <p>Both run before {@link FogScour}'s built-in rules, so a config entry overrides what the murk would
- * otherwise do to that block, and a transform wins over a removal for the same block.
+ * <p>One list drives both halves of a transform. An entry's left side is resolved against the block
+ * registry AND the item registry, so a line naming something that is both -- which most blocks are --
+ * converts it wherever it is found: placed in the world by {@link FogScour}, or lying on the floor by
+ * {@link ItemScour}. Its right side decides what happens to a placed block: a block replaces it in
+ * place, an item breaks it and drops instead.
  *
- * <p>Entries are ids (with '*' wildcards, resolved against the block registry once per config change --
- * the scour walks every block in the band, so a regex per block would be the mod's hottest loop) or
- * '#' tags, which stay as tag keys and are tested per state: tag contents come from datapacks and can
- * change under us, where the registry cannot.
+ * <p>Transforms run before {@link FogScour}'s built-in rules, so an entry overrides what the murk
+ * would otherwise do to that block rather than only adding to it.
+ *
+ * <p>Ids (with '*' wildcards) are matched against the registries once per config change -- the scour
+ * walks every block in the band, so a regex per block would be the mod's hottest loop -- while tags
+ * stay as tag keys and are tested per state: tag contents come from datapacks and can change without
+ * the config changing.
  */
 public final class ScourRules {
     private ScourRules() {}
 
     private static List<? extends String> cachedScoured;
-    private static List<? extends String> cachedItems;
-    private static List<? extends String> cachedSilent;
-    private static List<? extends String> cachedRecipes;
+    private static List<? extends String> cachedTransforms;
 
     private static Set<Block> scouredBlocks = Set.of();
     private static List<TagKey<Block>> scouredTags = List.of();
-    private static Map<Block, Transform> transformBlocks = Map.of();
-    private static List<TagTransform> transformTags = List.of();
-    private static List<Shown> shown = List.of();
-    private static Map<Item, ItemRule> itemRules = Map.of();
+
+    private static Map<Block, Rule> blockRules = Map.of();
+    private static List<TagRule> blockTagRules = List.of();
+    private static Map<Item, Rule> itemRules = Map.of();
     private static List<ItemTagRule> itemTagRules = List.of();
-    private static List<ShownItem> shownItems = List.of();
-
-    /** What a block turns into, and how far under the surface it has to be first (0 = anywhere). */
-    private record Transform(Block to, int minDepth) {}
-
-    private record TagTransform(TagKey<Block> tag, Transform transform) {}
-
-    /** The same pair for items: what it becomes, and how deep it has to be lying first. */
-    private record ItemRule(Item to, int minDepth) {}
-
-    private record ItemTagRule(TagKey<Item> tag, ItemRule rule) {}
-
-    /** An item rule for JEI. Exactly one of {@code from} and {@code fromTag} is set. */
-    public record ShownItem(List<Item> from, TagKey<Item> fromTag, Item to, int minDepth) {}
+    private static List<Shown> shown = List.of();
 
     /**
-     * A transform from the shown list, for JEI. Exactly one of {@code from}
-     * and {@code fromTag} is set: an id entry resolves to the blocks it matched, a tag entry stays a tag
-     * so whoever displays it can expand it against the datapack in force.
+     * What something turns into. Exactly one of {@code toBlock} and {@code toItem} says what a PLACED
+     * block does: a block is put in its place, an item means the block breaks and drops {@code toCount}
+     * of that item. {@code fromCount} and {@code toCount} are about stacks only.
      */
-    public record Shown(List<Block> from, TagKey<Block> fromTag, Block to, int minDepth) {}
+    private record Rule(int fromCount, Block toBlock, Item toItem, int toCount, int minDepth) {}
 
-    /** The transforms flagged for display, in config order. Never null; empty when none are flagged. */
+    private record TagRule(TagKey<Block> tag, Rule rule) {}
+
+    private record ItemTagRule(TagKey<Item> tag, Rule rule) {}
+
+    /**
+     * A transform to show in JEI: what may go in, what comes out, and the depth it needs. Exactly one
+     * of {@code from} and {@code fromTag} is set -- an id entry resolves to the items it matched, a tag
+     * entry stays a tag so whoever displays it can expand it against the datapack in force.
+     */
+    public record Shown(List<Item> from, TagKey<Item> fromTag, int fromCount,
+                        Item to, int toCount, int minDepth) {}
+
+    /** The transforms to display, in config order. Never null; empty when every entry is !silent. */
     public static List<Shown> shownTransforms() {
         ensureRules();
         return shown;
     }
 
-    /** Item rules to display; every item transform is shown, so this is simply all of them. */
-    public static List<ShownItem> shownItemTransforms() {
-        ensureRules();
-        return shownItems;
-    }
-
     /**
-     * What a dropped {@code stack} turns into at world height {@code y} by the ITEM rules, or null.
-     * These are rules in their own right, so unlike the block-derived path they can name an item that
-     * is not a block at all.
-     */
-    public static Item itemTransform(Level level, ItemStack stack, double y) {
-        ensureRules();
-        ItemRule rule = itemRules.get(stack.getItem());
-        if (rule == null) {
-            for (ItemTagRule tagged : itemTagRules) {
-                if (stack.is(tagged.tag())) {
-                    rule = tagged.rule();
-                    break;
-                }
-            }
-        }
-        if (rule == null || rule.to() == stack.getItem()) {
-            return null;
-        }
-        if (rule.minDepth() > 0
-                && Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET - y < rule.minDepth()) {
-            return null;
-        }
-        return rule.to();
-    }
-
-    /**
-     * Apply the configured rules to one block, most specific first. Returns true when this block has
-     * been dealt with and the built-in scour should leave it alone.
+     * Apply the configured rules to one placed block, most specific first. Returns true when this block
+     * has been dealt with and the built-in scour should leave it alone.
      */
     public static boolean apply(Level level, BlockPos pos, BlockState state) {
         ensureRules();
-        Transform transform = transformFor(state);
-        if (transform != null) {
-            // A depth is measured from the visible surface down, so it moves with the boundary rather
-            // than sitting at some fixed Y: fifty blocks under the murk stays fifty blocks under it as
-            // the plane rises and falls. Above the depth the block is simply left to the rules below.
-            if (transform.minDepth() > 0
-                    && Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET - pos.getY() < transform.minDepth()) {
-                return false;
+        Rule rule = ruleFor(state);
+        if (rule != null) {
+            if (!deepEnough(level, rule, pos.getY())) {
+                return false; // not far enough down yet: leave it to the rules below
             }
-            Block to = transform.to();
-            if (!state.is(to)) {
-                level.setBlock(pos, carryOver(state, to.defaultBlockState()), Block.UPDATE_ALL);
+            if (rule.toBlock() != null) {
+                if (!state.is(rule.toBlock())) {
+                    level.setBlock(pos, carryOver(state, rule.toBlock().defaultBlockState()),
+                            Block.UPDATE_ALL);
+                }
+            } else {
+                // The target is an item, so there is nothing to put in the block's place: it breaks,
+                // and what the rule names drops where it stood.
+                level.destroyBlock(pos, false);
+                Block.popResource(level, pos, new ItemStack(rule.toItem(), rule.toCount()));
             }
             return true; // handled either way: a no-op swap is still the config's answer for this block
         }
@@ -135,6 +107,38 @@ public final class ScourRules {
             return true;
         }
         return false;
+    }
+
+    /**
+     * What a dropped {@code stack} becomes at world height {@code y}: the stack it turns into and how
+     * many of the original that took, or null when no rule applies. The caller does the arithmetic, so
+     * it can decide what to do with a remainder.
+     */
+    public static Conversion convert(Level level, ItemStack stack, double y) {
+        ensureRules();
+        Rule rule = ruleFor(stack);
+        if (rule == null || !deepEnough(level, rule, y)) {
+            return null;
+        }
+        Item to = rule.toItem() != null ? rule.toItem() : rule.toBlock().asItem();
+        if (to == Item.byId(0) || to == stack.getItem()) {
+            return null; // nothing to become, or already it
+        }
+        if (stack.getCount() < rule.fromCount()) {
+            return null; // not enough in the stack to make one
+        }
+        return new Conversion(rule.fromCount(), to, rule.toCount());
+    }
+
+    /** What one application of a rule takes out of a stack, and what it puts back. */
+    public record Conversion(int takes, Item to, int gives) {}
+
+    // A depth is measured from the visible surface down, so it moves with the boundary rather than
+    // sitting at some fixed Y: fifty blocks under the murk stays fifty blocks under it as the plane
+    // rises and falls.
+    private static boolean deepEnough(Level level, Rule rule, double y) {
+        return rule.minDepth() <= 0
+                || Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET - y >= rule.minDepth();
     }
 
     /**
@@ -157,33 +161,27 @@ public final class ScourRules {
         return to.setValue(property, from.getValue(property));
     }
 
-    /**
-     * What a dropped item of {@code block} should become at world height {@code y}, or null when
-     * nothing applies -- the same rules the blocks themselves go through, depth included, so a stack
-     * lying in the murk keeps up with the world around it rather than surviving what its placed form
-     * cannot.
-     */
-    public static Block transformForItem(Level level, Block block, double y) {
-        ensureRules();
-        Transform transform = transformFor(block.defaultBlockState());
-        if (transform == null || transform.to() == block) {
-            return null;
-        }
-        if (transform.minDepth() > 0
-                && Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET - y < transform.minDepth()) {
-            return null;
-        }
-        return transform.to();
-    }
-
-    private static Transform transformFor(BlockState state) {
-        Transform direct = transformBlocks.get(state.getBlock());
+    private static Rule ruleFor(BlockState state) {
+        Rule direct = blockRules.get(state.getBlock());
         if (direct != null) {
             return direct;
         }
-        for (TagTransform t : transformTags) {
+        for (TagRule t : blockTagRules) {
             if (state.is(t.tag())) {
-                return t.transform();
+                return t.rule();
+            }
+        }
+        return null;
+    }
+
+    private static Rule ruleFor(ItemStack stack) {
+        Rule direct = itemRules.get(stack.getItem());
+        if (direct != null) {
+            return direct;
+        }
+        for (ItemTagRule t : itemTagRules) {
+            if (stack.is(t.tag())) {
+                return t.rule();
             }
         }
         return null;
@@ -208,17 +206,10 @@ public final class ScourRules {
             cachedScoured = scoured;
             rebuildScoured(scoured);
         }
-        List<? extends String> items = Config.ITEM_TRANSFORMS.get();
-        if (items != cachedItems) {
-            cachedItems = items;
-            rebuildItemTransforms(items);
-        }
-        List<? extends String> silent = Config.SILENT_TRANSFORMS.get();
-        List<? extends String> recipes = Config.RECIPE_TRANSFORMS.get();
-        if (silent != cachedSilent || recipes != cachedRecipes) {
-            cachedSilent = silent;
-            cachedRecipes = recipes;
-            rebuildTransforms(silent, recipes);
+        List<? extends String> transforms = Config.TRANSFORMS.get();
+        if (transforms != cachedTransforms) {
+            cachedTransforms = transforms;
+            rebuildTransforms(transforms);
         }
     }
 
@@ -231,7 +222,7 @@ public final class ScourRules {
                 continue;
             }
             if (s.startsWith("#")) {
-                TagKey<Block> tag = tag(s.substring(1));
+                TagKey<Block> tag = blockTag(s.substring(1));
                 if (tag != null) {
                     tags.add(tag);
                 }
@@ -240,127 +231,80 @@ public final class ScourRules {
             }
         }
         scouredTags = List.copyOf(tags);
-        scouredBlocks = matching(patterns);
+        scouredBlocks = matchingBlocks(patterns);
     }
 
-    // Both lists build one set of rules; only the second contributes to what JEI is shown. A block in
-    // both is the silent entry's, since that one is read first.
-    private static void rebuildTransforms(List<? extends String> silent, List<? extends String> recipes) {
-        Map<Block, Transform> blocks = new HashMap<>();
-        List<TagTransform> tags = new ArrayList<>();
+    // One entry can feed four maps: it is looked up in both registries, and a '#' tag is registered as
+    // both a block tag and an item tag, since a tag id names a tag in each and the entry cannot say
+    // which was meant. Whichever exists is what ends up being used.
+    private static void rebuildTransforms(List<? extends String> raw) {
+        Map<Block, Rule> blocks = new HashMap<>();
+        List<TagRule> blockTags = new ArrayList<>();
+        Map<Item, Rule> items = new HashMap<>();
+        List<ItemTagRule> itemTags = new ArrayList<>();
         List<Shown> display = new ArrayList<>();
-        readTransforms(silent, false, blocks, tags, display);
-        readTransforms(recipes, true, blocks, tags, display);
-        transformBlocks = Map.copyOf(blocks);
-        transformTags = List.copyOf(tags);
-        shown = List.copyOf(display);
-    }
 
-    private static void readTransforms(List<? extends String> raw, boolean show,
-                                       Map<Block, Transform> blocks, List<TagTransform> tags,
-                                       List<Shown> display) {
         for (String entry : raw) {
-            String[] pair = Config.parseTransformEntry(entry.trim());
-            if (pair == null) {
-                Fogged.LOGGER.warn("Fogged: ignoring malformed transform entry \"{}\" -- expected "
-                        + "\"from=to\", where 'to' is a single block id.", entry);
+            Config.Transform parsed = Config.parseTransform(entry);
+            if (parsed == null) {
+                Fogged.LOGGER.warn("Fogged: ignoring malformed transforms entry \"{}\" -- expected "
+                        + "\"[count] from=[count] to [@depth] [!silent]\".", entry);
                 continue;
             }
-            Block to = block(pair[1]);
-            if (to == null) {
-                Fogged.LOGGER.warn("Fogged: transform entry \"{}\" names an unknown block \"{}\" -- "
-                        + "skipped. (A mod that owns it may simply not be installed.)", entry, pair[1]);
+            Block toBlock = block(parsed.to());
+            Item toItem = item(parsed.to());
+            if (toBlock == null && toItem == null) {
+                Fogged.LOGGER.warn("Fogged: transforms entry \"{}\" names an unknown target \"{}\" -- "
+                        + "skipped. (A mod that owns it may simply not be installed.)", entry, parsed.to());
                 continue;
             }
-            int minDepth = Integer.parseInt(pair[2]);
-            Transform transform = new Transform(to, minDepth);
-            if (pair[0].startsWith("#")) {
-                TagKey<Block> tag = tag(pair[0].substring(1));
-                if (tag != null) {
-                    tags.add(new TagTransform(tag, transform));
-                    if (show) {
-                        display.add(new Shown(List.of(), tag, to, minDepth));
+            // A block target replaces a placed block; an item target breaks it. Something that is both
+            // is treated as a block, which is what a player writing "stone" means.
+            Rule rule = new Rule(parsed.fromCount(), toBlock, toBlock == null ? toItem : null,
+                    parsed.toCount(), parsed.depth());
+            Item shownTo = toItem != null ? toItem : toBlock.asItem();
+
+            if (parsed.from().startsWith("#")) {
+                String tagId = parsed.from().substring(1);
+                TagKey<Block> blockTag = blockTag(tagId);
+                if (blockTag != null) {
+                    blockTags.add(new TagRule(blockTag, rule));
+                }
+                TagKey<Item> itemTag = itemTag(tagId);
+                if (itemTag != null) {
+                    itemTags.add(new ItemTagRule(itemTag, rule));
+                    if (!parsed.silent()) {
+                        display.add(new Shown(List.of(), itemTag, parsed.fromCount(),
+                                shownTo, parsed.toCount(), parsed.depth()));
                     }
                 }
                 continue;
             }
-            List<Block> from = List.copyOf(matching(List.of(Config.idGlob(pair[0]))));
-            for (Block block : from) {
-                blocks.putIfAbsent(block, transform);
+
+            Pattern glob = Config.idGlob(parsed.from());
+            for (Block from : matchingBlocks(List.of(glob))) {
+                blocks.putIfAbsent(from, rule);
             }
-            if (show && !from.isEmpty()) {
-                display.add(new Shown(from, null, to, minDepth));
+            List<Item> fromItems = matchingItems(glob);
+            for (Item from : fromItems) {
+                items.putIfAbsent(from, rule);
+            }
+            if (!parsed.silent() && !fromItems.isEmpty()) {
+                display.add(new Shown(fromItems, null, parsed.fromCount(),
+                        shownTo, parsed.toCount(), parsed.depth()));
             }
         }
-    }
 
-    private static void rebuildItemTransforms(List<? extends String> raw) {
-        Map<Item, ItemRule> rules = new HashMap<>();
-        List<ItemTagRule> tagged = new ArrayList<>();
-        List<ShownItem> display = new ArrayList<>();
-        for (String entry : raw) {
-            String[] pair = Config.parseTransformEntry(entry.trim());
-            if (pair == null) {
-                Fogged.LOGGER.warn("Fogged: ignoring malformed itemTransforms entry \"{}\" -- expected "
-                        + "\"from=to\", where 'to' is a single item id.", entry);
-                continue;
-            }
-            Item to = item(pair[1]);
-            if (to == null) {
-                Fogged.LOGGER.warn("Fogged: itemTransforms entry \"{}\" names an unknown item \"{}\" -- "
-                        + "skipped. (A mod that owns it may simply not be installed.)", entry, pair[1]);
-                continue;
-            }
-            int minDepth = Integer.parseInt(pair[2]);
-            ItemRule rule = new ItemRule(to, minDepth);
-            if (pair[0].startsWith("#")) {
-                TagKey<Item> tag = itemTag(pair[0].substring(1));
-                if (tag != null) {
-                    tagged.add(new ItemTagRule(tag, rule));
-                    display.add(new ShownItem(List.of(), tag, to, minDepth));
-                }
-                continue;
-            }
-            List<Item> from = matchingItems(Config.idGlob(pair[0]));
-            for (Item i : from) {
-                rules.putIfAbsent(i, rule);
-            }
-            if (!from.isEmpty()) {
-                display.add(new ShownItem(from, null, to, minDepth));
-            }
-        }
-        itemRules = Map.copyOf(rules);
-        itemTagRules = List.copyOf(tagged);
-        shownItems = List.copyOf(display);
-    }
-
-    private static List<Item> matchingItems(Pattern pattern) {
-        List<Item> found = new ArrayList<>();
-        for (Item item : BuiltInRegistries.ITEM) {
-            if (pattern.matcher(BuiltInRegistries.ITEM.getKey(item).toString()).matches()) {
-                found.add(item);
-            }
-        }
-        return List.copyOf(found);
-    }
-
-    private static Item item(String id) {
-        ResourceLocation key = ResourceLocation.tryParse(id);
-        return key == null ? null : BuiltInRegistries.ITEM.getOptional(key).orElse(null);
-    }
-
-    private static TagKey<Item> itemTag(String id) {
-        ResourceLocation key = ResourceLocation.tryParse(Config.withNamespace(id));
-        if (key == null) {
-            Fogged.LOGGER.warn("Fogged: ignoring \"#{}\" -- not a valid tag id.", id);
-            return null;
-        }
-        return TagKey.create(Registries.ITEM, key);
+        blockRules = Map.copyOf(blocks);
+        blockTagRules = List.copyOf(blockTags);
+        itemRules = Map.copyOf(items);
+        itemTagRules = List.copyOf(itemTags);
+        shown = List.copyOf(display);
     }
 
     // Every registered block whose id matches one of these patterns. One walk of the registry per
-    // config change, so the per-block test above is a set lookup.
-    private static Set<Block> matching(List<Pattern> patterns) {
+    // config change, so the per-block test above is a map lookup.
+    private static Set<Block> matchingBlocks(List<Pattern> patterns) {
         if (patterns.isEmpty()) {
             return Set.of();
         }
@@ -377,6 +321,16 @@ public final class ScourRules {
         return Set.copyOf(found);
     }
 
+    private static List<Item> matchingItems(Pattern pattern) {
+        List<Item> found = new ArrayList<>();
+        for (Item item : BuiltInRegistries.ITEM) {
+            if (pattern.matcher(BuiltInRegistries.ITEM.getKey(item).toString()).matches()) {
+                found.add(item);
+            }
+        }
+        return List.copyOf(found);
+    }
+
     private static Block block(String id) {
         ResourceLocation key = ResourceLocation.tryParse(id);
         if (key == null) {
@@ -385,14 +339,27 @@ public final class ScourRules {
         return BuiltInRegistries.BLOCK.getOptional(key).orElse(null);
     }
 
+    private static Item item(String id) {
+        ResourceLocation key = ResourceLocation.tryParse(id);
+        if (key == null) {
+            return null;
+        }
+        return BuiltInRegistries.ITEM.getOptional(key).orElse(null);
+    }
+
     // A tag is never resolved against a registry here: it may be empty, or not exist at all, until a
     // datapack says otherwise, and that can change on a reload without the config changing.
-    private static TagKey<Block> tag(String id) {
+    private static TagKey<Block> blockTag(String id) {
         ResourceLocation key = ResourceLocation.tryParse(Config.withNamespace(id));
         if (key == null) {
             Fogged.LOGGER.warn("Fogged: ignoring \"#{}\" -- not a valid tag id.", id);
             return null;
         }
         return TagKey.create(Registries.BLOCK, key);
+    }
+
+    private static TagKey<Item> itemTag(String id) {
+        ResourceLocation key = ResourceLocation.tryParse(Config.withNamespace(id));
+        return key == null ? null : TagKey.create(Registries.ITEM, key);
     }
 }

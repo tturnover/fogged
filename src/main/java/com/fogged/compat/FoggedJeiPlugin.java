@@ -28,7 +28,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
 
 /**
  * Shows the murk's block conversions as JEI recipes -- the ones in {@link Config#RECIPE_TRANSFORMS},
@@ -66,22 +65,12 @@ public class FoggedJeiPlugin implements IModPlugin {
     public void registerRecipes(IRecipeRegistration registration) {
         List<MurkTransform> recipes = new ArrayList<>();
         for (ScourRules.Shown shown : ScourRules.shownTransforms()) {
-            List<ItemStack> from = shown.fromTag() != null ? tagStacks(shown) : stacks(shown.from());
-            ItemStack to = new ItemStack(shown.to());
-            // A block with no item cannot be drawn in a slot, and a recipe with an empty side reads as
-            // broken rather than informative -- so such an entry simply is not shown.
-            if (from.isEmpty() || to.isEmpty()) {
-                continue;
-            }
-            recipes.add(new MurkTransform(from, to, shown.minDepth()));
-        }
-        // Item rules are conversions like any other and share the category; they just start from items
-        // rather than from blocks, so there is nothing to look up in the block registry.
-        for (ScourRules.ShownItem shown : ScourRules.shownItemTransforms()) {
             List<ItemStack> from = shown.fromTag() != null
-                    ? tagItemStacks(shown.fromTag())
-                    : shown.from().stream().map(ItemStack::new).filter(s -> !s.isEmpty()).toList();
-            ItemStack to = new ItemStack(shown.to());
+                    ? tagStacks(shown.fromTag(), shown.fromCount())
+                    : stacks(shown.from(), shown.fromCount());
+            ItemStack to = new ItemStack(shown.to(), shown.toCount());
+            // Something with no item cannot be drawn in a slot, and a recipe with an empty side reads
+            // as broken rather than informative -- so such an entry simply is not shown.
             if (from.isEmpty() || to.isEmpty()) {
                 continue;
             }
@@ -89,32 +78,24 @@ public class FoggedJeiPlugin implements IModPlugin {
         }
         registration.addRecipes(MURK_TRANSFORM, recipes);
         // Which entries made it in is otherwise invisible: an id nothing registers, a block with no
-        // item and an entry with no '|jei' all look the same from the outside -- an empty category.
-        Fogged.LOGGER.debug("Fogged: showing {} of {} shown transforms in JEI",
-                recipes.size(),
-                Config.RECIPE_TRANSFORMS.get().size() + Config.ITEM_TRANSFORMS.get().size());
+        // item and a '!silent' entry all look the same from the outside -- an empty category.
+        Fogged.LOGGER.debug("Fogged: showing {} of {} transforms in JEI",
+                recipes.size(), Config.TRANSFORMS.get().size());
     }
 
     // Tags are expanded here rather than when the config is read: their contents come from the
     // datapacks in force, which are only known once a world is loaded -- which is also when JEI asks.
-    private static List<ItemStack> tagStacks(ScourRules.Shown shown) {
-        List<Block> blocks = new ArrayList<>();
-        BuiltInRegistries.BLOCK.getTag(shown.fromTag())
-                .ifPresent(holders -> holders.forEach(holder -> blocks.add(holder.value())));
-        return stacks(blocks);
-    }
-
-    private static List<ItemStack> tagItemStacks(TagKey<Item> tag) {
+    private static List<ItemStack> tagStacks(TagKey<Item> tag, int count) {
         List<ItemStack> out = new ArrayList<>();
         BuiltInRegistries.ITEM.getTag(tag)
-                .ifPresent(holders -> holders.forEach(holder -> out.add(new ItemStack(holder.value()))));
+                .ifPresent(holders -> holders.forEach(h -> out.add(new ItemStack(h.value(), count))));
         return out;
     }
 
-    private static List<ItemStack> stacks(List<Block> blocks) {
+    private static List<ItemStack> stacks(List<Item> items, int count) {
         List<ItemStack> out = new ArrayList<>();
-        for (Block block : blocks) {
-            ItemStack stack = new ItemStack(block);
+        for (Item item : items) {
+            ItemStack stack = new ItemStack(item, count);
             if (!stack.isEmpty()) {
                 out.add(stack);
             }

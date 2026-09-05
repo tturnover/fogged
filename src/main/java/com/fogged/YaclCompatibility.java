@@ -78,10 +78,7 @@ final class YaclCompatibility {
                 .option(integer("submergeSkip", Config.SUBMERGE_SKIP, 0, 64, 1))
                 .group(strings("snuffedDevices", Config.SNUFFED_DEVICES))
                 .group(strings("scouredBlocks", Config.SCOURED_BLOCKS))
-                .option(bool("transformDroppedItems", Config.TRANSFORM_DROPPED_ITEMS))
-                .group(strings("silentTransforms", Config.SILENT_TRANSFORMS))
-                .group(strings("recipeTransforms", Config.RECIPE_TRANSFORMS))
-                .group(strings("itemTransforms", Config.ITEM_TRANSFORMS))
+                .group(strings("transforms", Config.TRANSFORMS))
                 .build();
     }
 

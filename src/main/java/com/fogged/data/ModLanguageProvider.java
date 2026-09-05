@@ -92,12 +92,9 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Block ids of fire-burning devices the murk puts out. '*' matches any run of characters.");
         cfg("scouredBlocks", "Scoured Blocks",
                 "Extra blocks the murk breaks under the boundary. A '#' entry is a block tag.");
-        cfg("transformDroppedItems", "Transform Dropped Items",
-                "A dropped stack turns into whatever its block form would, by the same rules.");
-        cfg("silentTransforms", "Silent Transforms",
-                "\"from=to\" swaps the murk makes under the boundary, unannounced. Copper weathers right through.");
-        cfg("recipeTransforms", "Shown Transforms",
-                "The same, for conversions worth knowing: each is listed in JEI as a recipe.");
+        cfg("transforms", "Murk Transforms",
+                "\"from=to\" rules for blocks and dropped stacks alike, with optional counts, an @depth "
+                        + "and a !silent flag. Everything not silent is listed in JEI.");
         cfg("itemTransforms", "Item Transforms",
                 "\"from=to\" swaps for dropped items, by item id. All of them are listed in JEI.");
         cfg("playerSuffocation", "Player Suffocation",

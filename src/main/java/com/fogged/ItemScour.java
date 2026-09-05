@@ -1,11 +1,8 @@
 package com.fogged;
 
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
@@ -16,14 +13,13 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
  * {@link ScourRules}). Copper thrown down there oxidises where copper built down there does; moss
  * dropped fifty blocks under the surface goes the way the moss floor does.
  *
- * <p>Two ways in. An itemTransforms rule names the item outright, so it can turn anything into
- * anything -- a diamond into dirt, if that is what a pack wants. Failing that, an item that places a
- * block the block rules cover follows those, which is what keeps a dropped stack in step with the
- * world it is lying in.
+ * <p>One list drives this and the placed-block scour alike (see {@link ScourRules}): an entry whose
+ * left side names an item converts stacks of it, and since most block ids are item ids too, a rule
+ * written for a block keeps its dropped form in step with the world it is lying in. An entry may also
+ * take several of a thing to make something -- "4 diamond=2 dirt" -- and a remainder too small to
+ * convert stays what it was.
  *
- * <p>Server-side only, gated by {@link Config#SUBMERGE_WORLD} along with the rest of the scour;
- * {@link Config#TRANSFORM_DROPPED_ITEMS} switches off the block-derived half on its own, leaving the
- * item rules, which are an explicit list and are only there because someone wrote them.
+ * <p>Server-side only, gated by {@link Config#SUBMERGE_WORLD} along with the rest of the scour.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class ItemScour {
@@ -49,36 +45,38 @@ public final class ItemScour {
             return;
         }
         ItemStack stack = item.getItem();
-        // An itemTransforms rule first: it names this item outright, where the block path only knows
-        // items that happen to place something the block rules cover.
-        Item to = ScourRules.itemTransform(level, stack, item.getY());
-        if (to == null && Config.TRANSFORM_DROPPED_ITEMS.get()
-                && stack.getItem() instanceof BlockItem blockItem) {
-            Block block = ScourRules.transformForItem(level, blockItem.getBlock(), item.getY());
-            to = block == null ? null : block.asItem();
-        }
-        if (to == null || to == stack.getItem()) {
+        ScourRules.Conversion conversion = ScourRules.convert(level, stack, item.getY());
+        if (conversion == null) {
             return;
         }
-        // Count carries over; anything else the stack held does not, because the item it held it as is
-        // gone. Enchanted or named blocks are not what this is for.
-        //
-        // The new item may not stack as high as the old one -- sixty-four dirt asked to become eggs is
-        // sixty-four eggs, four times what an egg stack holds. The entity keeps one full stack and the
-        // rest are dropped beside it, carrying its motion, so the player ends up with everything they
-        // had rather than an oversized stack that misbehaves the moment it is picked up.
-        int max = Math.max(1, new ItemStack(to).getMaxStackSize());
-        int left = stack.getCount();
-        item.setItem(new ItemStack(to, Math.min(left, max)));
-        left -= Math.min(left, max);
-        while (left > 0) {
-            int count = Math.min(left, max);
+
+        // A rule may take several of a thing to make something -- "4 diamond=2 dirt" -- so it applies
+        // as many times as the stack allows, and whatever is left over stays what it was. That
+        // remainder is the entity's own stack, so a stack of five diamonds under a four-for-two rule
+        // ends up as one diamond lying next to two dirt.
+        int uses = stack.getCount() / conversion.takes();
+        int remainder = stack.getCount() - uses * conversion.takes();
+        int made = uses * conversion.gives();
+
+        int max = Math.max(1, new ItemStack(conversion.to()).getMaxStackSize());
+        if (remainder > 0) {
+            item.setItem(new ItemStack(stack.getItem(), remainder));
+        } else {
+            // Nothing left over, so the entity itself becomes the first stack of the result.
+            item.setItem(new ItemStack(conversion.to(), Math.min(made, max)));
+            made -= Math.min(made, max);
+        }
+        // The rest is dropped beside it, one entity per stack, carrying its motion: a target that
+        // stacks smaller than its source would otherwise leave an oversized stack, which misbehaves
+        // the moment it is picked up.
+        while (made > 0) {
+            int count = Math.min(made, max);
             ItemEntity spill = new ItemEntity(level, item.getX(), item.getY(), item.getZ(),
-                    new ItemStack(to, count));
+                    new ItemStack(conversion.to(), count));
             spill.setDeltaMovement(item.getDeltaMovement());
             spill.setDefaultPickUpDelay();
             level.addFreshEntity(spill);
-            left -= count;
+            made -= count;
         }
     }
 }
