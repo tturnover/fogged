@@ -20,8 +20,13 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 
 /**
  * Drives the under-fog "drowned world" scour: below the fog plane the murk snuffs fire, freezes lava,
- * drowns torches and wilts plants / crops / leaves, as if the world were underwater. Server-side only,
- * gated by {@link Config#SUBMERGE_WORLD}. The block-Y range it acts on comes from {@link FogBand}.
+ * drowns torches and unmakes farmland, as if the world were underwater. Server-side only, gated by
+ * {@link Config#SUBMERGE_WORLD}. The block-Y range it acts on comes from {@link FogBand}.
+ *
+ * <p>What happens to the vegetation, and to the ground it grows in, is config: the leaves, flowers,
+ * grasses and berry bushes are {@link Config#SCOURED_BLOCKS} defaults, and grass block going back to
+ * coarse dirt is a {@link Config#TRANSFORMS} default. They ran from here until a pack had reason to
+ * argue with one of them; {@link ScourRules} applies them before any of the rules below.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class FogScour {
@@ -107,12 +112,12 @@ public final class FogScour {
         }
     }
 
-    /** Apply the under-fog scour to one block: snuff fire, freeze lava, drown torches, wilt vegetation. */
+    /** Apply the under-fog scour to one block: the config's rules first, then fire, lava, farmland. */
     private static void rot(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
 
-        // Configured rules first, so scouredBlocks / blockTransforms can override any of the built-in
-        // rules below for a given block rather than only adding to them.
+        // The config's rules first: they are where the vegetation and the ground it grows in are
+        // decided, and an entry there overrides what the murk would otherwise do to that block.
         if (ScourRules.apply(level, pos, state)) {
             return;
         }
@@ -140,13 +145,6 @@ public final class FogScour {
             return;
         }
 
-        // Grass blocks die back to coarse dirt: the sward is the first thing the murk takes, and coarse
-        // dirt will not spread or regrow the way plain dirt re-grasses from a lit neighbour.
-        if (state.is(Blocks.GRASS_BLOCK)) {
-            level.setBlock(pos, Blocks.COARSE_DIRT.defaultBlockState(), Block.UPDATE_ALL);
-            return;
-        }
-
         if (state.is(Blocks.FARMLAND)) {
             level.setBlock(pos, Blocks.DIRT.defaultBlockState(), Block.UPDATE_ALL);
             BlockPos above = pos.above();
@@ -154,15 +152,6 @@ public final class FogScour {
                 level.destroyBlock(above, false); // remove whatever was planted on it
             }
             return;
-        }
-
-        if (state.is(BlockTags.LEAVES)) {
-            level.destroyBlock(pos, false);
-            return;
-        }
-
-        if (isPlant(state)) {
-            level.destroyBlock(pos, false);
         }
     }
 
@@ -173,7 +162,8 @@ public final class FogScour {
         return level.getServer().getPlayerList().getSimulationDistance() * 16;
     }
 
-    // Flowers, ferns, tall/short grass and sweet berry bushes that the murk wilts.
+    // The small plants a farm grows, kept only for the farmland rule above -- what the murk wilts in
+    // general is scouredBlocks now, and it runs before any of this.
     private static boolean isPlant(BlockState state) {
         return state.is(BlockTags.FLOWERS)
                 || state.is(Blocks.SHORT_GRASS)

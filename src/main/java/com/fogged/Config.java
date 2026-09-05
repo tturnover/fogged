@@ -135,13 +135,14 @@ public class Config {
                     o -> o instanceof String s && !s.isBlank());
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SCOURED_BLOCKS = COMMON
-            .comment("Extra blocks the murk takes out under the boundary, on top of the built-in scour",
-                    "(fires, lava, torches, devices, grass, farmland, leaves, plants). Each entry is a",
-                    "block id or, with a leading '#', a block tag. '*' matches any run of characters in an",
-                    "id, and the 'minecraft:' namespace may be omitted. They are broken without drops.",
+            .comment("Blocks the murk takes out under the boundary, broken without drops. The vegetation",
+                    "it wilts lives here rather than in code, so a pack can spare a plant or wilt one of",
+                    "its own; fires, lava, torches, devices and farmland are still built in.",
+                    "Each entry is a block id or, with a leading '#', a block tag. '*' matches any run of",
+                    "characters in an id, and the 'minecraft:' namespace may be omitted.",
                     "Needs submergeWorld.",
                     "Example: scouredBlocks = [\"cobweb\", \"#minecraft:banners\", \"create:*_casing\"]")
-            .defineListAllowEmpty("scouredBlocks", ArrayList::new, () -> "minecraft:cobweb",
+            .defineListAllowEmpty("scouredBlocks", Config::defaultScouredBlocks, () -> "minecraft:cobweb",
                     o -> o instanceof String s && !s.isBlank());
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> TRANSFORMS = COMMON
@@ -587,9 +588,25 @@ public class Config {
             { "copper_bulb", "exposed_copper_bulb", "weathered_copper_bulb", "oxidized_copper_bulb" },
     };
 
+    // What the murk does to the things growing under it. These were rules in FogScour until they were
+    // moved out here, where a pack can argue with them.
+    private static List<String> defaultScouredBlocks() {
+        return new ArrayList<>(List.of(
+                "#minecraft:leaves",
+                "#minecraft:flowers",
+                "minecraft:short_grass",
+                "minecraft:tall_grass",
+                "minecraft:fern",
+                "minecraft:large_fern",
+                "minecraft:sweet_berry_bush"));
+    }
+
     private static List<String> defaultTransforms() {
         List<String> out = new ArrayList<>();
         out.add("minecraft:coal_ore=minecraft:stone !silent");
+        // The sward is the first thing the murk takes. Coarse dirt, not plain dirt, because plain dirt
+        // re-grasses from a lit neighbour the moment the boundary moves off it.
+        out.add("minecraft:grass_block=minecraft:coarse_dirt");
         out.add("minecraft:deepslate_coal_ore=minecraft:deepslate !silent");
         out.add("minecraft:moss_block=minecraft:coarse_dirt @50");
         for (String[] family : COPPER_FAMILIES) {
