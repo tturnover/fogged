@@ -190,18 +190,15 @@ final class YaclCompatibility {
 
     // ListOption is itself a group, so these are added with .group(...) rather than .option(...).
     // ConfigValue<List<? extends String>> is copied in and out: YACL hands back its own mutable list.
-    // Long lists start folded, with their length in the name: transforms alone runs to a dozen entries
-    // and more in a pack, and a screen that opens on a column of text fields buries every option under
-    // it. Anything short enough to read at a glance stays open.
+    // Long lists start folded: transforms alone runs to a dozen entries and more in a pack, and a
+    // screen that opens on a column of text fields buries every option under it. Anything short enough
+    // to read at a glance stays open.
     private static final int COLLAPSE_FROM = 5;
 
     private static ListOption<String> strings(String key, ModConfigSpec.ConfigValue<List<? extends String>> value) {
-        int size = value.get().size();
         return ListOption.<String>createBuilder()
-                .collapsed(size >= COLLAPSE_FROM)
-                .name(size == 0
-                        ? Component.translatable(KEY + key)
-                        : Component.translatable(KEY + key).append(Component.literal(" (" + size + ")")))
+                .collapsed(value.get().size() >= COLLAPSE_FROM)
+                .name(Component.translatable(KEY + key))
                 .description(describe(key))
                 .binding(new ArrayList<>(value.getDefault()),
                         () -> new ArrayList<>(value.get()),
