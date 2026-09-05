@@ -54,12 +54,12 @@ public final class WaterlineMap {
 
     // A crossing entity throws spray in proportion to how fast it is going, piled up ahead of it.
     private static final double FULL_SPEED = 0.4;          // blocks/tick counting as "fast"
-    private static final double WAKE_MAX = 4.5;            // particles per entity per tick at full speed
-    private static final float STATIC_CHANCE = 0.09F;      // ...and how often a still one manages one
+    private static final double WAKE_MAX = 2.25;           // particles per entity per tick at full speed
+    private static final float STATIC_CHANCE = 0.045F;     // ...and how often a still one manages one
     // The same for a moored sub-level, per probe. Kept where the entity rate used to be: a hull the
     // size of a ship is what this fires against, and halving the entity rate was about the crowd of
     // spray a moving mob throws, not about ships.
-    private static final float SUBLEVEL_STATIC_CHANCE = 0.18F;
+    private static final float SUBLEVEL_STATIC_CHANCE = 0.09F;
     private static final double FRONT_ARC = 0.9;           // radians of spread the bow wave piles into
     private static final double WAKE_DRAG = 0.6;           // how much of the entity's motion the spray keeps
     private static final double WAKE_SPREAD = 0.06;        // blocks/tick the wave travels outward at
@@ -67,8 +67,8 @@ public final class WaterlineMap {
     // solid block of the hull, and it is thrown at the sub-level's whole bounding box -- most of which
     // is the water around the hull, not the hull -- so the hit rate is well under half and a ship threw
     // visibly less spray than a boat with a player in it. Roughly twice the probes to close that gap,
-    // and half again on top for the rate below.
-    private static final int SUBLEVEL_PROBES = 72;
+    // and half again on top for the rate below -- then halved with the entity rate.
+    private static final int SUBLEVEL_PROBES = 36;
 
     private static DynamicTexture texture;
     private static int size = 0;          // current block edge length of the map
