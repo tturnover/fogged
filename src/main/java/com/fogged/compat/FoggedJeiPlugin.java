@@ -104,11 +104,17 @@ public class FoggedJeiPlugin implements IModPlugin {
         private static final ResourceLocation ICON_TEXTURE =
                 ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "textures/gui/jei/murk_transform_icon.png");
 
-        // The mark's drawn content within its 64x64 sheet, and the icon's own size (16x18, a cube).
-        private static final int MARK_U = 12;
-        private static final int MARK_V = 4;
-        private static final int MARK_W = 42;
-        private static final int MARK_H = 56;
+        // Where the drawn content sits within each sheet: both are authored on a square canvas with the
+        // art somewhere inside it, so the region is taken rather than the whole file -- padding is
+        // added here instead, where it can be seen next to everything else.
+        private static final int MARK_SHEET = 64;
+        private static final int MARK_U = 11;
+        private static final int MARK_V = 3;
+        private static final int MARK_W = 43;
+        private static final int MARK_H = 52;
+        private static final int ICON_SHEET = 32;
+        private static final int ICON_U = 8;
+        private static final int ICON_V = 7;
         private static final int ICON_W = 16;
         private static final int ICON_H = 18;
         private static final int ICON_PAD = 4;  // breathing room around the cube in the category tab
@@ -135,13 +141,13 @@ public class FoggedJeiPlugin implements IModPlugin {
         MurkTransformCategory(IGuiHelper guiHelper) {
             super(MURK_TRANSFORM,
                     Component.translatable("fogged.jei.murk_transform"),
-                    guiHelper.drawableBuilder(ICON_TEXTURE, 0, 0, ICON_W, ICON_H)
-                            .setTextureSize(ICON_W, ICON_H)
+                    guiHelper.drawableBuilder(ICON_TEXTURE, ICON_U, ICON_V, ICON_W, ICON_H)
+                            .setTextureSize(ICON_SHEET, ICON_SHEET)
                             .addPadding(ICON_PAD, ICON_PAD, ICON_PAD, ICON_PAD)
                             .build(),
                     WIDTH, HEIGHT);
             this.mark = guiHelper.drawableBuilder(MARK_TEXTURE, MARK_U, MARK_V, MARK_W, MARK_H)
-                    .setTextureSize(64, 64)
+                    .setTextureSize(MARK_SHEET, MARK_SHEET)
                     .build();
         }
 
