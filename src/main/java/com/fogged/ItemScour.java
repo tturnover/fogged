@@ -62,6 +62,23 @@ public final class ItemScour {
         }
         // Count carries over; anything else the stack held does not, because the item it held it as is
         // gone. Enchanted or named blocks are not what this is for.
-        item.setItem(new ItemStack(to, stack.getCount()));
+        //
+        // The new item may not stack as high as the old one -- sixty-four dirt asked to become eggs is
+        // sixty-four eggs, four times what an egg stack holds. The entity keeps one full stack and the
+        // rest are dropped beside it, carrying its motion, so the player ends up with everything they
+        // had rather than an oversized stack that misbehaves the moment it is picked up.
+        int max = Math.max(1, new ItemStack(to).getMaxStackSize());
+        int left = stack.getCount();
+        item.setItem(new ItemStack(to, Math.min(left, max)));
+        left -= Math.min(left, max);
+        while (left > 0) {
+            int count = Math.min(left, max);
+            ItemEntity spill = new ItemEntity(level, item.getX(), item.getY(), item.getZ(),
+                    new ItemStack(to, count));
+            spill.setDeltaMovement(item.getDeltaMovement());
+            spill.setDefaultPickUpDelay();
+            level.addFreshEntity(spill);
+            left -= count;
+        }
     }
 }
