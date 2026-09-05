@@ -58,7 +58,7 @@ public class Config {
         SCENE_DEPTH,
         /** The plane's own opacity: green where it is solid (writes depth), red where it is softened. */
         PLANE_OPACITY,
-        /** The dissolve holes: red = near-player disc, green = entity discs. */
+        /** The per-entity dissolve discs (green), as gated by which side the camera is on. */
         DISSOLVE_HOLES,
         /** The raw waterline map: red = distance to solid/entity, green = distance to plant. */
         WATERLINE_MAP
@@ -274,8 +274,8 @@ public class Config {
                     "OFF renders normally. FOAM shows the foam edge (red) and surface spots (blue).",
                     "SCENE_DEPTH shows the depth snapshot the soft edge samples -- flat blue means",
                     "nothing is being read. PLANE_OPACITY shows where the plane is solid (green, writes",
-                    "depth) versus softened (red). DISSOLVE_HOLES shows the near-player disc (red) and",
-                    "the per-entity discs (green). WATERLINE_MAP shows the raw foam distance field.")
+                    "depth) versus softened (red). DISSOLVE_HOLES shows the per-entity discs (green).",
+                    "WATERLINE_MAP shows the raw foam distance field.")
             .defineEnum("debugView", DebugView.OFF);
 
     public static final ModConfigSpec.BooleanValue DEBUG_HUD = CLIENT

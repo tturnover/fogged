@@ -59,7 +59,7 @@ const float FOAM_STEPS = 4.0;
 #moj_import <fogged:fogged_occlusion.glsl>
 
 // Raw views of the buffers feeding the plane, selected by DebugView (== Config.DebugView's ordinal).
-vec3 debugColor(vec2 wl, float edge, float lum, float opacity, float nearHole, float entityHole) {
+vec3 debugColor(vec2 wl, float edge, float lum, float opacity, float entityHole) {
     if (DebugView == 1) {                 // FOAM
         return vec3(edge, 0.0, lum);
     }
@@ -77,7 +77,7 @@ vec3 debugColor(vec2 wl, float edge, float lum, float opacity, float nearHole, f
         return vec3(1.0 - opacity, opacity, 0.0);
     }
     if (DebugView == 4) {                 // DISSOLVE_HOLES
-        return vec3(nearHole, entityHole * HolesActive, 0.0);
+        return vec3(0.0, entityHole * HolesActive, 0.0);
     }
     if (DebugView == 5) {                 // WATERLINE_MAP
         return vec3(1.0 - wl.r, 1.0 - wl.g, 0.0);
@@ -154,19 +154,7 @@ void main() {
     // void after the world below has fogged out. The outer rim reveals the real horizon.
     float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, max(length(relPos.xz), abs(relPos.y)));
 
-    // Near-player dissolve: as the eye nears the plane, open a small soft disc around the player so
-    // the surface doesn't snap in as a hard sheet right at eye level. relPos.y is the eye-to-plane
-    // vertical gap, so the hole opens only near the boundary and fades shut as the eye moves away.
-    // Deliberately NOT gated by HolesActive: it must open symmetrically crossing in either direction.
-    // HolesActive is 1 only while already below the boundary, so gating this the same way as the
-    // entity holes below left it pre-opened while approaching from below (an exit) but still shut at
-    // the instant of crossing from above (an entry) -- the one moment it's needed most.
-    const float NEAR_HOLE_RADIUS = 5.0; // blocks, horizontal radius of the dissolve around the player
-    const float NEAR_HOLE_HEIGHT = 2.0; // eye-to-plane vertical gap over which it closes
-    float nearHole = (1.0 - smoothstep(0.0, NEAR_HOLE_RADIUS, length(relPos.xz)))
-                   * (1.0 - smoothstep(0.0, NEAR_HOLE_HEIGHT, abs(relPos.y)));
-
-    // Entity dissolve discs: the same hole opened around every entity near the plane, sized by its
+    // Entity dissolve discs: a soft hole opened around every entity near the plane, sized by its
     // hitbox, so a crossing mob/player isn't hard-cut by the depth-writing plane -- it pokes through
     // a soft hole instead. Each disc fades out radially past its hitbox radius and vertically as the
     // entity separates from the plane (ENTITY_HOLE_HEIGHT). Constant loop bound for GLSL 150.
@@ -187,12 +175,12 @@ void main() {
     // be a clear, unfogged window straight through to the world the murk should hide; keep the plane
     // solid there for OTHER entities. On the fogged side the revealed content sits in the murk fog,
     // so it stays hidden.
-    float hole = max(nearHole, entityHole * HolesActive);
+    float hole = entityHole * HolesActive;
 
     // Everything that makes the plane less than solid, in one opacity term: the soft occlusion edge
     // against whatever is already in the depth snapshot (grazing shores, block silhouettes, and --
     // since the snapshot is taken after them -- mobs and machines crossing the boundary), the
-    // near-player / entity holes, and the far rim + camera-height falloff.
+    // entity holes, and the far rim + camera-height falloff.
     float opacity = fogged_softOcclusion() * (1.0 - hole) * fade;
 
     // Debug views replace the plane wholesale. They draw only in the depth-writing pass so the split
@@ -201,7 +189,7 @@ void main() {
         if (DepthPass < 0.5) {
             discard;
         }
-        fragColor = vec4(debugColor(wl, edge, lum, opacity, nearHole, entityHole), 1.0);
+        fragColor = vec4(debugColor(wl, edge, lum, opacity, entityHole), 1.0);
         return;
     }
 
