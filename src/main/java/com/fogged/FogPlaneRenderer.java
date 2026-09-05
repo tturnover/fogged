@@ -193,8 +193,11 @@ public class FogPlaneRenderer {
             // Dissolve holes only on the fogged side: from the dry side they'd be a clear window down
             // through the murk. On the fogged side the revealed content is hidden by the murk fog.
             shader.safeGetUniform("HolesActive").set(below ? 1.0F : 0.0F);
-            // Per-entity dissolve discs so crossing mobs/players poke through instead of being hard-cut.
-            int holes = gatherEntityHoles(mc.level, cam, surfaceY);
+            // Per-entity dissolve discs so crossing mobs and machines poke through instead of being
+            // hard-cut. They ride the same switch as the depth-buffer fade (planeSoftOcclusion): both
+            // are the same idea -- soften what the boundary cuts -- and off means a hard cut for
+            // everything, with the per-frame entity scan below skipped as well.
+            int holes = wantSoftOcclusion ? gatherEntityHoles(mc.level, cam, surfaceY) : 0;
             lastHoles = holes;
             shader.safeGetUniform("EntityHoleCount").set(holes);
             shader.safeGetUniform("EntityHoles").set(entityHoleBuf);

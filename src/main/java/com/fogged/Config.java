@@ -239,8 +239,10 @@ public class Config {
     public static final ModConfigSpec.BooleanValue PLANE_SOFT_OCCLUSION = CLIENT
             .comment("EXPERIMENTAL. Soft-fade the plane and vapour against the silhouettes of blocks, mobs",
                     "and machines instead of a hard depth cut (uses a per-frame scene-depth snapshot -- see",
-                    "SceneDepth). Off skips that snapshot entirely (a small perf win) and cuts every edge",
-                    "hard. Experimental because it depends on reading the depth buffer of whatever",
+                    "SceneDepth), and open a soft disc around every entity crossing the boundary so it is",
+                    "not sliced by the surface. Off skips the snapshot and the per-frame entity scan both",
+                    "(a small perf win) and cuts every edge hard.",
+                    "Experimental because it depends on reading the depth buffer of whatever",
                     "framebuffer the pipeline is drawing into, which other rendering mods and shader packs",
                     "are free to move or replace: where that fails the fade is wrong, or the whole plane is.",
                     "Turn it off first when the murk looks wrong under another rendering mod.")
