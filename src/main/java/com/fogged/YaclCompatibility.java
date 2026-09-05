@@ -76,7 +76,9 @@ final class YaclCompatibility {
                 .option(bool("flipFog", Config.FLIP_FOG))
                 .option(bool("submergeWorld", Config.SUBMERGE_WORLD))
                 .option(integer("submergeSkip", Config.SUBMERGE_SKIP, 0, 64, 1))
+                .option(bool("enableExtinguish", Config.ENABLE_EXTINGUISH))
                 .group(strings("snuffedDevices", Config.SNUFFED_DEVICES))
+                .option(bool("enableScour", Config.ENABLE_SCOUR))
                 .group(strings("scouredBlocks", Config.SCOURED_BLOCKS))
                 .option(bool("enableTransforms", Config.ENABLE_TRANSFORMS))
                 .group(strings("transforms", Config.TRANSFORMS))
@@ -92,9 +94,9 @@ final class YaclCompatibility {
                 .option(dbl("depthScalingBlocks", Config.DEPTH_SCALING_BLOCKS, 0.0, 128.0, 1.0))
                 .option(dbl("depthScalingPercent", Config.DEPTH_SCALING_PERCENT, 0.0, 100.0, 0.5))
                 .option(bool("mobSuffocation", Config.MOB_SUFFOCATION))
+                .group(strings("allowedMobs", Config.ALLOWED_MOBS))
                 .option(integer("mobSuffocateDelaySeconds", Config.MOB_SUFFOCATE_DELAY, 0, 600, 1))
                 .option(dbl("mobSuffocateDamage", Config.MOB_SUFFOCATE_DAMAGE, 0.0, 40.0, 0.5))
-                .group(strings("allowedMobs", Config.ALLOWED_MOBS))
                 .build();
     }
 
@@ -182,9 +184,18 @@ final class YaclCompatibility {
 
     // ListOption is itself a group, so these are added with .group(...) rather than .option(...).
     // ConfigValue<List<? extends String>> is copied in and out: YACL hands back its own mutable list.
+    // Long lists start folded, with their length in the name: transforms alone runs to a dozen entries
+    // and more in a pack, and a screen that opens on a column of text fields buries every option under
+    // it. Anything short enough to read at a glance stays open.
+    private static final int COLLAPSE_FROM = 5;
+
     private static ListOption<String> strings(String key, ModConfigSpec.ConfigValue<List<? extends String>> value) {
+        int size = value.get().size();
         return ListOption.<String>createBuilder()
-                .name(Component.translatable(KEY + key))
+                .collapsed(size >= COLLAPSE_FROM)
+                .name(size == 0
+                        ? Component.translatable(KEY + key)
+                        : Component.translatable(KEY + key).append(Component.literal(" (" + size + ")")))
                 .description(describe(key))
                 .binding(new ArrayList<>(value.getDefault()),
                         () -> new ArrayList<>(value.get()),

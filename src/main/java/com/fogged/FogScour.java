@@ -122,9 +122,26 @@ public final class FogScour {
             return;
         }
 
+        if (Config.ENABLE_EXTINGUISH.get()) {
+            if (extinguish(level, pos, state)) {
+                return;
+            }
+        }
+        if (Config.ENABLE_SCOUR.get() && state.is(Blocks.FARMLAND)) {
+            level.setBlock(pos, Blocks.DIRT.defaultBlockState(), Block.UPDATE_ALL);
+            BlockPos above = pos.above();
+            if (isFarmPlant(level.getBlockState(above))) {
+                level.destroyBlock(above, false); // remove whatever was planted on it
+            }
+        }
+    }
+
+    // Everything the murk puts out: loose fire, lava, torches and the configured devices. Returns true
+    // when this block was one of them and is dealt with.
+    private static boolean extinguish(Level level, BlockPos pos, BlockState state) {
         if (state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE)) {
             level.removeBlock(pos, false);
-            return;
+            return true;
         }
         if (state.is(Blocks.LAVA)) {
             BlockState frozen = state.getFluidState().isSource()
@@ -132,27 +149,19 @@ public final class FogScour {
                     : Blocks.COBBLESTONE.defaultBlockState();
             level.setBlock(pos, frozen, Block.UPDATE_ALL);
             level.levelEvent(1501, pos, 0); // lava-extinguish fizz
-            return;
+            return true;
         }
         if (state.is(Blocks.TORCH) || state.is(Blocks.WALL_TORCH)
                 || state.is(Blocks.SOUL_TORCH) || state.is(Blocks.SOUL_WALL_TORCH)) {
             level.destroyBlock(pos, true);
-            return;
+            return true;
         }
         // Fire-burning devices (furnaces, campfires, burners, engines) are drowned rather than broken.
         if (FogSnuff.isDevice(state)) {
             FogSnuff.snuff(level, pos, state);
-            return;
+            return true;
         }
-
-        if (state.is(Blocks.FARMLAND)) {
-            level.setBlock(pos, Blocks.DIRT.defaultBlockState(), Block.UPDATE_ALL);
-            BlockPos above = pos.above();
-            if (isFarmPlant(level.getBlockState(above))) {
-                level.destroyBlock(above, false); // remove whatever was planted on it
-            }
-            return;
-        }
+        return false;
     }
 
     // Horizontal reach in blocks: the server's SIMULATION distance (in chunks) converted to blocks.

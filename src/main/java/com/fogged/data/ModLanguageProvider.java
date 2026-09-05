@@ -88,6 +88,9 @@ public class ModLanguageProvider extends LanguageProvider {
                 "The murk drowns what is under it: snuffs fires, freezes lava, drowns torches, wilts plants.");
         cfg("submergeSkip", "Submerge Dead Zone",
                 "Blocks directly under the plane that the scour leaves alone.");
+        cfg("enableExtinguish", "Extinguish Fire",
+                "The murk puts fire out under the boundary: fires vanish, lava freezes, torches fall, "
+                        + "and the devices below are unlit and emptied of fuel.");
         cfg("snuffedDevices", "Snuffed Devices",
                 "Fire-burning devices the murk puts out: each is unlit, its burn timer zeroed and its "
                         + "fuel ejected, so it cannot keep running under the fog.\n"
@@ -96,6 +99,9 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "furnace\n"
                         + "create:lit_blaze_burner\n"
                         + "simulated:*_portable_engine");
+        cfg("enableScour", "Scour Blocks",
+                "The murk takes things out under the boundary: everything in the list below, broken "
+                        + "without drops, and farmland, which reverts and loses what was planted on it.");
         cfg("scouredBlocks", "Scoured Blocks",
                 "Extra blocks the murk breaks under the boundary, on top of the built-in scour. Broken "
                         + "without drops.\n"

@@ -109,7 +109,7 @@ public final class ScourRules {
             }
             return true; // handled either way: a no-op swap is still the config's answer for this block
         }
-        if (isScoured(state)) {
+        if (Config.ENABLE_SCOUR.get() && isScoured(state)) {
             level.destroyBlock(pos, false); // no drops: the murk takes it, it is not being mined
             return true;
         }
@@ -282,35 +282,41 @@ public final class ScourRules {
             // says how many drop, and breaking is what that entry asks for in the first place.
             boolean forPlaced = parsed.fromCount() == 1 && (toBlock == null || parsed.toCount() == 1);
 
-            if (parsed.from().startsWith("#")) {
-                String tagId = parsed.from().substring(1);
-                TagKey<Block> blockTag = forPlaced ? blockTag(tagId) : null;
-                if (blockTag != null) {
-                    blockTags.add(new TagRule(blockTag, rule));
+            // An entry may name several sources at once. They share one rule, and one JEI recipe: the
+            // input slot cycles through them, which is what a family of copper looks like anyway.
+            List<Item> fromItems = new ArrayList<>();
+            for (String from : parsed.from()) {
+                if (from.startsWith("#")) {
+                    String tagId = from.substring(1);
+                    TagKey<Block> blockTag = forPlaced ? blockTag(tagId) : null;
+                    if (blockTag != null) {
+                        blockTags.add(new TagRule(blockTag, rule));
+                    }
+                    TagKey<Item> itemTag = itemTag(tagId);
+                    if (itemTag != null) {
+                        itemTags.add(new ItemTagRule(itemTag, rule));
+                        if (!parsed.silent()) {
+                            // A tag is its own recipe: its contents are only known once a world is up.
+                            display.add(new Shown(List.of(), itemTag, parsed.fromCount(),
+                                    shownTo, parsed.toCount(), parsed.depth()));
+                        }
+                    }
+                    continue;
                 }
-                TagKey<Item> itemTag = itemTag(tagId);
-                if (itemTag != null) {
-                    itemTags.add(new ItemTagRule(itemTag, rule));
-                    if (!parsed.silent()) {
-                        display.add(new Shown(List.of(), itemTag, parsed.fromCount(),
-                                shownTo, parsed.toCount(), parsed.depth()));
+                Pattern glob = Config.idGlob(from);
+                if (forPlaced) {
+                    for (Block block : matchingBlocks(List.of(glob))) {
+                        blocks.putIfAbsent(block, rule);
                     }
                 }
-                continue;
-            }
-
-            Pattern glob = Config.idGlob(parsed.from());
-            if (forPlaced) {
-                for (Block from : matchingBlocks(List.of(glob))) {
-                    blocks.putIfAbsent(from, rule);
+                for (Item item : matchingItems(glob)) {
+                    if (items.putIfAbsent(item, rule) == null) {
+                        fromItems.add(item);
+                    }
                 }
             }
-            List<Item> fromItems = matchingItems(glob);
-            for (Item from : fromItems) {
-                items.putIfAbsent(from, rule);
-            }
             if (!parsed.silent() && !fromItems.isEmpty()) {
-                display.add(new Shown(fromItems, null, parsed.fromCount(),
+                display.add(new Shown(List.copyOf(fromItems), null, parsed.fromCount(),
                         shownTo, parsed.toCount(), parsed.depth()));
             }
         }

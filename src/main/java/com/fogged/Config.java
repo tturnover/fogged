@@ -125,6 +125,13 @@ public class Config {
                     "from this offset down to the bottom of the world.")
             .defineInRange("submergeSkip", 5, 0, 64);
 
+    public static final ModConfigSpec.BooleanValue ENABLE_EXTINGUISH = COMMON
+            .comment("The murk puts fire out under the boundary: loose fire and soul fire vanish, lava",
+                    "freezes to obsidian or cobble with a fizz, torches are knocked down, and every device",
+                    "in the list below is unlit, its burn timer zeroed and its fuel ejected. Off leaves all",
+                    "of it burning. Needs submergeWorld.")
+            .define("enableExtinguish", true);
+
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SNUFFED_DEVICES = COMMON
             .comment("Block ids of fire-burning devices the murk snuffs out along with the loose fires: each",
                     "is unlit, its burn timer zeroed and any fuel inside it ejected, so it cannot keep",
@@ -133,6 +140,12 @@ public class Config {
                     "Example: snuffedDevices = [\"furnace\", \"create:lit_blaze_burner\"]")
             .defineListAllowEmpty("snuffedDevices", Config::defaultSnuffedDevices, () -> "minecraft:furnace",
                     o -> o instanceof String s && !s.isBlank());
+
+    public static final ModConfigSpec.BooleanValue ENABLE_SCOUR = COMMON
+            .comment("The murk takes things out under the boundary: everything in the list below, broken",
+                    "without drops, and farmland, which reverts to dirt and takes whatever was planted on",
+                    "it. Off leaves them all standing. Needs submergeWorld.")
+            .define("enableScour", true);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SCOURED_BLOCKS = COMMON
             .comment("Blocks the murk takes out under the boundary, broken without drops. The vegetation",
@@ -159,7 +172,8 @@ public class Config {
                     "",
                     "  [count] from = [count] to [@depth] [!silent]",
                     "",
-                    "FROM: a block id, an item id, an id with '*' wildcards, or a '#' tag. Whatever it names",
+                    "FROM: a block id, an item id, an id with '*' wildcards, or a '#' tag -- or several of",
+                    "  those separated by commas, which is one line for a whole family. Whatever it names",
                     "  is converted -- placed blocks if it names a block, dropped stacks if it names an",
                     "  item, both if it names both. The 'minecraft:' namespace may be left off.",
                     "TO: one id, no wildcards and no tag. Name a BLOCK and a placed block is replaced by it,",
@@ -187,6 +201,7 @@ public class Config {
                     "  \"4 minecraft:diamond=2 minecraft:dirt\"         four diamonds become two dirt",
                     "  \"#minecraft:leaves=1 minecraft:stick !silent\"  every leaf breaks into one stick",
                     "  \"create:*_casing=minecraft:mud @20\"            wildcards match a whole family",
+                    "  \"copper_block,exposed_copper=oxidized_copper\"  so do commas, for what globs cannot",
                     "",
                     "Applied before the built-in scour, so an entry here overrides what the murk would",
                     "otherwise do to that block. A transform whose result matches another rule is itself",
@@ -611,15 +626,18 @@ public class Config {
         List<String> out = new ArrayList<>();
         out.add("minecraft:coal_ore=minecraft:stone !silent");
         // The sward is the first thing the murk takes. Coarse dirt, not plain dirt, because plain dirt
-        // re-grasses from a lit neighbour the moment the boundary moves off it.
-        out.add("minecraft:grass_block=minecraft:coarse_dirt");
+        // re-grasses from a lit neighbour the moment the boundary moves off it. Silent: it is the murk
+        // killing the grass, not a process anyone looks up.
+        out.add("minecraft:grass_block=minecraft:coarse_dirt !silent");
         out.add("minecraft:deepslate_coal_ore=minecraft:deepslate !silent");
-        out.add("minecraft:moss_block=minecraft:coarse_dirt @50");
         for (String[] family : COPPER_FAMILIES) {
-            String oxidized = "minecraft:" + family[family.length - 1];
+            // One line a family: the three un-oxidised stages, comma-separated, all ending at the same
+            // block. Twenty-seven lines said the same thing.
+            StringBuilder from = new StringBuilder();
             for (int i = 0; i < family.length - 1; i++) {
-                out.add("minecraft:" + family[i] + "=" + oxidized);
+                from.append(i == 0 ? "" : ",").append("minecraft:").append(family[i]);
             }
+            out.add(from + "=minecraft:" + family[family.length - 1]);
         }
         return out;
     }
@@ -638,7 +656,7 @@ public class Config {
      * in. Counts are 1 unless the line says otherwise, and are about stacks -- a placed block is one
      * block and ignores them.
      */
-    record Transform(int fromCount, String from, int toCount, String to, int depth, boolean silent) {}
+    record Transform(int fromCount, List<String> from, int toCount, String to, int depth, boolean silent) {}
 
     /**
      * Parse one transform line, or return null if it is not usable -- which is what the config
@@ -679,7 +697,17 @@ public class Config {
         if (left == null || right == null) {
             return null;
         }
-        return new Transform(Integer.parseInt(left[0]), left[1],
+        // The left may name several things at once, comma-separated: one line for a whole family,
+        // where the alternative is the same target written out a dozen times.
+        List<String> from = new ArrayList<>();
+        for (String part : left[1].split(",", -1)) {
+            String id = idOrTag(part.trim(), true);
+            if (id == null) {
+                return null;
+            }
+            from.add(id);
+        }
+        return new Transform(Integer.parseInt(left[0]), List.copyOf(from),
                 Integer.parseInt(right[0]), right[1], depth, silent);
     }
 
@@ -699,22 +727,37 @@ public class Config {
         if (text.isEmpty() || text.indexOf(' ') >= 0) {
             return null;
         }
-        if (text.startsWith("#")) {
+        if (isFrom) {
+            return new String[] { Integer.toString(count), text }; // ids are checked one by one above
+        }
+        if (text.indexOf(',') >= 0) {
+            return null; // the target has to be one concrete thing
+        }
+        String id = idOrTag(text, false);
+        return id == null ? null : new String[] { Integer.toString(count), id };
+    }
+
+    // One id, with its namespace filled in: a '#' tag or a '*' glob on the left, one plain id on the
+    // right. Null if it is not usable there.
+    private static String idOrTag(String raw, boolean isFrom) {
+        if (raw.isEmpty()) {
+            return null;
+        }
+        if (raw.startsWith("#")) {
             if (!isFrom) {
                 return null; // a tag names many things; there is nothing to turn INTO
             }
-            String id = withNamespace(text.substring(1));
-            return ResourceLocation.tryParse(id) == null
-                    ? null : new String[] { Integer.toString(count), "#" + id };
+            String id = withNamespace(raw.substring(1));
+            return ResourceLocation.tryParse(id) == null ? null : "#" + id;
         }
-        String id = withNamespace(text);
+        String id = withNamespace(raw);
         if (!isFrom && id.indexOf('*') >= 0) {
-            return null; // the target has to be one concrete thing
+            return null;
         }
         if (id.indexOf('*') < 0 && ResourceLocation.tryParse(id) == null) {
             return null;
         }
-        return new String[] { Integer.toString(count), id };
+        return id;
     }
 
     private static Integer number(String raw, int max) {
