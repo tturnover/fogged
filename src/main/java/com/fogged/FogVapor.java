@@ -74,9 +74,12 @@ public final class FogVapor {
         }
 
         Vec3 cam = event.getCamera().getPosition();
-        double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
+        // The sheets ride a little under the plane rather than on it (see EFFECT_SURFACE_DROP); which
+        // side of the boundary the camera is on is still the plane's own question.
+        double planeY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
+        double surfaceY = Config.effectSurfaceY(mc.level);
         float relY = (float) (surfaceY - cam.y);
-        boolean below = (cam.y < surfaceY) != Config.FLIP_FOG.getAsBoolean();
+        boolean below = (cam.y < planeY) != Config.FLIP_FOG.getAsBoolean();
         // Same fade range the plane uses (see FogPlaneRenderer#visibleReach).
         float fogFar = FogPlaneRenderer.visibleReach(mc, event.getCamera(), below);
 

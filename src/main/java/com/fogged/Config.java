@@ -30,6 +30,16 @@ public class Config {
     // fog starts exactly at the visible surface.
     public static final double PLANE_SURFACE_OFFSET = -0.38;
 
+    // How far BELOW that surface the effects riding on it are anchored: the mist sheets, the foam spray
+    // and the height at which that spray is absorbed again. The plane itself, the fog, the scour band
+    // and the breathing checks are not moved -- only the layer that sits on the surface.
+    public static final double EFFECT_SURFACE_DROP = 0.75;
+
+    /** World Y the surface effects (mist, foam spray) are anchored to; see {@link #EFFECT_SURFACE_DROP}. */
+    public static double effectSurfaceY(Level level) {
+        return breathHeight(level) + PLANE_SURFACE_OFFSET - EFFECT_SURFACE_DROP;
+    }
+
     // The murk fog starts applying this many blocks above the plane (not exactly at it). Internal.
     public static final double FOG_START_RAISE = 0.75;
 

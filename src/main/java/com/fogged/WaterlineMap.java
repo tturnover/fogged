@@ -370,8 +370,9 @@ public final class WaterlineMap {
     // Throw this tick's foam: the standing kind along the waterline, and the spray of anything
     // crossing it.
     private static void emitFoamParticles(Level level, Vec3 camPos, int boundaryY) {
-        // Match the rendered plane height exactly (boundaryY is its floored block row, not the surface).
-        double surfaceY = Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET;
+        // Where the spray lives: a little under the rendered plane (see EFFECT_SURFACE_DROP), not the
+        // block row boundaryY, which is the floor of the band the ring is computed on.
+        double surfaceY = Config.effectSurfaceY(level);
         if (Math.abs(camPos.y - surfaceY) > 32.0) {
             return; // only when the camera is near the surface
         }
