@@ -30,7 +30,6 @@ public class Config {
     // fog starts exactly at the visible surface.
     public static final double PLANE_SURFACE_OFFSET = -0.38;
 
-
     // The murk fog starts applying this many blocks above the plane (not exactly at it). Internal.
     public static final double FOG_START_RAISE = 0.75;
 
@@ -249,14 +248,6 @@ public class Config {
                     "Turn it off first when the murk looks wrong under another rendering mod.")
             .define("planeSoftOcclusion", true);
 
-    public static final ModConfigSpec.DoubleValue EFFECT_SURFACE_DROP = CLIENT
-            .comment("How far BELOW the plane the effects riding on it are anchored, in blocks: the mist",
-                    "sheets, the foam spray, and the height that spray is absorbed at again. 0 puts them",
-                    "on the surface; negative lifts them above it. Nothing else moves -- the plane, the",
-                    "fog, the scour and the breathing boundary all stay put. Note the plane writes depth",
-                    "where it is solid, so effects below it are only visible through it where it is not.")
-            .defineInRange("effectSurfaceDrop", 0.75, -8.0, 8.0);
-
     public static final ModConfigSpec.IntValue WATERLINE_CELLS_PER_BLOCK = CLIENT
             .comment("Sub-block resolution of the foam distance-field grid (see WaterlineMap), in cells",
                     "per block. Lower trades a coarser foam ring for a smaller grid: halving this quarters",
@@ -381,14 +372,6 @@ public class Config {
     public static boolean fogged(Level level, double y) {
         double fogLine = breathHeight(level) + PLANE_SURFACE_OFFSET + FOG_START_RAISE;
         return (y < fogLine) != FLIP_FOG.getAsBoolean();
-    }
-
-    /**
-     * World Y the surface effects (mist, foam spray) are anchored to: the plane's own surface, dropped
-     * by {@link #EFFECT_SURFACE_DROP}. Client-side only -- nothing about gameplay reads this.
-     */
-    public static double effectSurfaceY(Level level) {
-        return breathHeight(level) + PLANE_SURFACE_OFFSET - EFFECT_SURFACE_DROP.get();
     }
 
     // --- depth scaling ---

@@ -108,7 +108,7 @@ public class FoamParticle extends TextureSheetParticle {
     // settles back through the murk surface it was thrown off -- and, as there, once it falls inside
     // a block or a liquid, so a puff thrown against a cliff does not hang inside the stone.
     private boolean absorbed() {
-        if (this.y < Config.effectSurfaceY(this.level) - SINK_DEPTH) {
+        if (this.y < Config.breathHeight(this.level) + Config.PLANE_SURFACE_OFFSET - SINK_DEPTH) {
             return true;
         }
         BlockPos pos = BlockPos.containing(this.x, this.y, this.z);
