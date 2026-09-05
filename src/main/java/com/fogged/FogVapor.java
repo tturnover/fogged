@@ -39,8 +39,10 @@ public final class FogVapor {
     // wisps repeat exactly with the anchor -> no seam.
     private static final float WISP_SCALE = 0.09375F;
 
-    // Above the surface and below it: every sheet is drawn on both faces (see the sheet loop).
-    private static final float[] SIDES = { 1.0F, -1.0F };
+    // Above the surface and below it: every sheet is drawn on both faces (see the sheet loop), unless
+    // vaporUnderside says over only.
+    private static final float[] BOTH_SIDES = { 1.0F, -1.0F };
+    private static final float[] OVER_ONLY = { 1.0F };
 
     private FogVapor() {
     }
@@ -188,12 +190,12 @@ public final class FogVapor {
         double spacing = undulation / sheets;
         Tesselator tess = Tesselator.getInstance();
         BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-        // Every sheet is emitted TWICE, mirrored through the surface: the mist clings to both faces of
-        // the plane rather than only the one the camera happens to be on. It used to follow the camera,
-        // which meant the whole layer flipped across the boundary at the instant of a crossing -- the
-        // one moment both sides are in view at once. Whichever side is hidden is hidden by the plane's
-        // own depth, so the pair costs a draw's worth of quads and nothing else.
-        for (float side : SIDES) {
+        // Every sheet is emitted twice by default, mirrored through the surface: the mist clings to both
+        // faces of the plane rather than only the one the camera happens to be on. It used to follow the
+        // camera, which meant the whole layer flipped across the boundary at the instant of a crossing --
+        // the one moment both sides are in view at once. Whichever side is hidden is hidden by the
+        // plane's own depth, so the pair costs a draw's worth of quads and nothing else.
+        for (float side : Config.VAPOR_UNDERSIDE.getAsBoolean() ? BOTH_SIDES : OVER_ONLY) {
             for (int i = 0; i < sheets; i++) {
                 // Bottom plane carries most of the alpha (so the mist reads up close, face-on); higher
                 // planes fall off fast so grazing overlaps at distance don't pile into a solid wall.

@@ -298,6 +298,13 @@ public class Config {
                     "rolling rises and falls. 0 = flat sheets.")
             .defineInRange("vaporUndulation", 1.5, 0.0, 16.0);
 
+    public static final ModConfigSpec.BooleanValue VAPOR_UNDERSIDE = CLIENT
+            .comment("Hang the mist sheets under the plane as well as over it, mirrored. On, the layer looks",
+                    "the same from either side and does not flip across as you cross the boundary. Off (the",
+                    "default), the mist sits on top only: from beneath, the murk is a clean ceiling. Distinct",
+                    "from vaporUnderwater, which is about the water pass rather than the side of the plane.")
+            .define("vaporUnderside", false);
+
     public static final ModConfigSpec.BooleanValue VAPOR_UNDERWATER = CLIENT
             .comment("Draw a second copy of the mist before the water pass, so water composites OVER it",
                     "and the layer reads as lying beneath the surface of a lake instead of floating on",

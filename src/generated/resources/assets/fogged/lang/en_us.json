@@ -86,6 +86,8 @@
   "fogged.configuration.vaporSheets.tooltip": "How many mist sheets are stacked over the plane.",
   "fogged.configuration.vaporStrength": "Vapour Strength",
   "fogged.configuration.vaporStrength.tooltip": "Overall mist alpha. 0 hides the vapour entirely.",
+  "fogged.configuration.vaporUnderside": "Mist Under The Plane",
+  "fogged.configuration.vaporUnderside.tooltip": "Mirror the mist sheets below the surface too, so the layer reads the same from either side.",
   "fogged.configuration.vaporUnderwater": "Mist Under Water",
   "fogged.configuration.vaporUnderwater.tooltip": "Also draw the mist before the water pass, so a lake veils it instead of it floating on top.",
   "fogged.configuration.vaporUndulation": "Vapour Undulation",
