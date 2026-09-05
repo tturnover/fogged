@@ -59,7 +59,6 @@ public class ModLanguageProvider extends LanguageProvider {
 
     /** Config-screen translation keys, one per option in {@link com.fogged.Config}. */
     private void addConfigTranslations() {
-        add("itemGroup.fogged", "Fogged");
 
         add("fogged.configuration.title", "Fogged Configs");
         add("fogged.configuration.section.fogged.common.toml", "Fogged Gameplay");

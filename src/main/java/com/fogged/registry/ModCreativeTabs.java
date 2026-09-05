@@ -2,33 +2,31 @@ package com.fogged.registry;
 
 import com.fogged.Fogged;
 
-import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 
 /**
- * One creative tab holding every item in the mod. The {@code displayItems} builder iterates
- * {@link ModItems#ITEMS}, so blocks/items added there show up here automatically — no per-item edit.
+ * Puts this mod's items into vanilla's creative tabs, rather than giving it a tab of its own.
+ *
+ * <p>One tab per mod is worth it for a mod with a shelf of blocks; this one has a single item, and a
+ * whole tab for it is a page the player has to learn instead of finding it where its kind already
+ * lives. The fog detector reads a redstone signal out of the world, so it goes with the rest of the
+ * redstone.
+ *
+ * <p>The other two blocks are deliberately item-less (see {@link ModBlocks}): the detector extension
+ * only exists by stacking a detector, and the nozzle filter only by putting wool on a nozzle.
  */
+@EventBusSubscriber(modid = Fogged.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class ModCreativeTabs {
-    public static final DeferredRegister<CreativeModeTab> TABS =
-            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Fogged.MODID);
 
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> FOGGED_TAB = TABS.register(
-            "fogged",
-            () -> CreativeModeTab.builder()
-                    .title(Component.translatable("itemGroup.fogged"))
-                    .icon(() -> new ItemStack(ModBlocks.FOG_DETECTOR.get()))
-                    .displayItems((params, output) ->
-                            ModItems.ITEMS.getEntries().forEach(item -> output.accept(item.get())))
-                    .build());
-
-    public static void register(IEventBus modEventBus) {
-        TABS.register(modEventBus);
+    @SubscribeEvent
+    static void onBuildTabContents(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS) {
+            event.accept(ModBlocks.FOG_DETECTOR.get());
+        }
     }
 
     private ModCreativeTabs() {}

@@ -100,6 +100,5 @@
   "fogged.tooltip.fog_detector.desc1": "Видає _редстоуновий сигнал_ залежно від глибини під туманом.",
   "fogged.tooltip.fog_detector.desc2": "ПКМ _іншим таким же_, щоб зробити колону вищою.",
   "fogged.tooltip.nozzle.desc1": "Застосуйте _вовняний блок_, щоб відфільтрувати _густий туман_.",
-  "fogged.tooltip.nozzle.desc2": "Швидкість _вентилятора в корпусі_ задає _зону дихання_.",
-  "itemGroup.fogged": "Fogged"
+  "fogged.tooltip.nozzle.desc2": "Швидкість _вентилятора в корпусі_ задає _зону дихання_."
 }

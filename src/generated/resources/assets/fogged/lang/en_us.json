@@ -100,6 +100,5 @@
   "fogged.tooltip.fog_detector.desc1": "Emits a _redstone signal_ by how deep it sits under the fog.",
   "fogged.tooltip.fog_detector.desc2": "Right-click with _another_ to stack it taller.",
   "fogged.tooltip.nozzle.desc1": "Apply a _Wool Block_ to filter out _thick fog_.",
-  "fogged.tooltip.nozzle.desc2": "An _Encased Fan's_ speed controls the _breathable area_.",
-  "itemGroup.fogged": "Fogged"
+  "fogged.tooltip.nozzle.desc2": "An _Encased Fan's_ speed controls the _breathable area_."
 }

@@ -6,7 +6,6 @@ import com.mojang.logging.LogUtils;
 
 import com.fogged.registry.ModBlockEntities;
 import com.fogged.registry.ModBlocks;
-import com.fogged.registry.ModCreativeTabs;
 import com.fogged.registry.ModItems;
 import com.fogged.registry.ModParticles;
 
@@ -29,7 +28,6 @@ public class Fogged {
         // Registries are declared in one place each (ModBlocks / ModItems); datagen reads them.
         ModBlocks.register(modEventBus);
         ModItems.register(modEventBus);
-        ModCreativeTabs.register(modEventBus);
         ModBlockEntities.register(modEventBus);
         ModParticles.register(modEventBus);
 

@@ -56,7 +56,6 @@ public class ModLanguageProviderUk extends LanguageProvider {
     }
 
     private void addConfigTranslations() {
-        add("itemGroup.fogged", "Fogged");
 
         add("fogged.configuration.title", "Налаштування Fogged");
         add("fogged.configuration.section.fogged.common.toml", "Ігролад Fogged");
