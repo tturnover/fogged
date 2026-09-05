@@ -30,6 +30,8 @@
   "fogged.configuration.foamWidth.tooltip": "Наскільки далеко (у блоках) сягає піна від кожного краю. 0 вимикає її.",
   "fogged.configuration.fogDistance": "Дальність туману під площиною",
   "fogged.configuration.fogDistance.tooltip": "Наскільки далеко видно (у блоках) під межею. Менше = густіша каламуть.",
+  "fogged.configuration.fogStartRaise": "Зміщення початку каламуті",
+  "fogged.configuration.fogStartRaise.tooltip": "Де починається каламуть відносно площини: вище, 0 — на ній, або нижче.",
   "fogged.configuration.logRenderCompatWarnings": "Логувати попередження сумісності",
   "fogged.configuration.logRenderCompatWarnings.tooltip": "Один раз записати в лог, коли мод не може працювати з поточним налаштуванням рендера.",
   "fogged.configuration.mobSuffocateDamage": "Шкода від задухи мобів",

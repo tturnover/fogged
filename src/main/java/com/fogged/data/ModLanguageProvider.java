@@ -78,6 +78,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Height added to the schedule at midnight -- the high point of the daily rise and fall.");
         cfg("fogDistance", "Under-Plane Fog Distance",
                 "How far you can see (in blocks) once the camera is under the boundary. Lower = denser murk.");
+        cfg("fogStartRaise", "Murk Start Offset",
+                "Where the murk begins, from the plane: above it, 0 at it, or below it.");
         cfg("flipFog", "Flip Fog Side",
                 "Put the murk above the boundary instead of below it. Does not move the breathing boundary.");
         cfg("submergeWorld", "Submerge World",

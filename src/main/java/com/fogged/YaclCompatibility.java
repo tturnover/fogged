@@ -72,6 +72,7 @@ final class YaclCompatibility {
                 .option(dbl("overdayOffsetNoon", Config.OVERDAY_OFFSET_NOON, -64.0, 64.0, 0.25))
                 .option(dbl("overdayOffsetMidnight", Config.OVERDAY_OFFSET_MIDNIGHT, -64.0, 64.0, 0.25))
                 .option(integer("fogDistance", Config.FOG_DISTANCE, 4, 256, 1))
+                .option(dbl("fogStartRaise", Config.FOG_START_RAISE, -8.0, 8.0, 0.05))
                 .option(bool("flipFog", Config.FLIP_FOG))
                 .option(bool("submergeWorld", Config.SUBMERGE_WORLD))
                 .option(integer("submergeSkip", Config.SUBMERGE_SKIP, 0, 64, 1))

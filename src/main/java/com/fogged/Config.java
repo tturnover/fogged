@@ -30,8 +30,6 @@ public class Config {
     // fog starts exactly at the visible surface.
     public static final double PLANE_SURFACE_OFFSET = -0.38;
 
-    // The murk fog starts applying this many blocks above the plane (not exactly at it). Internal.
-    public static final double FOG_START_RAISE = 0.75;
 
     // ==== Constants mirrored in GLSL shaders (GLSL can't import Java constants -- keep these in sync
     // by hand whenever any one of them changes). Each entry's Java declaration links back to this list.
@@ -100,6 +98,14 @@ public class Config {
             .comment("Render distance (in blocks) of the thick fog applied while the camera is below the",
                     "breathing boundary. Lower = denser fog / shorter view, like being underwater.")
             .defineInRange("fogDistance", 24, 4, 256);
+
+    public static final ModConfigSpec.DoubleValue FOG_START_RAISE = COMMON
+            .comment("Where the murk starts, measured from the visible plane in blocks: positive begins it",
+                    "that far ABOVE the surface, 0 exactly at it, negative that far under it. This is the",
+                    "line everything asks about which side of the boundary something is on -- the fog, the",
+                    "plane, the weather suppression and mob suffocation all move together with it. The",
+                    "breathing boundary itself does not move; that is the plane's own height.")
+            .defineInRange("fogStartRaise", 0.0, -8.0, 8.0);
 
     public static final ModConfigSpec.BooleanValue FLIP_FOG = COMMON
             .comment("Flip the murk fog to the other side of the plane. Default (false) fogs BELOW the",
@@ -370,7 +376,7 @@ public class Config {
     // Normally that is below the boundary; flipFog moves it to the side above. Shared by the fog
     // override, the separation plane and the weather suppression so they all agree on the murk side.
     public static boolean fogged(Level level, double y) {
-        double fogLine = breathHeight(level) + PLANE_SURFACE_OFFSET + FOG_START_RAISE;
+        double fogLine = breathHeight(level) + PLANE_SURFACE_OFFSET + FOG_START_RAISE.get();
         return (y < fogLine) != FLIP_FOG.getAsBoolean();
     }
 
