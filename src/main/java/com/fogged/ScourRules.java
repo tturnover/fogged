@@ -40,8 +40,22 @@ public final class ScourRules {
     private static List<TagKey<Block>> scouredTags = List.of();
     private static Map<Block, BlockState> transformBlocks = Map.of();
     private static List<TagTransform> transformTags = List.of();
+    private static List<Shown> shown = List.of();
 
     private record TagTransform(TagKey<Block> tag, BlockState to) {}
+
+    /**
+     * A transform the config asked to be shown as a recipe ("from=to|jei"). Exactly one of {@code from}
+     * and {@code fromTag} is set: an id entry resolves to the blocks it matched, a tag entry stays a tag
+     * so whoever displays it can expand it against the datapack in force.
+     */
+    public record Shown(List<Block> from, TagKey<Block> fromTag, Block to) {}
+
+    /** The transforms flagged for display, in config order. Never null; empty when none are flagged. */
+    public static List<Shown> shownTransforms() {
+        ensureRules();
+        return shown;
+    }
 
     /**
      * Apply the configured rules to one block, most specific first. Returns true when this block has
@@ -126,6 +140,7 @@ public final class ScourRules {
     private static void rebuildTransforms(List<? extends String> raw) {
         Map<Block, BlockState> blocks = new HashMap<>();
         List<TagTransform> tags = new ArrayList<>();
+        List<Shown> display = new ArrayList<>();
         for (String entry : raw) {
             String[] pair = Config.parseTransformEntry(entry.trim());
             if (pair == null) {
@@ -140,19 +155,28 @@ public final class ScourRules {
                 continue;
             }
             BlockState toState = to.defaultBlockState();
+            boolean show = Config.TRANSFORM_FLAG_JEI.equals(pair[2]);
             if (pair[0].startsWith("#")) {
                 TagKey<Block> tag = tag(pair[0].substring(1));
                 if (tag != null) {
                     tags.add(new TagTransform(tag, toState));
+                    if (show) {
+                        display.add(new Shown(List.of(), tag, to));
+                    }
                 }
                 continue;
             }
-            for (Block from : matching(List.of(Config.idGlob(pair[0])))) {
-                blocks.put(from, toState);
+            List<Block> from = List.copyOf(matching(List.of(Config.idGlob(pair[0]))));
+            for (Block block : from) {
+                blocks.put(block, toState);
+            }
+            if (show && !from.isEmpty()) {
+                display.add(new Shown(from, null, to));
             }
         }
         transformBlocks = Map.copyOf(blocks);
         transformTags = List.copyOf(tags);
+        shown = List.copyOf(display);
     }
 
     // Every registered block whose id matches one of these patterns. One walk of the registry per

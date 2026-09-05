@@ -151,8 +151,9 @@ public class Config {
                     "an entry here overrides what the murk would otherwise do to that block. A transform",
                     "whose result matches another rule is itself scoured on the next pass, so do not point",
                     "one at a block another rule takes. Empty list = built-in behaviour only.",
+                    "Append '|jei' to show that conversion in JEI, as a recipe of its own.",
                     "Needs submergeWorld.",
-                    "Example: blockTransforms = [\"minecraft:coal_ore=minecraft:stone\", \"#c:ores=stone\"]")
+                    "Example: blockTransforms = [\"minecraft:coal_ore=minecraft:stone|jei\", \"#c:ores=stone\"]")
             .defineListAllowEmpty("blockTransforms", Config::defaultBlockTransforms,
                     () -> "minecraft:coal_ore=minecraft:stone",
                     o -> o instanceof String s && parseTransformEntry(s) != null);
@@ -531,21 +532,37 @@ public class Config {
                 "simulated:*_portable_engine"));
     }
 
+    /** The one flag a blockTransforms entry can carry: show this conversion in JEI. */
+    static final String TRANSFORM_FLAG_JEI = "jei";
+
     // Coal is what the murk eats: an ore left in the dark under the boundary comes back as the rock it
     // sat in. Ore first, so a transform to a stone that some other rule scours is the config's problem
     // and not the default's.
     private static List<String> defaultBlockTransforms() {
         return new ArrayList<>(List.of(
-                "minecraft:coal_ore=minecraft:stone",
-                "minecraft:deepslate_coal_ore=minecraft:deepslate"));
+                "minecraft:coal_ore=minecraft:stone|jei",
+                "minecraft:deepslate_coal_ore=minecraft:deepslate|jei"));
     }
 
     /**
-     * Split one "from=to" transform entry. Returns {from, to} with namespaces filled in, or null if it
-     * is not a usable pair -- which is also what the config validator tests, so a malformed line is
-     * rejected at load rather than silently ignored later.
+     * Split one "from=to" transform entry, with its optional trailing flags ("from=to|jei"). Returns
+     * {from, to, flags} with namespaces filled in, or null if it is not a usable pair -- which is also
+     * what the config validator tests, so a malformed line is rejected at load rather than silently
+     * ignored later.
+     *
+     * <p>'|' cannot appear in a resource location, so it can never be part of either id.
      */
-    static String[] parseTransformEntry(String entry) {
+    static String[] parseTransformEntry(String rawEntry) {
+        String entry = rawEntry;
+        String flags = "";
+        int bar = entry.indexOf('|');
+        if (bar >= 0) {
+            flags = entry.substring(bar + 1).trim().toLowerCase(java.util.Locale.ROOT);
+            entry = entry.substring(0, bar);
+            if (!flags.equals(TRANSFORM_FLAG_JEI)) {
+                return null; // an unknown flag is a typo, not something to quietly drop
+            }
+        }
         int eq = entry.indexOf('=');
         if (eq <= 0 || eq == entry.length() - 1) {
             return null;
@@ -562,7 +579,7 @@ public class Config {
         if (fromId.startsWith("#") && ResourceLocation.tryParse(fromId.substring(1)) == null) {
             return null;
         }
-        return new String[] { fromId, withNamespace(to) };
+        return new String[] { fromId, withNamespace(to), flags };
     }
 
     /**

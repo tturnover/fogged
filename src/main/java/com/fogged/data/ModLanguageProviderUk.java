@@ -38,6 +38,9 @@ public class ModLanguageProviderUk extends LanguageProvider {
                 "Видає _редстоуновий сигнал_ залежно від глибини під туманом.");
         add("fogged.tooltip.fog_detector.desc2", "ПКМ _іншим таким же_, щоб зробити колону вищою.");
 
+        // Категорія JEI для перетворень блоків каламуттю (див. FoggedJeiPlugin).
+        add("fogged.jei.murk_transform", "Перетворення каламуттю");
+
         add("death.attack.fog_suffocation", "Гравця %1$s поглинув туман");
         add("death.attack.fog_suffocation.player", "Гравця %1$s поглинув туман під час втечі від %2$s");
 

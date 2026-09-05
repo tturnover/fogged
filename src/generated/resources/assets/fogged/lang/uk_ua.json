@@ -94,6 +94,7 @@
   "fogged.configuration.vaporUndulation.tooltip": "Наскільки високо (у блоках) шари туману піднімаються над площиною. 0 = пласко.",
   "fogged.configuration.waterlineCellsPerBlock": "Роздільність сітки піни",
   "fogged.configuration.waterlineCellsPerBlock.tooltip": "Комірок на блок у полі відстаней піни. Менше = грубіша піна й помітно дешевше.",
+  "fogged.jei.murk_transform": "Перетворення каламуттю",
   "fogged.tooltip.fog_detector.desc1": "Видає _редстоуновий сигнал_ залежно від глибини під туманом.",
   "fogged.tooltip.fog_detector.desc2": "ПКМ _іншим таким же_, щоб зробити колону вищою.",
   "fogged.tooltip.nozzle.desc1": "Застосуйте _вовняний блок_, щоб відфільтрувати _густий туман_.",

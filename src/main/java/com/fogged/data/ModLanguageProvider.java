@@ -40,6 +40,9 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.tooltip.fog_detector.desc2", "Right-click with _another_ to stack it taller.");
 
         // Custom death messages (keyed by each damage type's message_id).
+        // JEI category for the murk's block conversions (see FoggedJeiPlugin); only shown when JEI is in.
+        add("fogged.jei.murk_transform", "Murk Conversion");
+
         add("death.attack.fog_suffocation", "%1$s was swallowed by the fog");
         add("death.attack.fog_suffocation.player", "%1$s drowned in the fog while fleeing %2$s");
 

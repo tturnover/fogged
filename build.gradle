@@ -127,6 +127,10 @@ dependencies {
     // YetAnotherConfigLib, compile-time only. Optional at runtime: the config screen falls back to
     // NeoForge's own when it is absent, and every YACL reference is isolated in YaclCompatibility.
     compileOnly files("libs/yet_another_config_lib_v3-3.8.2+1.21.1-neoforge.jar")
+
+    // JEI, compile-time only. Optional at runtime: the plugin class is only ever loaded by JEI itself
+    // (it finds it by the @JeiPlugin annotation), so nothing here is touched without the mod present.
+    compileOnly files("libs/jei-1.21.1-neoforge-19.27.0.336.jar")
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
