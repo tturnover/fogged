@@ -59,10 +59,11 @@ public final class FogDebugOverlay {
         lines.add(new Line(String.format("waterline %d blk @ %d cells/blk  tex %d",
                 WaterlineMap.size(), WaterlineMap.cellsPerBlock(), WaterlineMap.textureId()), PLAIN));
         lines.add(new Line("foam sites in " + FoamSites.cachedChunks() + " chunks", PLAIN));
-        lines.add(new Line("vapor " + (Config.RENDER_VAPOR.getAsBoolean()
+        lines.add(new Line("vapor " + (Config.VAPOR_SHEETS.getAsInt() > 0
                 ? Config.VAPOR_SHEETS.getAsInt() + " sheets"
+                        + (Config.VAPOR_UNDERSIDE.getAsBoolean() ? " both sides" : "")
                         + (Config.VAPOR_UNDERWATER.getAsBoolean() ? " x2 (under water)" : "")
-                : "off"), PLAIN));
+                : "off (vaporSheets 0)"), PLAIN));
         lines.add(mixinLine());
 
         int y = MARGIN;

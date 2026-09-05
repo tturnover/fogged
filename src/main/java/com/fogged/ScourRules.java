@@ -72,8 +72,15 @@ public final class ScourRules {
     public record Shown(List<Item> from, TagKey<Item> fromTag, int fromCount,
                         Item to, int toCount, int minDepth) {}
 
-    /** The transforms to display, in config order. Never null; empty when every entry is !silent. */
+    /**
+     * The transforms to display, in config order. Never null; empty when every entry is !silent -- or
+     * when the whole list is switched off, since a recipe for something that does not happen is worse
+     * than no recipe at all.
+     */
     public static List<Shown> shownTransforms() {
+        if (!Config.ENABLE_TRANSFORMS.get()) {
+            return List.of();
+        }
         ensureRules();
         return shown;
     }
@@ -84,7 +91,7 @@ public final class ScourRules {
      */
     public static boolean apply(Level level, BlockPos pos, BlockState state) {
         ensureRules();
-        Rule rule = ruleFor(state);
+        Rule rule = Config.ENABLE_TRANSFORMS.get() ? ruleFor(state) : null;
         if (rule != null) {
             if (!deepEnough(level, rule, pos.getY())) {
                 return false; // not far enough down yet: leave it to the rules below
@@ -115,6 +122,9 @@ public final class ScourRules {
      * it can decide what to do with a remainder.
      */
     public static Conversion convert(Level level, ItemStack stack, double y) {
+        if (!Config.ENABLE_TRANSFORMS.get()) {
+            return null;
+        }
         ensureRules();
         Rule rule = ruleFor(stack);
         if (rule == null || !deepEnough(level, rule, y)) {

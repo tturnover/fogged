@@ -104,6 +104,9 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "cobweb\n"
                         + "#minecraft:banners\n"
                         + "create:*_casing");
+        cfg("enableTransforms", "Enable Transforms",
+                "Master switch for the transform list. Off, the murk changes nothing into anything and "
+                        + "JEI stops listing the conversions; the list itself is kept.");
         cfg("transforms", "Murk Transforms",
                 "What the murk turns things into under the boundary -- placed blocks and dropped stacks "
                         + "alike, from one list.\n"
@@ -129,8 +132,6 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Players drown under the boundary: air drains, then drowning damage.");
         cfg("airLossPerTick", "Air Loss Per Tick",
                 "Air a player loses per tick, out of 300. Higher = drown faster.");
-        cfg("depthScaling", "Depth Scaling",
-                "Make the murk bite harder the deeper you go.");
         cfg("depthScalingBlocks", "Depth Step",
                 "How many blocks below the boundary make up one step of scaling. 0 disables it.");
         cfg("depthScalingPercent", "Depth Step Percent",
@@ -160,8 +161,6 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "Turn it off first if the murk looks wrong.");
         cfg("waterlineCellsPerBlock", "Foam Grid Resolution",
                 "Cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper.");
-        cfg("renderVapor", "Render Cold-Vapour Layer",
-                "Stacked mist sheets over the plane, for a liquid-nitrogen look.");
         cfg("vaporColorOffsetRed", "Vapour Red Offset",
                 "Red added to the plane colour to get the vapour colour.");
         cfg("vaporColorOffsetGreen", "Vapour Green Offset",

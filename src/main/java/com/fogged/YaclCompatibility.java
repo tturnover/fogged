@@ -78,6 +78,7 @@ final class YaclCompatibility {
                 .option(integer("submergeSkip", Config.SUBMERGE_SKIP, 0, 64, 1))
                 .group(strings("snuffedDevices", Config.SNUFFED_DEVICES))
                 .group(strings("scouredBlocks", Config.SCOURED_BLOCKS))
+                .option(bool("enableTransforms", Config.ENABLE_TRANSFORMS))
                 .group(strings("transforms", Config.TRANSFORMS))
                 .build();
     }
@@ -87,7 +88,6 @@ final class YaclCompatibility {
                 .name(Component.translatable(KEY + "suffocation"))
                 .option(bool("playerSuffocation", Config.PLAYER_SUFFOCATION))
                 .option(integer("airLossPerTick", Config.AIR_LOSS_PER_TICK, 1, 300, 1))
-                .option(bool("depthScaling", Config.DEPTH_SCALING))
                 .option(dbl("depthScalingBlocks", Config.DEPTH_SCALING_BLOCKS, 0.0, 128.0, 1.0))
                 .option(dbl("depthScalingPercent", Config.DEPTH_SCALING_PERCENT, 0.0, 100.0, 0.5))
                 .option(bool("mobSuffocation", Config.MOB_SUFFOCATION))
@@ -110,7 +110,6 @@ final class YaclCompatibility {
                 .option(integer("waterlineCellsPerBlock", Config.WATERLINE_CELLS_PER_BLOCK, 1, 4, 1))
                 .group(OptionGroup.createBuilder()
                         .name(Component.translatable(KEY + "vapor"))
-                        .option(bool("renderVapor", Config.RENDER_VAPOR))
                         .option(dbl("vaporColorOffsetRed", Config.VAPOR_OFFSET_RED, -1.0, 1.0, 0.05))
                         .option(dbl("vaporColorOffsetGreen", Config.VAPOR_OFFSET_GREEN, -1.0, 1.0, 0.05))
                         .option(dbl("vaporColorOffsetBlue", Config.VAPOR_OFFSET_BLUE, -1.0, 1.0, 0.05))

@@ -145,6 +145,14 @@ public class Config {
             .defineListAllowEmpty("scouredBlocks", Config::defaultScouredBlocks, () -> "minecraft:cobweb",
                     o -> o instanceof String s && !s.isBlank());
 
+    public static final ModConfigSpec.BooleanValue ENABLE_TRANSFORMS = COMMON
+            .comment("Master switch for the transforms list below: off and the murk changes nothing into",
+                    "anything -- no copper weathering, no coal ore going back to stone, no dropped stack",
+                    "turning over. The list is left as it is, so this can be flipped back without losing",
+                    "it, and JEI stops listing the conversions while it is off. What the murk takes",
+                    "outright (scouredBlocks) and what it snuffs are not affected. Needs submergeWorld.")
+            .define("enableTransforms", true);
+
     public static final ModConfigSpec.ConfigValue<List<? extends String>> TRANSFORMS = COMMON
             .comment("What the murk turns things into under the boundary, one entry per line. One list for",
                     "everything: blocks it finds placed, and stacks dropped in it.",
@@ -204,14 +212,11 @@ public class Config {
                     "Higher = drown faster.")
             .defineInRange("airLossPerTick", 1, 1, 300);
 
-    public static final ModConfigSpec.BooleanValue DEPTH_SCALING = COMMON
-            .comment("Make the murk bite harder the deeper you go: air drains faster and nozzle-filter",
-                    "breathing spheres shrink, both by depthScalingPercent. Off = the same everywhere",
-                    "below the boundary.")
-            .define("depthScaling", true);
-
     public static final ModConfigSpec.DoubleValue DEPTH_SCALING_BLOCKS = COMMON
-            .comment("How many blocks below the boundary make up one depth step. 0 disables the scaling.")
+            .comment("How many blocks below the boundary count as one step of depth. Each step makes the",
+                    "murk bite harder by depthScalingPercent: air drains faster and nozzle-filter",
+                    "breathing spheres shrink.",
+                    "0 is how depth scaling is turned off: the murk is then the same everywhere below.")
             .defineInRange("depthScalingBlocks", 10.0, 0.0, 512.0);
 
     public static final ModConfigSpec.DoubleValue DEPTH_SCALING_PERCENT = COMMON
@@ -294,12 +299,6 @@ public class Config {
     // ---- client [plane.vapor] : cold-vapour ("liquid nitrogen") layer ----
     static { CLIENT.push("vapor"); }
 
-    public static final ModConfigSpec.BooleanValue RENDER_VAPOR = CLIENT
-            .comment("Render the cold-vapour layer on top of the plane: drifting horizontal mist sheets",
-                    "(overall variation, densest at grazing angles far away) plus animated vertical splash",
-                    "wisps near the camera, for a liquid-nitrogen look. No effect if renderPlane is off.")
-            .define("renderVapor", true);
-
     public static final ModConfigSpec.DoubleValue VAPOR_OFFSET_RED = CLIENT
             .comment("Red offset from the plane colour to the vapour colour (-1..1, added then clamped),",
                     "so the vapour tracks the plane but still reads distinct.")
@@ -321,7 +320,8 @@ public class Config {
     public static final ModConfigSpec.IntValue VAPOR_SHEETS = CLIENT
             .comment("Number of stacked mist sheets over the plane. Each is a grid that rises and falls",
                     "(see vaporUndulation) so the plane never looks dead flat. More sheets = thicker, more",
-                    "layered mist (and a touch more cost). 0 disables the sheets.")
+                    "layered mist (and a touch more cost).",
+                    "0 is how the mist is turned off: nothing is drawn and nothing is computed for it.")
             .defineInRange("vaporSheets", 5, 0, 8);
 
     public static final ModConfigSpec.DoubleValue VAPOR_UNDULATION = CLIENT
@@ -423,9 +423,6 @@ public class Config {
     // How many depthScalingBlocks steps deep world height y sits below the boundary. 0 at or above the
     // boundary; fractional, so the scaling below eases in instead of jumping at every step.
     private static double depthSteps(Level level, double y) {
-        if (!DEPTH_SCALING.get()) {
-            return 0.0;
-        }
         double step = DEPTH_SCALING_BLOCKS.get();
         if (step <= 0.0) {
             return 0.0;
