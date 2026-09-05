@@ -77,6 +77,8 @@
   "fogged.configuration.submergeWorld.tooltip": "Каламуть топить усе під собою: гасить вогонь, застигає лаву, топить смолоскипи, в'ялить рослини.",
   "fogged.configuration.suffocation": "Задуха",
   "fogged.configuration.title": "Налаштування Fogged",
+  "fogged.configuration.transformDroppedItems": "Перетворення кинутих предметів",
+  "fogged.configuration.transformDroppedItems.tooltip": "Кинута стопка стає тим, чим став би її блок, за тими самими правилами.",
   "fogged.configuration.vapor": "Холодні випари",
   "fogged.configuration.vaporColorOffsetBlue": "Синє зміщення випарів",
   "fogged.configuration.vaporColorOffsetBlue.tooltip": "Синій, доданий до кольору площини, щоб отримати колір випарів.",

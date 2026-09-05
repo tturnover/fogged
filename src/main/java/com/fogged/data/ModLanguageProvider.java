@@ -92,6 +92,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Block ids of fire-burning devices the murk puts out. '*' matches any run of characters.");
         cfg("scouredBlocks", "Scoured Blocks",
                 "Extra blocks the murk breaks under the boundary. A '#' entry is a block tag.");
+        cfg("transformDroppedItems", "Transform Dropped Items",
+                "A dropped stack turns into whatever its block form would, by the same rules.");
         cfg("silentTransforms", "Silent Transforms",
                 "\"from=to\" swaps the murk makes under the boundary, unannounced. Copper weathers right through.");
         cfg("recipeTransforms", "Shown Transforms",

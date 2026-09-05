@@ -51,7 +51,7 @@ public final class ScourRules {
     private record TagTransform(TagKey<Block> tag, Transform transform) {}
 
     /**
-     * A transform the config asked to be shown as a recipe ("from=to|jei"). Exactly one of {@code from}
+     * A transform from the shown list, for JEI. Exactly one of {@code from}
      * and {@code fromTag} is set: an id entry resolves to the blocks it matched, a tag entry stays a tag
      * so whoever displays it can expand it against the datapack in force.
      */
@@ -109,6 +109,25 @@ public final class ScourRules {
 
     private static <T extends Comparable<T>> BlockState copy(BlockState from, BlockState to, Property<T> property) {
         return to.setValue(property, from.getValue(property));
+    }
+
+    /**
+     * What a dropped item of {@code block} should become at world height {@code y}, or null when
+     * nothing applies -- the same rules the blocks themselves go through, depth included, so a stack
+     * lying in the murk keeps up with the world around it rather than surviving what its placed form
+     * cannot.
+     */
+    public static Block transformForItem(Level level, Block block, double y) {
+        ensureRules();
+        Transform transform = transformFor(block.defaultBlockState());
+        if (transform == null || transform.to() == block) {
+            return null;
+        }
+        if (transform.minDepth() > 0
+                && Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET - y < transform.minDepth()) {
+            return null;
+        }
+        return transform.to();
     }
 
     private static Transform transformFor(BlockState state) {

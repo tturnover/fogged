@@ -77,6 +77,8 @@
   "fogged.configuration.submergeWorld.tooltip": "The murk drowns what is under it: snuffs fires, freezes lava, drowns torches, wilts plants.",
   "fogged.configuration.suffocation": "Suffocation",
   "fogged.configuration.title": "Fogged Configs",
+  "fogged.configuration.transformDroppedItems": "Transform Dropped Items",
+  "fogged.configuration.transformDroppedItems.tooltip": "A dropped stack turns into whatever its block form would, by the same rules.",
   "fogged.configuration.vapor": "Cold Vapour",
   "fogged.configuration.vaporColorOffsetBlue": "Vapour Blue Offset",
   "fogged.configuration.vaporColorOffsetBlue.tooltip": "Blue added to the plane colour to get the vapour colour.",

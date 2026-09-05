@@ -144,6 +144,12 @@ public class Config {
             .defineListAllowEmpty("scouredBlocks", ArrayList::new, () -> "minecraft:cobweb",
                     o -> o instanceof String s && !s.isBlank());
 
+    public static final ModConfigSpec.BooleanValue TRANSFORM_DROPPED_ITEMS = COMMON
+            .comment("Dropped items turn as well as placed blocks: a stack lying on the fogged side becomes",
+                    "whatever its block form would become, by the same transform rules and at the same",
+                    "depths. Only items whose block form has a rule are touched. Needs submergeWorld.")
+            .define("transformDroppedItems", true);
+
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SILENT_TRANSFORMS = COMMON
             .comment("Blocks the murk turns into something else under the boundary, one \"from=to\" entry",
                     "per line. 'from' is a block id, an id with '*' wildcards, or a '#' block tag; 'to' is",
