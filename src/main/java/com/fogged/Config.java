@@ -144,18 +144,29 @@ public class Config {
             .defineListAllowEmpty("scouredBlocks", ArrayList::new, () -> "minecraft:cobweb",
                     o -> o instanceof String s && !s.isBlank());
 
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCK_TRANSFORMS = COMMON
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> SILENT_TRANSFORMS = COMMON
             .comment("Blocks the murk turns into something else under the boundary, one \"from=to\" entry",
                     "per line. 'from' is a block id, an id with '*' wildcards, or a '#' block tag; 'to' is",
-                    "a single block id, placed in its default state. Applied before the built-in scour, so",
-                    "an entry here overrides what the murk would otherwise do to that block. A transform",
-                    "whose result matches another rule is itself scoured on the next pass, so do not point",
-                    "one at a block another rule takes. Empty list = built-in behaviour only.",
-                    "Append '|jei' to show that conversion in JEI, as a recipe of its own.",
-                    "Needs submergeWorld.",
-                    "Example: blockTransforms = [\"minecraft:coal_ore=minecraft:stone|jei\", \"#c:ores=stone\"]")
-            .defineListAllowEmpty("blockTransforms", Config::defaultBlockTransforms,
+                    "a single block id. Properties the two blocks share are carried over, so a stair keeps",
+                    "its facing and a door its hinge. Applied before the built-in scour, so an entry here",
+                    "overrides what the murk would otherwise do to that block. A transform whose result",
+                    "matches another rule is itself scoured on the next pass, so do not point one at a",
+                    "block another rule takes.",
+                    "These are the SILENT ones: they happen, and nothing documents them. The default is",
+                    "coal ore going back to the rock it sat in. Needs submergeWorld.",
+                    "Example: silentTransforms = [\"minecraft:coal_ore=minecraft:stone\"]")
+            .defineListAllowEmpty("silentTransforms", Config::defaultSilentTransforms,
                     () -> "minecraft:coal_ore=minecraft:stone",
+                    o -> o instanceof String s && parseTransformEntry(s) != null);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> RECIPE_TRANSFORMS = COMMON
+            .comment("The same thing, in the same \"from=to\" form, for conversions worth telling players",
+                    "about: each one is also shown in JEI as a recipe of its own, under \"Murk Conversion\".",
+                    "Keep this list short -- a tag entry here can put hundreds of blocks in that category.",
+                    "Defaults are coal ore going back to the rock it sat in. Needs submergeWorld.",
+                    "Example: recipeTransforms = [\"minecraft:coal_ore=minecraft:stone\"]")
+            .defineListAllowEmpty("recipeTransforms", Config::defaultRecipeTransforms,
+                    () -> "minecraft:copper_block=minecraft:oxidized_copper",
                     o -> o instanceof String s && parseTransformEntry(s) != null);
 
     static { COMMON.pop(); }   // [boundary]
@@ -532,37 +543,52 @@ public class Config {
                 "simulated:*_portable_engine"));
     }
 
-    /** The one flag a blockTransforms entry can carry: show this conversion in JEI. */
-    static final String TRANSFORM_FLAG_JEI = "jei";
-
     // Coal is what the murk eats: an ore left in the dark under the boundary comes back as the rock it
-    // sat in. Ore first, so a transform to a stone that some other rule scours is the config's problem
-    // and not the default's.
-    private static List<String> defaultBlockTransforms() {
+    // sat in. Silent -- it is the murk taking something, not a process to look up.
+    private static List<String> defaultSilentTransforms() {
         return new ArrayList<>(List.of(
-                "minecraft:coal_ore=minecraft:stone|jei",
-                "minecraft:deepslate_coal_ore=minecraft:deepslate|jei"));
+                "minecraft:coal_ore=minecraft:stone",
+                "minecraft:deepslate_coal_ore=minecraft:deepslate"));
+    }
+
+    // Every unwaxed weathering-copper block, in each of its three un-oxidised stages, and the fully
+    // oxidised block that stage belongs to. Waxed copper is deliberately absent: wax is what stops the
+    // weather getting at it, and the murk is weather. Listed rather than driven off vanilla's
+    // WeatheringCopper so a pack can edit any line of it -- take a family out, or send it somewhere
+    // else entirely.
+    private static final String[][] COPPER_FAMILIES = {
+            { "copper_block", "exposed_copper", "weathered_copper", "oxidized_copper" },
+            { "cut_copper", "exposed_cut_copper", "weathered_cut_copper", "oxidized_cut_copper" },
+            { "cut_copper_stairs", "exposed_cut_copper_stairs", "weathered_cut_copper_stairs",
+                    "oxidized_cut_copper_stairs" },
+            { "cut_copper_slab", "exposed_cut_copper_slab", "weathered_cut_copper_slab",
+                    "oxidized_cut_copper_slab" },
+            { "chiseled_copper", "exposed_chiseled_copper", "weathered_chiseled_copper",
+                    "oxidized_chiseled_copper" },
+            { "copper_grate", "exposed_copper_grate", "weathered_copper_grate", "oxidized_copper_grate" },
+            { "copper_door", "exposed_copper_door", "weathered_copper_door", "oxidized_copper_door" },
+            { "copper_trapdoor", "exposed_copper_trapdoor", "weathered_copper_trapdoor",
+                    "oxidized_copper_trapdoor" },
+            { "copper_bulb", "exposed_copper_bulb", "weathered_copper_bulb", "oxidized_copper_bulb" },
+    };
+
+    private static List<String> defaultRecipeTransforms() {
+        List<String> out = new ArrayList<>();
+        for (String[] family : COPPER_FAMILIES) {
+            String oxidized = "minecraft:" + family[family.length - 1];
+            for (int i = 0; i < family.length - 1; i++) {
+                out.add("minecraft:" + family[i] + "=" + oxidized);
+            }
+        }
+        return out;
     }
 
     /**
-     * Split one "from=to" transform entry, with its optional trailing flags ("from=to|jei"). Returns
-     * {from, to, flags} with namespaces filled in, or null if it is not a usable pair -- which is also
-     * what the config validator tests, so a malformed line is rejected at load rather than silently
-     * ignored later.
-     *
-     * <p>'|' cannot appear in a resource location, so it can never be part of either id.
+     * Split one "from=to" transform entry. Returns {from, to} with namespaces filled in, or null if it
+     * is not a usable pair -- which is also what the config validator tests, so a malformed line is
+     * rejected at load rather than silently ignored later.
      */
-    static String[] parseTransformEntry(String rawEntry) {
-        String entry = rawEntry;
-        String flags = "";
-        int bar = entry.indexOf('|');
-        if (bar >= 0) {
-            flags = entry.substring(bar + 1).trim().toLowerCase(java.util.Locale.ROOT);
-            entry = entry.substring(0, bar);
-            if (!flags.equals(TRANSFORM_FLAG_JEI)) {
-                return null; // an unknown flag is a typo, not something to quietly drop
-            }
-        }
+    static String[] parseTransformEntry(String entry) {
         int eq = entry.indexOf('=');
         if (eq <= 0 || eq == entry.length() - 1) {
             return null;
@@ -579,7 +605,7 @@ public class Config {
         if (fromId.startsWith("#") && ResourceLocation.tryParse(fromId.substring(1)) == null) {
             return null;
         }
-        return new String[] { fromId, withNamespace(to), flags };
+        return new String[] { fromId, withNamespace(to) };
     }
 
     /**

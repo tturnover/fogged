@@ -93,8 +93,10 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Block ids of fire-burning devices the murk puts out. '*' matches any run of characters.");
         cfg("scouredBlocks", "Scoured Blocks",
                 "Extra blocks the murk breaks under the boundary. A '#' entry is a block tag.");
-        cfg("blockTransforms", "Block Transforms",
-                "\"from=to\" swaps the murk makes under the boundary, e.g. coal ore back to stone.");
+        cfg("silentTransforms", "Silent Transforms",
+                "\"from=to\" swaps the murk makes under the boundary, unannounced. Copper weathers right through.");
+        cfg("recipeTransforms", "Shown Transforms",
+                "The same, for conversions worth knowing: each is listed in JEI as a recipe.");
         cfg("playerSuffocation", "Player Suffocation",
                 "Players drown under the boundary: air drains, then drowning damage.");
         cfg("airLossPerTick", "Air Loss Per Tick",

@@ -16,11 +16,13 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 
 /**
  * The configurable half of the under-fog scour: the blocks {@link Config#SCOURED_BLOCKS} says the murk
- * takes, and the swaps {@link Config#BLOCK_TRANSFORMS} says it makes ("from=to", coal ore back to the
- * stone it sat in by default).
+ * takes, and the swaps it makes ("from=to"): {@link Config#SILENT_TRANSFORMS}, which just happen, and
+ * {@link Config#RECIPE_TRANSFORMS}, which are also shown in JEI. Copper weathering all the way through
+ * is a silent default; coal ore going back to stone is a shown one.
  *
  * <p>Both run before {@link FogScour}'s built-in rules, so a config entry overrides what the murk would
  * otherwise do to that block, and a transform wins over a removal for the same block.
@@ -34,15 +36,16 @@ public final class ScourRules {
     private ScourRules() {}
 
     private static List<? extends String> cachedScoured;
-    private static List<? extends String> cachedTransforms;
+    private static List<? extends String> cachedSilent;
+    private static List<? extends String> cachedRecipes;
 
     private static Set<Block> scouredBlocks = Set.of();
     private static List<TagKey<Block>> scouredTags = List.of();
-    private static Map<Block, BlockState> transformBlocks = Map.of();
+    private static Map<Block, Block> transformBlocks = Map.of();
     private static List<TagTransform> transformTags = List.of();
     private static List<Shown> shown = List.of();
 
-    private record TagTransform(TagKey<Block> tag, BlockState to) {}
+    private record TagTransform(TagKey<Block> tag, Block to) {}
 
     /**
      * A transform the config asked to be shown as a recipe ("from=to|jei"). Exactly one of {@code from}
@@ -63,10 +66,10 @@ public final class ScourRules {
      */
     public static boolean apply(Level level, BlockPos pos, BlockState state) {
         ensureRules();
-        BlockState to = transformFor(state);
+        Block to = transformFor(state);
         if (to != null) {
-            if (!state.is(to.getBlock())) {
-                level.setBlock(pos, to, Block.UPDATE_ALL);
+            if (!state.is(to)) {
+                level.setBlock(pos, carryOver(state, to.defaultBlockState()), Block.UPDATE_ALL);
             }
             return true; // handled either way: a no-op swap is still the config's answer for this block
         }
@@ -77,8 +80,28 @@ public final class ScourRules {
         return false;
     }
 
-    private static BlockState transformFor(BlockState state) {
-        BlockState direct = transformBlocks.get(state.getBlock());
+    /**
+     * The new state, wearing every property the old one had that it also has: a stair keeps its facing,
+     * shape and half, a slab which half it is, a door its hinge and whether it is open. Without this a
+     * transform snaps everything it touches to a default state, which for copper stairs and doors --
+     * the whole point of the copper defaults -- rearranges the build it is weathering.
+     */
+    private static BlockState carryOver(BlockState from, BlockState to) {
+        BlockState out = to;
+        for (Property<?> property : from.getProperties()) {
+            if (out.hasProperty(property)) {
+                out = copy(from, out, property);
+            }
+        }
+        return out;
+    }
+
+    private static <T extends Comparable<T>> BlockState copy(BlockState from, BlockState to, Property<T> property) {
+        return to.setValue(property, from.getValue(property));
+    }
+
+    private static Block transformFor(BlockState state) {
+        Block direct = transformBlocks.get(state.getBlock());
         if (direct != null) {
             return direct;
         }
@@ -109,10 +132,12 @@ public final class ScourRules {
             cachedScoured = scoured;
             rebuildScoured(scoured);
         }
-        List<? extends String> transforms = Config.BLOCK_TRANSFORMS.get();
-        if (transforms != cachedTransforms) {
-            cachedTransforms = transforms;
-            rebuildTransforms(transforms);
+        List<? extends String> silent = Config.SILENT_TRANSFORMS.get();
+        List<? extends String> recipes = Config.RECIPE_TRANSFORMS.get();
+        if (silent != cachedSilent || recipes != cachedRecipes) {
+            cachedSilent = silent;
+            cachedRecipes = recipes;
+            rebuildTransforms(silent, recipes);
         }
     }
 
@@ -137,29 +162,39 @@ public final class ScourRules {
         scouredBlocks = matching(patterns);
     }
 
-    private static void rebuildTransforms(List<? extends String> raw) {
-        Map<Block, BlockState> blocks = new HashMap<>();
+    // Both lists build one set of rules; only the second contributes to what JEI is shown. A block in
+    // both is the silent entry's, since that one is read first.
+    private static void rebuildTransforms(List<? extends String> silent, List<? extends String> recipes) {
+        Map<Block, Block> blocks = new HashMap<>();
         List<TagTransform> tags = new ArrayList<>();
         List<Shown> display = new ArrayList<>();
+        readTransforms(silent, false, blocks, tags, display);
+        readTransforms(recipes, true, blocks, tags, display);
+        transformBlocks = Map.copyOf(blocks);
+        transformTags = List.copyOf(tags);
+        shown = List.copyOf(display);
+    }
+
+    private static void readTransforms(List<? extends String> raw, boolean show,
+                                       Map<Block, Block> blocks, List<TagTransform> tags,
+                                       List<Shown> display) {
         for (String entry : raw) {
             String[] pair = Config.parseTransformEntry(entry.trim());
             if (pair == null) {
-                Fogged.LOGGER.warn("Fogged: ignoring malformed blockTransforms entry \"{}\" -- expected "
+                Fogged.LOGGER.warn("Fogged: ignoring malformed transform entry \"{}\" -- expected "
                         + "\"from=to\", where 'to' is a single block id.", entry);
                 continue;
             }
             Block to = block(pair[1]);
             if (to == null) {
-                Fogged.LOGGER.warn("Fogged: blockTransforms entry \"{}\" names an unknown block \"{}\" -- "
+                Fogged.LOGGER.warn("Fogged: transform entry \"{}\" names an unknown block \"{}\" -- "
                         + "skipped. (A mod that owns it may simply not be installed.)", entry, pair[1]);
                 continue;
             }
-            BlockState toState = to.defaultBlockState();
-            boolean show = Config.TRANSFORM_FLAG_JEI.equals(pair[2]);
             if (pair[0].startsWith("#")) {
                 TagKey<Block> tag = tag(pair[0].substring(1));
                 if (tag != null) {
-                    tags.add(new TagTransform(tag, toState));
+                    tags.add(new TagTransform(tag, to));
                     if (show) {
                         display.add(new Shown(List.of(), tag, to));
                     }
@@ -168,15 +203,12 @@ public final class ScourRules {
             }
             List<Block> from = List.copyOf(matching(List.of(Config.idGlob(pair[0]))));
             for (Block block : from) {
-                blocks.put(block, toState);
+                blocks.putIfAbsent(block, to);
             }
             if (show && !from.isEmpty()) {
                 display.add(new Shown(from, null, to));
             }
         }
-        transformBlocks = Map.copyOf(blocks);
-        transformTags = List.copyOf(tags);
-        shown = List.copyOf(display);
     }
 
     // Every registered block whose id matches one of these patterns. One walk of the registry per
