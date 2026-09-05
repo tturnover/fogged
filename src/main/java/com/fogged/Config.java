@@ -312,8 +312,9 @@ public class Config {
                     "Experimental because it depends on reading the depth buffer of whatever",
                     "framebuffer the pipeline is drawing into, which other rendering mods and shader packs",
                     "are free to move or replace: where that fails the fade is wrong, or the whole plane is.",
-                    "Turn it off first when the murk looks wrong under another rendering mod.")
-            .define("planeSoftOcclusion", true);
+                    "Off by default for that reason -- turn it on to soften the edges, and turn it back",
+                    "off first when the murk looks wrong under another rendering mod.")
+            .define("planeSoftOcclusion", false);
 
     public static final ModConfigSpec.IntValue WATERLINE_CELLS_PER_BLOCK = CLIENT
             .comment("Sub-block resolution of the foam distance-field grid (see WaterlineMap), in cells",

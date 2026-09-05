@@ -61,7 +61,7 @@
   "fogged.configuration.planeHeightSchedule": "Boundary Height Schedule",
   "fogged.configuration.planeHeightSchedule.tooltip": "One \"day=height\" entry per line; the boundary eases between them as the days pass.",
   "fogged.configuration.planeSoftOcclusion": "Soft Occlusion Edge (experimental)",
-  "fogged.configuration.planeSoftOcclusion.tooltip": "Dissolve the plane against blocks, mobs and machines instead of cutting them hard at the boundary, and open a soft disc around each entity crossing it. Experimental: it reads the scene's depth buffer, which other rendering mods can move or replace. Turn it off first if the murk looks wrong.",
+  "fogged.configuration.planeSoftOcclusion.tooltip": "Dissolve the plane against blocks, mobs and machines instead of cutting them hard at the boundary, and open a soft disc around each entity crossing it. Experimental, and off by default: it reads the scene's depth buffer, which other rendering mods can move or replace. Turn it back off first if the murk looks wrong.",
   "fogged.configuration.playerSuffocation": "Player Suffocation",
   "fogged.configuration.playerSuffocation.tooltip": "Players drown under the boundary: air drains, then drowning damage.",
   "fogged.configuration.renderPlane": "Render Separation Plane",
