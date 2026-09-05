@@ -24,7 +24,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 
@@ -96,26 +95,41 @@ public class FoggedJeiPlugin implements IModPlugin {
         return out;
     }
 
-    // One row, read like a Create processing recipe: what the murk takes, an arrow, what it leaves --
-    // and under the arrow, in place of Create's flame, the thing that does the work. Here that is the
-    // murk itself: a block sunk under the boundary, drawn in the colours the plane is actually
-    // configured with, so the picture says "put it under the fog" without a word of text.
+    // Input, the mark, output -- the mark being the mod's own drawing of what happens: a block passing
+    // down through the boundary and coming out the other side changed. It carries its own arrow, so
+    // JEI's horizontal one would only say the same thing twice.
     private static class MurkTransformCategory extends AbstractRecipeCategory<MurkTransform> {
-        private static final int WIDTH = 100;
-        private static final int HEIGHT = 36;
-        private static final int SLOT_Y = 4;
-        private static final int ARROW_X = 40;
-        private static final int GLYPH_X = 42;
-        private static final int GLYPH_Y = 22;
+        private static final ResourceLocation MARK_TEXTURE =
+                ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "textures/gui/jei/murk_transform.png");
+        private static final ResourceLocation ICON_TEXTURE =
+                ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "textures/gui/jei/murk_transform_icon.png");
 
-        private final IDrawable arrow;
+        // The mark's drawn content within its 64x64 sheet, and the icon's own size (16x18, a cube).
+        private static final int MARK_U = 12;
+        private static final int MARK_V = 4;
+        private static final int MARK_W = 42;
+        private static final int MARK_H = 56;
+        private static final int ICON_W = 16;
+        private static final int ICON_H = 18;
+
+        private static final int WIDTH = 90;
+        private static final int HEIGHT = 60;
+        private static final int MARK_X = 24;
+        private static final int MARK_Y = 2;
+        private static final int SLOT_Y = 21;   // centred against the mark
+
+        private final IDrawable mark;
 
         MurkTransformCategory(IGuiHelper guiHelper) {
             super(MURK_TRANSFORM,
                     Component.translatable("fogged.jei.murk_transform"),
-                    new MurkGlyph(),
+                    guiHelper.drawableBuilder(ICON_TEXTURE, 0, 0, ICON_W, ICON_H)
+                            .setTextureSize(ICON_W, ICON_H)
+                            .build(),
                     WIDTH, HEIGHT);
-            this.arrow = guiHelper.getRecipeArrow();
+            this.mark = guiHelper.drawableBuilder(MARK_TEXTURE, MARK_U, MARK_V, MARK_W, MARK_H)
+                    .setTextureSize(64, 64)
+                    .build();
         }
 
         @Override
@@ -123,7 +137,7 @@ public class FoggedJeiPlugin implements IModPlugin {
             builder.addSlot(RecipeIngredientRole.INPUT, 1, SLOT_Y)
                     .setStandardSlotBackground()
                     .addItemStacks(recipe.from());
-            builder.addSlot(RecipeIngredientRole.OUTPUT, 79, SLOT_Y)
+            builder.addSlot(RecipeIngredientRole.OUTPUT, WIDTH - 19, SLOT_Y)
                     .setOutputSlotBackground()
                     .addItemStack(recipe.to());
         }
@@ -131,59 +145,7 @@ public class FoggedJeiPlugin implements IModPlugin {
         @Override
         public void draw(MurkTransform recipe, IRecipeSlotsView slots, GuiGraphics graphics,
                 double mouseX, double mouseY) {
-            arrow.draw(graphics, ARROW_X, SLOT_Y + 1);
-            GLYPH.draw(graphics, GLYPH_X, GLYPH_Y);
-        }
-    }
-
-    private static final MurkGlyph GLYPH = new MurkGlyph();
-
-    /**
-     * The "put it under the fog" mark: a pale block dropping through the boundary into the murk under
-     * it, the top half above the line and the bottom half swallowed.
-     *
-     * <p>Drawn rather than textured, from {@link Config#planeColor()} and {@link Config#foamColor()},
-     * so a pack that recolours the murk recolours this too and the two never disagree. Alpha is forced
-     * opaque: the plane's own alpha is a render setting, not a palette.
-     */
-    private static class MurkGlyph implements IDrawable {
-        private static final int SIZE = 16;
-        private static final int SURFACE_Y = 7;   // where the boundary line sits within the glyph
-        private static final int BLOCK_X = 4;
-        private static final int BLOCK_W = 8;
-        private static final int BLOCK_TOP = 2;
-        private static final int BLOCK_BOTTOM = 13;
-
-        @Override
-        public int getWidth() {
-            return SIZE;
-        }
-
-        @Override
-        public int getHeight() {
-            return SIZE;
-        }
-
-        @Override
-        public void draw(GuiGraphics graphics, int x, int y) {
-            int murk = opaque(Config.planeColor());
-            int foam = opaque(Config.foamColor());
-
-            // The murk below the boundary, then the boundary itself as the brighter foam line.
-            graphics.fill(x, y + SURFACE_Y, x + SIZE, y + SIZE, murk);
-            graphics.fill(x, y + SURFACE_Y - 1, x + SIZE, y + SURFACE_Y, foam);
-
-            // The block: solid where it is still in the air, and only outlined where the murk has it,
-            // which is what the murk does to anything below the line -- you see the shape, not the thing.
-            graphics.fill(x + BLOCK_X, y + BLOCK_TOP, x + BLOCK_X + BLOCK_W, y + SURFACE_Y - 1, 0xFFDDDDDD);
-            graphics.fill(x + BLOCK_X, y + SURFACE_Y, x + BLOCK_X + BLOCK_W, y + BLOCK_BOTTOM, 0x66FFFFFF);
-        }
-
-        private static int opaque(float[] rgba) {
-            int r = Math.round(Mth.clamp(rgba[0], 0.0F, 1.0F) * 255.0F);
-            int g = Math.round(Mth.clamp(rgba[1], 0.0F, 1.0F) * 255.0F);
-            int b = Math.round(Mth.clamp(rgba[2], 0.0F, 1.0F) * 255.0F);
-            return 0xFF000000 | (r << 16) | (g << 8) | b;
+            mark.draw(graphics, MARK_X, MARK_Y);
         }
     }
 }
