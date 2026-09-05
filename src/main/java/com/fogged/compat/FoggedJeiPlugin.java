@@ -140,9 +140,12 @@ public class FoggedJeiPlugin implements IModPlugin {
         private static final int IN_X = PAD + 1;                        // +1: the 18x18 frame's inset
         private static final int OUT_X = MARK_X + MARK_W + PAD + 5;     // +5: the 26x26 frame's inset
 
-        // The depth mark, bottom-left: the arrow is 6x8, the number sits beside it on the same rows.
-        private static final int DEPTH_X = 2;
-        private static final int DEPTH_Y = HEIGHT - 10;
+        // The depth mark: the arrow is 6x8 and the number sits beside it on the same rows. It goes in
+        // the empty quarter of the mark itself -- under the boundary line, left of the falling arrow --
+        // rather than in the corner of the category, so it reads as part of the picture: this far below
+        // that line. Nothing is drawn there by the art, so nothing is covered.
+        private static final int DEPTH_X = MARK_X;
+        private static final int DEPTH_Y = 33;
         private static final int DEPTH_COLOR = 0xFF404040;
 
         private final IDrawable mark;
