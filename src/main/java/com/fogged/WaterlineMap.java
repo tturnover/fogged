@@ -40,6 +40,19 @@ public final class WaterlineMap {
     private static final int MAX_SIZE = 192;
     private static final float INF = 1.0e9F;
 
+    // Cost of a diagonal step, against 1.0 for an orthogonal one. Used by BOTH the distance transform
+    // and the foam's growth wavefront, and they have to agree: the transform's contours are what the
+    // foam settles into, so a front that spreads in a different metric visibly changes shape as it
+    // catches up. The same goes for KNIGHT_STEP below -- add a move to one and it belongs in the other.
+    private static final float DIAGONAL_STEP = 1.41421356F;   // sqrt(2)
+    // ...and the knight move (1,2), sqrt(5). A mask of only orthogonal and diagonal steps is a 3x3
+    // chamfer, whose distances are off by up to ~7.6% and are worst halfway between the two -- which
+    // is a real shape, not noise: the iso-distance contours come out as octagons, and once the foam
+    // quantises them into bands the ring reads as a star -- in the mist as much as in the foam, since
+    // the vapour thins on the same field. Adding the knight moves makes it a 5x5 chamfer and drops the
+    // error to ~2%, which those bands no longer resolve.
+    private static final float KNIGHT_STEP = 2.23606798F;
+
     // Whether the Sable physics mod is present, so its sub-levels can also generate foam.
     private static final boolean SABLE = ModList.get().isLoaded("sable");
 
@@ -354,13 +367,17 @@ public final class WaterlineMap {
      * the stamp widened by MAX_DIST, past which a new seed cannot lower anything the shader can tell
      * apart from "nothing near".
      */
-    private static void chamferRegion(float[] field, int x0, int z0, int x1, int z1) {
+    private static void chamferRegion(float[] field, int bx0, int bz0, int bx1, int bz1) {
+        final int x0 = Math.max(0, bx0);
+        final int z0 = Math.max(0, bz0);
+        final int x1 = Math.min(cells - 1, bx1);
+        final int z1 = Math.min(cells - 1, bz1);
+        if (x0 > x1 || z0 > z1) {
+            return;
+        }
         final float d1 = 1.0F;
-        final float d2 = 1.41421356F;
-        x0 = Math.max(0, x0);
-        z0 = Math.max(0, z0);
-        x1 = Math.min(cells - 1, x1);
-        z1 = Math.min(cells - 1, z1);
+        final float d2 = DIAGONAL_STEP;
+        final float d3 = KNIGHT_STEP;
         for (int z = z0; z <= z1; z++) {
             for (int x = x0; x <= x1; x++) {
                 int i = z * cells + x;
@@ -369,6 +386,10 @@ public final class WaterlineMap {
                 if (z > 0) d = Math.min(d, field[i - cells] + d1);
                 if (x > 0 && z > 0) d = Math.min(d, field[i - cells - 1] + d2);
                 if (x < cells - 1 && z > 0) d = Math.min(d, field[i - cells + 1] + d2);
+                if (z > 0 && x > 1) d = Math.min(d, field[i - cells - 2] + d3);
+                if (z > 0 && x < cells - 2) d = Math.min(d, field[i - cells + 2] + d3);
+                if (z > 1 && x > 0) d = Math.min(d, field[i - 2 * cells - 1] + d3);
+                if (z > 1 && x < cells - 1) d = Math.min(d, field[i - 2 * cells + 1] + d3);
                 field[i] = d;
             }
         }
@@ -380,37 +401,19 @@ public final class WaterlineMap {
                 if (z < cells - 1) d = Math.min(d, field[i + cells] + d1);
                 if (x < cells - 1 && z < cells - 1) d = Math.min(d, field[i + cells + 1] + d2);
                 if (x > 0 && z < cells - 1) d = Math.min(d, field[i + cells - 1] + d2);
+                if (z < cells - 1 && x < cells - 2) d = Math.min(d, field[i + cells + 2] + d3);
+                if (z < cells - 1 && x > 1) d = Math.min(d, field[i + cells - 2] + d3);
+                if (z < cells - 2 && x < cells - 1) d = Math.min(d, field[i + 2 * cells + 1] + d3);
+                if (z < cells - 2 && x > 0) d = Math.min(d, field[i + 2 * cells - 1] + d3);
                 field[i] = d;
             }
         }
     }
 
-    // Two-pass chamfer distance transform: cheap O(n) approximate Euclidean distance (in cells).
+    // Two-pass chamfer distance transform: cheap O(n) approximate Euclidean distance (in cells), over
+    // the whole field. One mask, in chamferRegion above, so the two can never disagree.
     private static void chamferDistance(float[] field) {
-        final float d1 = 1.0F;
-        final float d2 = 1.41421356F;
-        for (int z = 0; z < cells; z++) {
-            for (int x = 0; x < cells; x++) {
-                int i = z * cells + x;
-                float d = field[i];
-                if (x > 0) d = Math.min(d, field[i - 1] + d1);
-                if (z > 0) d = Math.min(d, field[i - cells] + d1);
-                if (x > 0 && z > 0) d = Math.min(d, field[i - cells - 1] + d2);
-                if (x < cells - 1 && z > 0) d = Math.min(d, field[i - cells + 1] + d2);
-                field[i] = d;
-            }
-        }
-        for (int z = cells - 1; z >= 0; z--) {
-            for (int x = cells - 1; x >= 0; x--) {
-                int i = z * cells + x;
-                float d = field[i];
-                if (x < cells - 1) d = Math.min(d, field[i + 1] + d1);
-                if (z < cells - 1) d = Math.min(d, field[i + cells] + d1);
-                if (x < cells - 1 && z < cells - 1) d = Math.min(d, field[i + cells + 1] + d2);
-                if (x > 0 && z < cells - 1) d = Math.min(d, field[i + cells - 1] + d2);
-                field[i] = d;
-            }
-        }
+        chamferRegion(field, 0, 0, cells - 1, cells - 1);
     }
 
     // Ease shown[] toward target[] so foam grows / fades gradually. Growth is a wavefront: land cells
@@ -435,7 +438,17 @@ public final class WaterlineMap {
             }
         }
 
-        // Growth wavefront: a cell can only become as foamed as its nearest neighbour plus one step.
+        // Growth wavefront: a cell can only become as foamed as its nearest neighbour, plus what the
+        // front is allowed to creep in a tick.
+        //
+        // Every move of the distance transform's own mask is here, at the same weight -- diagonals at
+        // DIAGONAL_STEP, knight moves at KNIGHT_STEP. Spreading through the four orthogonal neighbours
+        // alone is an L1 metric, so the front grew as a DIAMOND and then visibly reshaped into the
+        // near-circular contours of the finished field once it caught up. Matching the metric makes the
+        // advance per unit of distance the same in every direction, so the growing edge is already the
+        // shape it is going to settle into.
+        final float diagonalStep = stepCells * DIAGONAL_STEP;
+        final float knightStep = stepCells * KNIGHT_STEP;
         System.arraycopy(show, 0, scratch, 0, show.length);
         for (int z = 0; z < cells; z++) {
             for (int x = 0; x < cells; x++) {
@@ -444,12 +457,31 @@ public final class WaterlineMap {
                 if (show[i] <= t) {
                     continue; // already grown to target
                 }
-                float m = scratch[i];
-                if (x > 0) m = Math.min(m, scratch[i - 1]);
-                if (x < cells - 1) m = Math.min(m, scratch[i + 1]);
-                if (z > 0) m = Math.min(m, scratch[i - cells]);
-                if (z < cells - 1) m = Math.min(m, scratch[i + cells]);
-                float allowed = m + stepCells;               // front creeps stepCells per tick
+                boolean west = x > 0;
+                boolean east = x < cells - 1;
+                boolean north = z > 0;
+                boolean south = z < cells - 1;
+                boolean west2 = x > 1;
+                boolean east2 = x < cells - 2;
+                boolean north2 = z > 1;
+                boolean south2 = z < cells - 2;
+                float allowed = scratch[i] + stepCells;      // front creeps stepCells per tick
+                if (west) allowed = Math.min(allowed, scratch[i - 1] + stepCells);
+                if (east) allowed = Math.min(allowed, scratch[i + 1] + stepCells);
+                if (north) allowed = Math.min(allowed, scratch[i - cells] + stepCells);
+                if (south) allowed = Math.min(allowed, scratch[i + cells] + stepCells);
+                if (west && north) allowed = Math.min(allowed, scratch[i - cells - 1] + diagonalStep);
+                if (east && north) allowed = Math.min(allowed, scratch[i - cells + 1] + diagonalStep);
+                if (west && south) allowed = Math.min(allowed, scratch[i + cells - 1] + diagonalStep);
+                if (east && south) allowed = Math.min(allowed, scratch[i + cells + 1] + diagonalStep);
+                if (west2 && north) allowed = Math.min(allowed, scratch[i - cells - 2] + knightStep);
+                if (east2 && north) allowed = Math.min(allowed, scratch[i - cells + 2] + knightStep);
+                if (west2 && south) allowed = Math.min(allowed, scratch[i + cells - 2] + knightStep);
+                if (east2 && south) allowed = Math.min(allowed, scratch[i + cells + 2] + knightStep);
+                if (west && north2) allowed = Math.min(allowed, scratch[i - 2 * cells - 1] + knightStep);
+                if (east && north2) allowed = Math.min(allowed, scratch[i - 2 * cells + 1] + knightStep);
+                if (west && south2) allowed = Math.min(allowed, scratch[i + 2 * cells - 1] + knightStep);
+                if (east && south2) allowed = Math.min(allowed, scratch[i + 2 * cells + 1] + knightStep);
                 float s = Math.max(t, Math.min(show[i], allowed));
                 if (s != show[i]) {
                     show[i] = s;
