@@ -123,6 +123,8 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "boundary, and open a soft disc around each entity crossing it. Experimental: it "
                         + "reads the scene's depth buffer, which other rendering mods can move or replace. "
                         + "Turn it off first if the murk looks wrong.");
+        cfg("effectSurfaceDrop", "Effect Depth Below Plane",
+                "How far under the plane the mist and foam spray hang. 0 puts them on it.");
         cfg("waterlineCellsPerBlock", "Foam Grid Resolution",
                 "Cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper.");
         cfg("renderVapor", "Render Cold-Vapour Layer",

@@ -22,6 +22,8 @@
   "fogged.configuration.depthScalingBlocks.tooltip": "How many blocks below the boundary make up one step of scaling. 0 disables it.",
   "fogged.configuration.depthScalingPercent": "Depth Step Percent",
   "fogged.configuration.depthScalingPercent.tooltip": "Per step: air loss up by this percent, nozzle-filter sphere radius down by it. Steps compound.",
+  "fogged.configuration.effectSurfaceDrop": "Effect Depth Below Plane",
+  "fogged.configuration.effectSurfaceDrop.tooltip": "How far under the plane the mist and foam spray hang. 0 puts them on it.",
   "fogged.configuration.flipFog": "Flip Fog Side",
   "fogged.configuration.flipFog.tooltip": "Put the murk above the boundary instead of below it. Does not move the breathing boundary.",
   "fogged.configuration.foamColor": "Foam Colour",

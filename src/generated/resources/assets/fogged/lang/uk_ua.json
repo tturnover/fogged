@@ -22,6 +22,8 @@
   "fogged.configuration.depthScalingBlocks.tooltip": "Скільки блоків під межею складають один крок посилення. 0 вимикає його.",
   "fogged.configuration.depthScalingPercent": "Відсоток на крок",
   "fogged.configuration.depthScalingPercent.tooltip": "За крок: втрата повітря зростає на цей відсоток, радіус сфери фільтра спадає. Кроки множаться.",
+  "fogged.configuration.effectSurfaceDrop": "Глибина ефектів під площиною",
+  "fogged.configuration.effectSurfaceDrop.tooltip": "Наскільки нижче площини висять імла та піна. 0 — просто на ній.",
   "fogged.configuration.flipFog": "Перевернути бік туману",
   "fogged.configuration.flipFog.tooltip": "Розмістити каламуть над межею замість під нею. Саму межу дихання не змінює.",
   "fogged.configuration.foamColor": "Колір піни",

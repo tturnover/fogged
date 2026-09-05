@@ -106,6 +106,7 @@ final class YaclCompatibility {
                 .option(dbl("foamWidth", Config.FOAM_WIDTH, 0.0, 8.0, 0.25))
                 .option(bool("sableFoam", Config.SABLE_FOAM))
                 .option(bool("planeSoftOcclusion", Config.PLANE_SOFT_OCCLUSION))
+                .option(dbl("effectSurfaceDrop", Config.EFFECT_SURFACE_DROP, -8.0, 8.0, 0.05))
                 .option(integer("waterlineCellsPerBlock", Config.WATERLINE_CELLS_PER_BLOCK, 1, 4, 1))
                 .group(OptionGroup.createBuilder()
                         .name(Component.translatable(KEY + "vapor"))
