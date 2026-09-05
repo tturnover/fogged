@@ -89,12 +89,39 @@ public class ModLanguageProvider extends LanguageProvider {
         cfg("submergeSkip", "Submerge Dead Zone",
                 "Blocks directly under the plane that the scour leaves alone.");
         cfg("snuffedDevices", "Snuffed Devices",
-                "Block ids of fire-burning devices the murk puts out. '*' matches any run of characters.");
+                "Fire-burning devices the murk puts out: each is unlit, its burn timer zeroed and its "
+                        + "fuel ejected, so it cannot keep running under the fog.\n"
+                        + "One block id per entry; '*' matches any run of characters and 'minecraft:' may "
+                        + "be left off. An entry for a mod you do not have is simply ignored.\n"
+                        + "furnace\n"
+                        + "create:lit_blaze_burner\n"
+                        + "simulated:*_portable_engine");
         cfg("scouredBlocks", "Scoured Blocks",
-                "Extra blocks the murk breaks under the boundary. A '#' entry is a block tag.");
+                "Extra blocks the murk breaks under the boundary, on top of the built-in scour. Broken "
+                        + "without drops.\n"
+                        + "One block id per entry; '*' matches any run of characters and a leading '#' "
+                        + "names a block tag. 'minecraft:' may be left off.\n"
+                        + "cobweb\n"
+                        + "#minecraft:banners\n"
+                        + "create:*_casing");
         cfg("transforms", "Murk Transforms",
-                "\"from=to\" rules for blocks and dropped stacks alike, with optional counts, an @depth "
-                        + "and a !silent flag. Everything not silent is listed in JEI.");
+                "What the murk turns things into under the boundary -- placed blocks and dropped stacks "
+                        + "alike, from one list.\n"
+                        + "Syntax: [count] from = [count] to [@depth] [!silent]\n"
+                        + "from: a block id, an item id, an id with '*' wildcards, or a '#' tag. "
+                        + "'minecraft:' may be left off.\n"
+                        + "to: one id. A BLOCK replaces a placed block and keeps the properties they "
+                        + "share; an ITEM breaks it and drops instead.\n"
+                        + "count: how many a dropped stack gives up, and how many it gets back. Stacks "
+                        + "only -- a placed block ignores it. 1 to 64.\n"
+                        + "@depth: only this far below the surface, in blocks. Moves with the boundary. "
+                        + "0 to 512.\n"
+                        + "!silent: keep it out of JEI. Everything else is listed there.\n"
+                        + "coal_ore=stone !silent\n"
+                        + "moss_block=coarse_dirt @50\n"
+                        + "4 diamond=2 dirt\n"
+                        + "#minecraft:leaves=1 stick !silent\n"
+                        + "create:*_casing=mud @20");
         cfg("itemTransforms", "Item Transforms",
                 "\"from=to\" swaps for dropped items, by item id. All of them are listed in JEI.");
         cfg("playerSuffocation", "Player Suffocation",
