@@ -7,9 +7,11 @@ import dev.ryanhcode.sable.sublevel.SubLevel;
 import dev.ryanhcode.sable.sublevel.plot.LevelPlot;
 
 import org.joml.Vector3d;
+import org.joml.Vector3dc;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -144,6 +146,59 @@ final class SableCompatibility {
         }
         return sub.logicalPose()
                 .transformPosition(new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
+    }
+
+    /** Receives one boundary-crossing sub-level: a contact point on its waterline, and how far the
+     *  whole sub-level moved this tick. */
+    @FunctionalInterface
+    interface WakeSink {
+        void accept(double worldX, double worldZ, Vec3 motion);
+    }
+
+    /**
+     * Sample the waterline of every sub-level crossing {@code surfaceY} and hand each hit to
+     * {@code sink}, so ships and contraptions throw the same movement-driven spray an entity does.
+     *
+     * <p>A sub-level is not an entity and has no delta movement, so its speed comes from the gap
+     * between {@link SubLevel#logicalPose()} and {@link SubLevel#lastPose()} -- the distance it
+     * travelled over the last tick, which is what the spray needs and what the physics has already
+     * settled by the time this runs.
+     *
+     * <p>Points are sampled from the world footprint and inverse-transformed rather than walked in
+     * local space: a rotated hull's footprint is not axis-aligned, and {@code attempts} random probes
+     * against it cost the same whatever size the ship is, where a full local scan is cubic.
+     */
+    static void sampleWakes(Level level, double surfaceY, int attempts, RandomSource rnd, WakeSink sink) {
+        SubLevelContainer container = SubLevelContainer.getContainer(level);
+        if (container == null) {
+            return;
+        }
+        Vector3d src = new Vector3d();
+        Vector3d dst = new Vector3d();
+        BlockPos.MutableBlockPos local = new BlockPos.MutableBlockPos();
+
+        for (SubLevel sub : container.getAllSubLevels()) {
+            BoundingBox3dc bb = sub.boundingBox();
+            if (bb.maxY() < surfaceY || bb.minY() > surfaceY) {
+                continue; // does not reach the boundary, so it cannot be breaking it
+            }
+            Pose3dc pose = sub.logicalPose();
+            Vector3dc now = pose.position();
+            Vector3dc was = sub.lastPose().position();
+            Vec3 motion = new Vec3(now.x() - was.x(), now.y() - was.y(), now.z() - was.z());
+            Level subLevel = sub.getLevel();
+
+            for (int i = 0; i < attempts; i++) {
+                double wx = bb.minX() + rnd.nextDouble() * (bb.maxX() - bb.minX());
+                double wz = bb.minZ() + rnd.nextDouble() * (bb.maxZ() - bb.minZ());
+                src.set(wx, surfaceY, wz);
+                pose.transformPositionInverse(src, dst);
+                local.set(Mth.floor(dst.x), Mth.floor(dst.y), Mth.floor(dst.z));
+                if (subLevel.getBlockState(local).blocksMotion()) {
+                    sink.accept(wx, wz, motion);
+                }
+            }
+        }
     }
 
     static void stampSubLevels(Level level, int boundaryY, int originX, int originZ,

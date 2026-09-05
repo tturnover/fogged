@@ -50,6 +50,10 @@ out vec4 fragColor;
 const float NOISE_PERIOD_BLOCKS = 4096.0; // MUST equal FogPlaneRenderer.NOISE_ANCHOR for a seamless wrap -- see Config.java's mirrored-constants comment
 #moj_import <fogged:fogged_noise.glsl>
 
+// Waterline map sampling, shared with fog_vapor.fsh so the mist thins on exactly the ring drawn here
+// (see fogged_foam.glsl).
+#moj_import <fogged:fogged_foam.glsl>
+
 // Foam & spot pixelation: FoamPixelsPerBlock pixels per block. Both the foam edge and the surface spots
 // snap to this same grid so their pixels are identical in size and aligned.
 const float FOAM_STEPS = 4.0;
@@ -89,31 +93,16 @@ void main() {
     vec4 color = vertexColor * ColorModulator;
 
     // Foam edge: world-space distance to the nearest surface-crossing block/entity, ringed within
-    // FoamWidth. World-space, so it never flickers with view angle. Snap to the foam pixel grid (so it
-    // pixelates and aligns with blocks) and sample at the texel centre (+0.5) so NEAREST doesn't bias
-    // the whole ring a cell in -X/-Z.
-    vec2 pworld = floor(worldXZ * FoamPixelsPerBlock) / FoamPixelsPerBlock;
-    vec2 luv = (pworld - WaterlineOrigin) / WaterlineSize + 0.5 / (WaterlineSize * FoamPixelsPerBlock);
-    vec2 wl = vec2(1.0); // "nothing near" until the map says otherwise; also what DebugView 5 shows
-    float edge = 0.0;
-    if (FoamWidth > 0.0 && luv.x >= 0.0 && luv.x <= 1.0 && luv.y >= 0.0 && luv.y <= 1.0) {
-        wl = texture(Sampler0, luv).rg; // R = dist to solid/entity, G = dist to plant
-        // Two independent foam rings combined by max. Each ring's strength scales BOTH its band width
-        // (config FoamWidth * strength) and its intensity, so a plant (0.5) reads half as wide and half
-        // as strong as a solid/entity (1.0). They form separately so neither overrides the other.
-        const float SOLID_STRENGTH = 1.0;
-        const float PLANT_STRENGTH = 0.5;
-        float solidEdge = SOLID_STRENGTH * (1.0 - clamp(wl.r * WaterlineMaxDist / (FoamWidth * SOLID_STRENGTH), 0.0, 1.0));
-        float plantEdge = PLANT_STRENGTH * (1.0 - clamp(wl.g * WaterlineMaxDist / (FoamWidth * PLANT_STRENGTH), 0.0, 1.0));
-        edge = max(solidEdge, plantEdge);
-    }
+    // FoamWidth. World-space, so it never flickers with view angle (see fogged_foam.glsl for the
+    // pixel snap and how the two rings combine).
+    vec2 wl = fogged_waterline(worldXZ); // R = dist to solid/entity, G = dist to plant; also DebugView 5
+    float edge = fogged_foamEdge(wl);
 
     // Surface spots: low-frequency world-space noise blobs, on the same pixel grid as the foam, that
     // fade in/out in place (morph blends two offset noise layers over time, no translation).
     const float SPOT_CELL_BLOCKS = 4.0;    // blob feature size in blocks (divides NOISE_PERIOD for a tile)
     const float SPOT_TIME_RATE = 0.1;      // noise time-axis advance per second (~one reshuffle per 10 s)
-    vec2 sworld = floor(worldXZ * FoamPixelsPerBlock) / FoamPixelsPerBlock;
-    vec2 cell = sworld / SPOT_CELL_BLOCKS;
+    vec2 cell = fogged_pixelSnap(worldXZ) / SPOT_CELL_BLOCKS;
     // Animate by advancing the noise's time axis: morphs in place, always forward (no ping-pong, no
     // slide). Time is monotonic wall-clock seconds, so the rate below is per real second. The base
     // period is the world period in cell space, so the noise tiles exactly with the anchor -> no seam.

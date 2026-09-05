@@ -7,6 +7,7 @@
 // carves a drifting, PIXELATED wispy mask out of each quad and dissolves it into the world fog so it
 // matches the blocky look of the plane and never shows a hard rim.
 
+uniform sampler2D Sampler0;     // waterline map, for thinning the mist where the foam is strong
 uniform sampler2D Sampler3;     // scene depth snapshot (taken just before the plane) for the soft edge
 
 uniform vec4 ColorModulator;
@@ -17,6 +18,11 @@ uniform int FogShape;
 uniform float Time;             // smooth game time in seconds (drives the drift)
 uniform float WispScale;        // world-space frequency of the wisp/terrace noise
 uniform float PixelsPerBlock;   // snap the noise to this grid (matches the plane's foam pixels)
+uniform vec2 WaterlineOrigin;   // world XZ of the waterline map's corner
+uniform float WaterlineSize;    // map edge length in blocks
+uniform float WaterlineMaxDist; // distance (blocks) the map's stored value of 1.0 represents
+uniform float FoamPixelsPerBlock; // the map's cells-per-block resolution (Config.waterlineCellsPerBlock)
+uniform float FoamWidth;        // same foam band the surface draws, so the two line up
 uniform float PlaneFadeStart;   // distance at which the vapour starts fading with the horizon
 uniform float PlaneFadeEnd;     // distance at which it is fully gone
 uniform mat4 ProjMat;           // reused to linearise depth for the soft-occlusion fade
@@ -43,6 +49,14 @@ const float VAPOR_TIME_RATE = 0.1; // noise time-axis advance per second (~one r
 // distance. z is time (unwrapped); no octave rotation (a rotated lattice would not tile). ---
 const float NOISE_PERIOD_BLOCKS = 4096.0; // MUST equal FogPlaneRenderer.NOISE_ANCHOR for a seamless wrap -- see Config.java's mirrored-constants comment
 #moj_import <fogged:fogged_noise.glsl>
+
+// Waterline map sampling, shared with fog_plane.fsh (see fogged_foam.glsl).
+#moj_import <fogged:fogged_foam.glsl>
+
+// How much of the mist the foam takes away where it is at full strength. Not all of it: the two are
+// the same surface seen two ways, and a hard hole in the mist around every block reads worse than a
+// thinning does.
+const float FOAM_THINNING = 0.85;
 
 void main() {
     // All sheets are drawn in one call (see FogVapor.render), so the per-sheet StepThreshold and alpha
@@ -89,6 +103,12 @@ void main() {
     // distance radius at any height, but the whole layer fades once the camera climbs farther above
     // the surface than it can see, so it doesn't hang in the void after the world below fogs out.
     a *= 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, max(length(relPos.xz), abs(relPos.y)));
+
+    // Thin out over foam. Mist and foam are both "the surface is disturbed here", and stacking them
+    // buries the foam's shape under a wash of grey exactly where it is most worth seeing -- against
+    // the blocks and entities breaking through. Read from the same map through the same helper the
+    // surface uses, so the two agree on where the ring is to the pixel.
+    a *= 1.0 - fogged_foamEdge(fogged_waterline(worldXZ)) * FOAM_THINNING;
 
     // Soft occlusion edge against terrain (see fogged_softOcclusion), so vapour grazing a block dissolves.
     a *= fogged_softOcclusion();

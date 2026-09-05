@@ -80,6 +80,8 @@
   "fogged.configuration.vaporSheets.tooltip": "Скільки шарів туману складено над площиною.",
   "fogged.configuration.vaporStrength": "Насиченість випарів",
   "fogged.configuration.vaporStrength.tooltip": "Загальна прозорість туману. 0 повністю ховає випари.",
+  "fogged.configuration.vaporUnderwater": "Імла під водою",
+  "fogged.configuration.vaporUnderwater.tooltip": "Малювати імлу і перед проходом води, щоб озеро вкривало її, а не вона лежала зверху.",
   "fogged.configuration.vaporUndulation": "Хвилястість випарів",
   "fogged.configuration.vaporUndulation.tooltip": "Наскільки високо (у блоках) шари туману піднімаються над площиною. 0 = пласко.",
   "fogged.configuration.waterlineCellsPerBlock": "Роздільність сітки піни",

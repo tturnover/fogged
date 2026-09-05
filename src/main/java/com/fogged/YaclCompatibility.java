@@ -114,6 +114,7 @@ final class YaclCompatibility {
                         .option(dbl("vaporStrength", Config.VAPOR_STRENGTH, 0.0, 1.0, 0.05))
                         .option(integer("vaporSheets", Config.VAPOR_SHEETS, 0, 8, 1))
                         .option(dbl("vaporUndulation", Config.VAPOR_UNDULATION, 0.0, 16.0, 0.25))
+                        .option(bool("vaporUnderwater", Config.VAPOR_UNDERWATER))
                         .build())
                 .build();
     }

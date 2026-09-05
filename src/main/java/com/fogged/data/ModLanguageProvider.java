@@ -132,6 +132,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "How many mist sheets are stacked over the plane.");
         cfg("vaporUndulation", "Vapour Undulation",
                 "How high (in blocks) the mist sheets rise off the plane. 0 = flat.");
+        cfg("vaporUnderwater", "Mist Under Water",
+                "Also draw the mist before the water pass, so a lake veils it instead of it floating on top.");
         cfg("debugView", "Render Debug View",
                 "Replace the plane with a raw view of one of the buffers behind it.");
         cfg("debugHud", "Debug Readout",

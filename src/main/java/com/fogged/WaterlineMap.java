@@ -43,9 +43,17 @@ public final class WaterlineMap {
     // Whether the Sable physics mod is present, so its sub-levels can also generate foam.
     private static final boolean SABLE = ModList.get().isLoaded("sable");
 
-    // Foam particles sprinkled on the ring each tick, within this radius of the camera.
-    private static final int PARTICLES_PER_TICK = 24;
-    private static final int PARTICLE_RADIUS_BLOCKS = 14;
+    // How far out spray from crossing entities is thrown, bounded by the map that feeds the query.
+    private static final int PARTICLE_RADIUS_MAX = 48;
+
+    // A crossing entity throws spray in proportion to how fast it is going, piled up ahead of it.
+    private static final double FULL_SPEED = 0.4;          // blocks/tick counting as "fast"
+    private static final int WAKE_MAX = 6;                 // particles per entity per tick at full speed
+    private static final float STATIC_CHANCE = 0.12F;      // ...and how often a still one manages one
+    private static final double FRONT_ARC = 0.9;           // radians of spread the bow wave piles into
+    private static final double WAKE_DRAG = 0.6;           // how much of the entity's motion the spray keeps
+    private static final double WAKE_SPREAD = 0.06;        // blocks/tick the wave travels outward at
+    private static final int SUBLEVEL_PROBES = 24;         // waterline samples per Sable sub-level per tick
 
     private static DynamicTexture texture;
     private static int size = 0;          // current block edge length of the map
@@ -178,13 +186,25 @@ public final class WaterlineMap {
         BlockState state = level.getBlockState(pos);
         var fluid = state.getFluidState();
         boolean solid = state.blocksMotion();
-        boolean flowing = !fluid.isEmpty() && !fluid.isSource();
         boolean plant = !solid && fluid.isEmpty() && !state.isAir();
-        if (solid || flowing) {
+        if (columnClosed(state)) {
             fillCells(target, x0, z0, x1, z1, 0.0F);
         } else if (plant) {
             fillCells(targetP, x0, z0, x1, z1, 0.0F);
         }
+    }
+
+    /**
+     * Whether the surface is blocked at this column: a solid block, or a fluid that is still flowing
+     * (a source pool is the surface's own water and rings nothing).
+     *
+     * <p>The single definition of "the waterline touches something here", shared by the map's own
+     * seeding above and the foam-site scan ({@link FoamSites}) -- they must agree, or spray appears
+     * where the painted ring does not.
+     */
+    static boolean columnClosed(BlockState state) {
+        var fluid = state.getFluidState();
+        return state.blocksMotion() || (!fluid.isEmpty() && !fluid.isSource());
     }
 
     // Entity + Sable sub-level stamping followed by the chamfer distance transform. Always runs
@@ -332,40 +352,130 @@ public final class WaterlineMap {
         texture.upload();
     }
 
-    // Sprinkle a few foam particles onto the ring near the camera each tick, for a bit of life.
+    // Throw this tick's foam: the standing kind along the waterline, and the spray of anything
+    // crossing it.
     private static void emitFoamParticles(Level level, Vec3 camPos, int boundaryY) {
         // Match the rendered plane height exactly (boundaryY is its floored block row, not the surface).
         double surfaceY = Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET;
         if (Math.abs(camPos.y - surfaceY) > 32.0) {
             return; // only when the camera is near the surface
         }
-        final int C = cellsPerBlock;
-        float foamBandCells = (float) (double) Config.FOAM_WIDTH.get() * C;
-        if (foamBandCells <= 0.0F) {
-            return;
+        if ((double) Config.FOAM_WIDTH.get() <= 0.0) {
+            return; // foam turned off
         }
-        // Puff (smoke) particle tinted with the foam colour -- the mod's own colour-tintable clone of
-        // vanilla's POOF, also used by the nozzle filter (see PuffParticle) -- reads as foam mist
-        // instead of the sparkle-like redstone dust look.
+        // Tinted campfire smoke (see FoamParticle): big, soft and slow-rising, which reads as foam
+        // mist lying on the surface. The nozzle filter's own puffs are a separate, smaller particle.
         float[] pc = Config.foamColor();
-        ParticleOptions puff = ColorParticleOption.create(ModParticles.PUFF.get(), pc[0], pc[1], pc[2]);
+        ParticleOptions foam = ColorParticleOption.create(ModParticles.FOAM.get(), pc[0], pc[1], pc[2]);
         RandomSource rnd = level.getRandom();
-        double camCellX = (camPos.x - originX) * C;
-        double camCellZ = (camPos.z - originZ) * C;
-        int r = PARTICLE_RADIUS_BLOCKS * C;
-        for (int i = 0; i < PARTICLES_PER_TICK; i++) {
-            int x = (int) (camCellX + rnd.nextInt(2 * r + 1) - r);
-            int z = (int) (camCellZ + rnd.nextInt(2 * r + 1) - r);
-            if (x < 0 || x >= cells || z < 0 || z >= cells) {
-                continue;
+
+        // Standing foam along the waterline comes from FoamSites, which remembers where the boundary
+        // touches blocks per chunk and so reaches the whole loaded world. Scattering samples over this
+        // map instead capped foam at the map's own edge and made it travel with the player.
+        FoamSites.tick(level, camPos, boundaryY, surfaceY, foam, rnd);
+        // Spray thrown by things crossing it is per-entity and stays close, since that is where the
+        // entities are.
+        emitWakeFoam(level, camPos, surfaceY, foam, rnd);
+    }
+
+    // How far out spray is emitted: the map's own half-extent, capped. The entities that throw it are
+    // the ones the map already tracks, so there is no point reaching past it.
+    private static int particleRadius() {
+        return Math.min(size / 2, PARTICLE_RADIUS_MAX);
+    }
+
+    // Spray thrown by things crossing the surface, as opposed to the standing foam a shoreline makes.
+    // Emission is once a tick, so everything here back-dates its spawn point along the travel of that
+    // tick: a particle goes where the thing WAS at some fraction of the way through, not where it ended
+    // up. Without that the trail is a row of clumps one tick's travel apart.
+    // Rate scales with speed, so a drifting boat barely fizzes and a fast one throws a real wake, and
+    // the particles are biased into the arc AHEAD of the direction of travel -- foam piles up against
+    // the bow rather than ringing the hull evenly. Each one then carries a fraction of the entity's
+    // own motion, so it slides backwards past it and is left behind instead of riding along.
+    private static void emitWakeFoam(Level level, Vec3 camPos, double surfaceY,
+                                     ParticleOptions foam, RandomSource rnd) {
+        double reach = particleRadius();
+        AABB area = new AABB(camPos.x - reach, surfaceY - 2.0, camPos.z - reach,
+                camPos.x + reach, surfaceY + 2.0, camPos.z + reach);
+        for (Entity e : level.getEntities((Entity) null, area,
+                e -> e.getBoundingBox().minY <= surfaceY && e.getBoundingBox().maxY >= surfaceY)) {
+            // How far it actually moved last tick, NOT getDeltaMovement(): on the client only the
+            // local player keeps a meaningful delta, while every other entity is interpolated from
+            // position packets and reports nothing. Reading the positions is what makes other players,
+            // mobs and ridden boats throw a wake at all instead of only the player under your own feet.
+            Vec3 motion = new Vec3(e.getX() - e.xOld, e.getY() - e.yOld, e.getZ() - e.zOld);
+            double speed = Math.sqrt(motion.x * motion.x + motion.z * motion.z);
+            double strength = Math.min(1.0, speed / FULL_SPEED);
+
+            int count = (int) Math.round(strength * WAKE_MAX);
+            if (count == 0) {
+                // Still, or nearly: the odd puff so a moored boat is not bone dry, and no more.
+                if (rnd.nextFloat() >= STATIC_CHANCE) {
+                    continue;
+                }
+                count = 1;
             }
-            float s = shown[z * cells + x];
-            if (s > 0.2F && s <= foamBandCells) { // on the ring, not inside land or open water
-                double wx = originX + (x + rnd.nextDouble()) / C;
-                double wz = originZ + (z + rnd.nextDouble()) / C;
-                level.addParticle(puff, wx, surfaceY + 0.05, wz, 0.0, 0.0, 0.0);
+
+            AABB box = e.getBoundingBox();
+            double cx = (box.minX + box.maxX) * 0.5;
+            double cz = (box.minZ + box.maxZ) * 0.5;
+            double radius = 0.5 * Math.max(box.maxX - box.minX, box.maxZ - box.minZ);
+            // Which way is "ahead". A still entity has no heading, so its lone puff goes anywhere.
+            double heading = speed > 1.0e-4 ? Math.atan2(motion.z, motion.x) : rnd.nextDouble() * Math.PI * 2.0;
+
+            for (int i = 0; i < count; i++) {
+                // Spread narrows as it speeds up: slow means an even ring, fast means a tight bow wave.
+                double spread = Math.PI * (1.0 - strength) + FRONT_ARC * strength;
+                double angle = heading + (rnd.nextDouble() * 2.0 - 1.0) * spread;
+                double ox = Math.cos(angle);
+                double oz = Math.sin(angle);
+                double rr = radius * (0.9 + rnd.nextDouble() * 0.35);
+                double push = WAKE_SPREAD * (0.4 + strength);
+                // Spread the tick's spray along the ground the entity actually covered, instead of
+                // dropping all of it where the entity happens to be now. Stratified (i + random, not
+                // just random) so the samples spread evenly over the interval rather than bunching.
+                double t = (i + rnd.nextDouble()) / count;
+                double lagX = motion.x * (1.0 - t);
+                double lagZ = motion.z * (1.0 - t);
+                spawnWake(level, foam, cx - lagX + ox * rr, surfaceY, cz - lagZ + oz * rr,
+                        ox, oz, push, motion);
             }
         }
+
+        // Sable ships and contraptions are not entities and never appear in the query above, but they
+        // break the surface exactly as a boat does. Their waterline is sampled directly (see
+        // SableCompatibility.sampleWakes), and each hit throws spray outward from the sub-level's
+        // centre with the sub-level's own travel behind it.
+        if (SABLE && Config.SABLE_FOAM.getAsBoolean()) {
+            SableCompatibility.sampleWakes(level, surfaceY, SUBLEVEL_PROBES, rnd, (wx, wz, motion) -> {
+                double speed = Math.sqrt(motion.x * motion.x + motion.z * motion.z);
+                double strength = Math.min(1.0, speed / FULL_SPEED);
+                if (strength <= 0.0 && rnd.nextFloat() >= STATIC_CHANCE) {
+                    return; // moored: the odd puff along the hull, no more
+                }
+                // No centre to push away from here -- the probe landed somewhere along the hull, so
+                // the spray leaves along the direction of travel, which is where a bow wave goes.
+                double heading = speed > 1.0e-4 ? Math.atan2(motion.z, motion.x)
+                        : rnd.nextDouble() * Math.PI * 2.0;
+                double angle = heading + (rnd.nextDouble() * 2.0 - 1.0) * FRONT_ARC;
+                // Same back-dating along the tick's travel as above. Probes arrive one at a time here
+                // with no count to stratify against, so the sample is a plain random point in the
+                // interval -- over a hull's worth of probes that still fills the gap evenly.
+                double t = rnd.nextDouble();
+                spawnWake(level, foam, wx - motion.x * (1.0 - t), surfaceY, wz - motion.z * (1.0 - t),
+                        Math.cos(angle), Math.sin(angle), WAKE_SPREAD * (0.4 + strength), motion);
+            });
+        }
+    }
+
+    // One piece of spray: it travels OUTWARD from where it was thrown, faster the faster the thing
+    // that threw it, while giving up that thing's own motion. Outward carries the wave off across the
+    // surface; losing the motion means whatever threw it leaves it behind rather than dragging it
+    // along -- the two together open into a V behind anything moving quickly.
+    private static void spawnWake(Level level, ParticleOptions foam, double x, double surfaceY, double z,
+                                  double outX, double outZ, double push, Vec3 motion) {
+        level.addParticle(foam, x, surfaceY + 0.05, z,
+                outX * push - motion.x * WAKE_DRAG, 0.0, outZ * push - motion.z * WAKE_DRAG);
     }
 
     // (Re)allocate the backing arrays and GPU texture for a new block edge length and/or cell resolution.

@@ -14,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -24,8 +25,12 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 // blocky terraces, faint and stacked so a grazing line of sight reads them as "overall variation far
 // from the player". Pixel-snapped by the fog_vapor shader to match the plane's blocky look.
 //
-// Drawn AFTER the translucent water pass (its own later stage) so the light mist veils OVER water,
-// instead of water compositing over it and tracing dark outlines along the waterline.
+// The sheets hang on BOTH sides of the surface, mirrored, so the layer looks the same from above and
+// below and does not flip at a crossing.
+//
+// Drawn at up to two stages (see onRenderLevelStage): one after the water pass so the mist veils over
+// water, and one before it so water veils over the mist. Together they keep the layer continuous
+// where a lake meets the shore.
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public final class FogVapor {
 
@@ -34,17 +39,33 @@ public final class FogVapor {
     // wisps repeat exactly with the anchor -> no seam.
     private static final float WISP_SCALE = 0.09375F;
 
+    // Above the surface and below it: every sheet is drawn on both faces (see the sheet loop).
+    private static final float[] SIDES = { 1.0F, -1.0F };
+
     private FogVapor() {
     }
 
-    @SubscribeEvent
+    // LOW priority so that at the plane's own stage the plane has already run: two handlers on one
+    // stage are otherwise ordered by registration, and the mist has to veil OVER the murk (and read
+    // the depth snapshot the plane captures there), not be painted out by it.
+    @SubscribeEvent(priority = EventPriority.LOW)
     static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (!Config.RENDER_PLANE.getAsBoolean() || !Config.RENDER_VAPOR.getAsBoolean()) {
             return;
         }
-        // After the translucent water pass: the depth buffer holds water/terrain/plane, so the mist
-        // sits on top of the water rather than being darkened by it.
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+        // The mist is drawn at up to TWO stages, and the same sheets at that.
+        //
+        // AFTER_TRANSLUCENT_BLOCKS is after the water pass: terrain, plane and water are all in the
+        // buffers, so the mist veils over them. That copy alone floats on top of a lake.
+        //
+        // AFTER_BLOCK_ENTITIES is the plane's own stage, before the water pass, so water composites
+        // over the mist instead and it reads as lying beneath the surface. Drawing BOTH is what makes
+        // the layer continuous across a shoreline: over land the first copy shows, under a lake the
+        // second, and neither has to know where the water ends.
+        boolean over = event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS;
+        boolean under = event.getStage() == RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES
+                && Config.VAPOR_UNDERWATER.getAsBoolean();
+        if (!over && !under) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -97,15 +118,14 @@ public final class FogVapor {
         Minecraft mc = Minecraft.getInstance();
         float reach = Math.min(mc.options.getEffectiveRenderDistance() * 16.0F, fogFar);
 
-        // Vapour lives on whichever side of the plane the camera is on (the side you can actually see).
-        float side = cam.y >= surfaceY ? 1.0F : -1.0F;
-
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.enableDepthTest(); // terrain / the plane occlude the vapour
         RenderSystem.depthMask(false);  // translucent: never writes depth
         RenderSystem.disableCull();     // seen from both sides
 
+        // Sampler0 = waterline map, so the mist can thin on the same foam ring the surface draws.
+        RenderSystem.setShaderTexture(0, WaterlineMap.textureId());
         // Sampler3 = scene depth snapshot (shared with the plane) for the soft occlusion edge.
         RenderSystem.setShaderTexture(3, SceneDepth.depthTextureId());
         // Degrades to "never occlude" in the shader when occlusion is off or FogPlaneRenderer's capture
@@ -125,6 +145,14 @@ public final class FogVapor {
         // Must match the waterline map's actual resolution (Config.waterlineCellsPerBlock) so the vapour's
         // pixel-snap grid lines up with the plane's foam grid.
         shader.safeGetUniform("PixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
+        // Where the foam map sits and how its stored distance scales -- the same values the plane
+        // passes, anchored to the same tile, or the two would disagree about where the ring is.
+        shader.safeGetUniform("WaterlineOrigin").set((float) (WaterlineMap.originX() - ax),
+                (float) (WaterlineMap.originZ() - az));
+        shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
+        shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
+        shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
+        shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
         shader.safeGetUniform("PlaneFadeStart").set(fogFar * 0.8F);
         shader.safeGetUniform("PlaneFadeEnd").set(fogFar);
         // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
@@ -160,16 +188,23 @@ public final class FogVapor {
         double spacing = undulation / sheets;
         Tesselator tess = Tesselator.getInstance();
         BufferBuilder bb = tess.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-        for (int i = 0; i < sheets; i++) {
-            // Bottom plane carries most of the alpha (so the mist reads up close, face-on); higher
-            // planes fall off fast so grazing overlaps at distance don't pile into a solid wall.
-            float baseA = va * 0.5F * (float) Math.pow(0.55, i);
-            float threshold = (i + 1.0F) / (sheets + 1.0F);
-            float y = relY + side * (float) (0.3 + (i + 1) * spacing);
-            bb.addVertex(-reach, y, -reach).setColor(threshold, 0.0F, 0.0F, baseA);
-            bb.addVertex(-reach, y, reach).setColor(threshold, 0.0F, 0.0F, baseA);
-            bb.addVertex(reach, y, reach).setColor(threshold, 0.0F, 0.0F, baseA);
-            bb.addVertex(reach, y, -reach).setColor(threshold, 0.0F, 0.0F, baseA);
+        // Every sheet is emitted TWICE, mirrored through the surface: the mist clings to both faces of
+        // the plane rather than only the one the camera happens to be on. It used to follow the camera,
+        // which meant the whole layer flipped across the boundary at the instant of a crossing -- the
+        // one moment both sides are in view at once. Whichever side is hidden is hidden by the plane's
+        // own depth, so the pair costs a draw's worth of quads and nothing else.
+        for (float side : SIDES) {
+            for (int i = 0; i < sheets; i++) {
+                // Bottom plane carries most of the alpha (so the mist reads up close, face-on); higher
+                // planes fall off fast so grazing overlaps at distance don't pile into a solid wall.
+                float baseA = va * 0.5F * (float) Math.pow(0.55, i);
+                float threshold = (i + 1.0F) / (sheets + 1.0F);
+                float y = relY + side * (float) (0.3 + (i + 1) * spacing);
+                bb.addVertex(-reach, y, -reach).setColor(threshold, 0.0F, 0.0F, baseA);
+                bb.addVertex(-reach, y, reach).setColor(threshold, 0.0F, 0.0F, baseA);
+                bb.addVertex(reach, y, reach).setColor(threshold, 0.0F, 0.0F, baseA);
+                bb.addVertex(reach, y, -reach).setColor(threshold, 0.0F, 0.0F, baseA);
+            }
         }
         BufferUploader.drawWithShader(bb.buildOrThrow());
 

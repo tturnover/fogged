@@ -58,8 +58,11 @@ public final class FogDebugOverlay {
         lines.add(new Line("entity holes " + FogPlaneRenderer.lastHoles + "/32", PLAIN));
         lines.add(new Line(String.format("waterline %d blk @ %d cells/blk  tex %d",
                 WaterlineMap.size(), WaterlineMap.cellsPerBlock(), WaterlineMap.textureId()), PLAIN));
+        lines.add(new Line("foam sites in " + FoamSites.cachedChunks() + " chunks", PLAIN));
         lines.add(new Line("vapor " + (Config.RENDER_VAPOR.getAsBoolean()
-                ? Config.VAPOR_SHEETS.getAsInt() + " sheets" : "off"), PLAIN));
+                ? Config.VAPOR_SHEETS.getAsInt() + " sheets"
+                        + (Config.VAPOR_UNDERWATER.getAsBoolean() ? " x2 (under water)" : "")
+                : "off"), PLAIN));
         lines.add(mixinLine());
 
         int y = MARGIN;

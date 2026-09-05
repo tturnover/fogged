@@ -263,6 +263,13 @@ public class Config {
                     "rolling rises and falls. 0 = flat sheets.")
             .defineInRange("vaporUndulation", 1.5, 0.0, 16.0);
 
+    public static final ModConfigSpec.BooleanValue VAPOR_UNDERWATER = CLIENT
+            .comment("Draw a second copy of the mist before the water pass, so water composites OVER it",
+                    "and the layer reads as lying beneath the surface of a lake instead of floating on",
+                    "top of it. The copy after the water pass is always drawn; together they keep the mist",
+                    "continuous across a shoreline. Off = the single pass over water, and half the cost.")
+            .define("vaporUnderwater", true);
+
     static { CLIENT.pop(); }   // [plane.vapor]
     static { CLIENT.pop(); }   // [plane]
 
