@@ -177,7 +177,9 @@ public class Config {
                     "  [count] from = [count] to [@depth] [!silent]",
                     "",
                     "FROM: a block id, an item id, an id with '*' wildcards, or a '#' tag -- or several of",
-                    "  those separated by commas, which is one line for a whole family. Whatever it names",
+                    "  those separated by commas, which is one line for a whole family. Every other part of",
+                    "  the line applies to the whole of it: one count, one depth, one !silent, covering each",
+                    "  id in the list. Whatever it names",
                     "  is converted -- placed blocks if it names a block, dropped stacks if it names an",
                     "  item, both if it names both. The 'minecraft:' namespace may be left off.",
                     "TO: one id, no wildcards and no tag. Name a BLOCK and a placed block is replaced by it,",
@@ -723,13 +725,16 @@ public class Config {
         int space = text.indexOf(' ');
         if (space > 0) {
             Integer parsed = number(text.substring(0, space), MAX_TRANSFORM_COUNT);
-            if (parsed == null || parsed < 1) {
-                return null;
+            if (parsed != null && parsed >= 1) {
+                count = parsed;
+                text = text.substring(space + 1).trim();
             }
-            count = parsed;
-            text = text.substring(space + 1).trim();
+            // A leading token that is not a count is left where it is: the only other thing a space can
+            // separate is the ids of a comma-separated list, written out with room to breathe.
         }
-        if (text.isEmpty() || text.indexOf(' ') >= 0) {
+        // Whitespace inside the list is fine -- "a, b, c" reads better than "a,b,c" -- but nowhere else.
+        text = text.replace(" ", "");
+        if (text.isEmpty()) {
             return null;
         }
         if (isFrom) {
