@@ -111,6 +111,12 @@ public final class FogScour {
     private static void rot(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
 
+        // Configured rules first, so scouredBlocks / blockTransforms can override any of the built-in
+        // rules below for a given block rather than only adding to them.
+        if (ScourRules.apply(level, pos, state)) {
+            return;
+        }
+
         if (state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE)) {
             level.removeBlock(pos, false);
             return;

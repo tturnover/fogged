@@ -128,6 +128,29 @@ public class Config {
             .defineListAllowEmpty("snuffedDevices", Config::defaultSnuffedDevices, () -> "minecraft:furnace",
                     o -> o instanceof String s && !s.isBlank());
 
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> SCOURED_BLOCKS = COMMON
+            .comment("Extra blocks the murk takes out under the boundary, on top of the built-in scour",
+                    "(fires, lava, torches, devices, grass, farmland, leaves, plants). Each entry is a",
+                    "block id or, with a leading '#', a block tag. '*' matches any run of characters in an",
+                    "id, and the 'minecraft:' namespace may be omitted. They are broken without drops.",
+                    "Needs submergeWorld.",
+                    "Example: scouredBlocks = [\"cobweb\", \"#minecraft:banners\", \"create:*_casing\"]")
+            .defineListAllowEmpty("scouredBlocks", ArrayList::new, () -> "minecraft:cobweb",
+                    o -> o instanceof String s && !s.isBlank());
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCK_TRANSFORMS = COMMON
+            .comment("Blocks the murk turns into something else under the boundary, one \"from=to\" entry",
+                    "per line. 'from' is a block id, an id with '*' wildcards, or a '#' block tag; 'to' is",
+                    "a single block id, placed in its default state. Applied before the built-in scour, so",
+                    "an entry here overrides what the murk would otherwise do to that block. A transform",
+                    "whose result matches another rule is itself scoured on the next pass, so do not point",
+                    "one at a block another rule takes. Empty list = built-in behaviour only.",
+                    "Needs submergeWorld.",
+                    "Example: blockTransforms = [\"minecraft:coal_ore=minecraft:stone\", \"#c:ores=stone\"]")
+            .defineListAllowEmpty("blockTransforms", Config::defaultBlockTransforms,
+                    () -> "minecraft:coal_ore=minecraft:stone",
+                    o -> o instanceof String s && parseTransformEntry(s) != null);
+
     static { COMMON.pop(); }   // [boundary]
 
     // ==== common [suffocation] : what the murk does to the things breathing in it ====
@@ -487,6 +510,55 @@ public class Config {
                 "create:lit_blaze_burner",
                 "aeronautics:adjustable_burner",
                 "simulated:*_portable_engine"));
+    }
+
+    // Coal is what the murk eats: an ore left in the dark under the boundary comes back as the rock it
+    // sat in. Ore first, so a transform to a stone that some other rule scours is the config's problem
+    // and not the default's.
+    private static List<String> defaultBlockTransforms() {
+        return new ArrayList<>(List.of(
+                "minecraft:coal_ore=minecraft:stone",
+                "minecraft:deepslate_coal_ore=minecraft:deepslate"));
+    }
+
+    /**
+     * Split one "from=to" transform entry. Returns {from, to} with namespaces filled in, or null if it
+     * is not a usable pair -- which is also what the config validator tests, so a malformed line is
+     * rejected at load rather than silently ignored later.
+     */
+    static String[] parseTransformEntry(String entry) {
+        int eq = entry.indexOf('=');
+        if (eq <= 0 || eq == entry.length() - 1) {
+            return null;
+        }
+        String from = entry.substring(0, eq).trim();
+        String to = entry.substring(eq + 1).trim();
+        if (from.isEmpty() || to.isEmpty() || to.startsWith("#") || to.indexOf('*') >= 0) {
+            return null; // the target has to be one concrete block
+        }
+        if (ResourceLocation.tryParse(withNamespace(to)) == null) {
+            return null;
+        }
+        String fromId = from.startsWith("#") ? "#" + withNamespace(from.substring(1)) : withNamespace(from);
+        if (fromId.startsWith("#") && ResourceLocation.tryParse(fromId.substring(1)) == null) {
+            return null;
+        }
+        return new String[] { fromId, withNamespace(to) };
+    }
+
+    /**
+     * Turn an id with '*' wildcards into a regex for that id shape; everything but '*' is literal.
+     * Shared by every config list that matches block ids ({@link FogSnuff}, {@link ScourRules}).
+     */
+    static java.util.regex.Pattern idGlob(String s) {
+        StringBuilder sb = new StringBuilder();
+        for (String part : s.split("\\*", -1)) {
+            if (sb.length() > 0) {
+                sb.append(".*");
+            }
+            sb.append(java.util.regex.Pattern.quote(part));
+        }
+        return java.util.regex.Pattern.compile(sb.toString());
     }
 
     // A bare "cod" is treated as "minecraft:cod" so the config stays terse.

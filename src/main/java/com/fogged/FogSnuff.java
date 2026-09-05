@@ -51,7 +51,7 @@ public final class FogSnuff {
         cachedRaw = raw;
         List<Pattern> patterns = new ArrayList<>();
         for (String s : raw) {
-            patterns.add(glob(Config.withNamespace(s.trim())));
+            patterns.add(Config.idGlob(Config.withNamespace(s.trim())));
         }
         Set<Block> found = new HashSet<>();
         for (Block block : BuiltInRegistries.BLOCK) {
@@ -64,18 +64,6 @@ public final class FogSnuff {
             }
         }
         devices = found;
-    }
-
-    // "simulated:*_portable_engine" -> a regex for that id shape; everything but '*' is literal.
-    private static Pattern glob(String s) {
-        StringBuilder sb = new StringBuilder();
-        for (String part : s.split("\\*", -1)) {
-            if (sb.length() > 0) {
-                sb.append(".*");
-            }
-            sb.append(Pattern.quote(part));
-        }
-        return Pattern.compile(sb.toString());
     }
 
     /** Whether this block is one of the configured fire-burning devices. */
