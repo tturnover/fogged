@@ -70,14 +70,16 @@ public class NozzleFilterBlock extends BaseEntityBlock {
         return RenderShape.MODEL;
     }
 
-    // --- Hitbox: follows Create's nozzle silhouette (body + top flange) instead of a full cube --------
+    // --- Hitbox: follows the authored model rather than a full cube ----------------------------------
 
-    // The shape for a filter pointing UP (matching the authored model): the 12x14x12 body rising from the
-    // floor, capped by the 14x2x14 flange near the top. Rotated per FACING to match the model's rotations.
+    // The shape for a filter pointing UP: the full-footprint body up to 15, capped by the flange that
+    // rings the last pixel (1..15 across, 15..16 up). The flange is four boxes in the model, a frame
+    // around the open mesh face; the hitbox takes its bounding box instead, so the mesh is walked on
+    // rather than stepped into. Rotated per FACING to match the model's own rotations.
     private static final Map<Direction, VoxelShape> SHAPES = buildShapes();
 
     private static Map<Direction, VoxelShape> buildShapes() {
-        VoxelShape up = Shapes.or(Block.box(2, 0, 2, 14, 14, 14), Block.box(1, 13, 1, 15, 15, 15));
+        VoxelShape up = Shapes.or(Block.box(0, 0, 0, 16, 15, 16), Block.box(1, 15, 1, 15, 16, 15));
         VoxelShape north = rotateX(up); // x:90
         Map<Direction, VoxelShape> map = new EnumMap<>(Direction.class);
         map.put(Direction.UP, up);
