@@ -76,11 +76,15 @@ final class YaclCompatibility {
                 .option(bool("flipFog", Config.FLIP_FOG))
                 .option(bool("submergeWorld", Config.SUBMERGE_WORLD))
                 .option(integer("submergeSkip", Config.SUBMERGE_SKIP, 0, 64, 1))
-                .option(bool("enableExtinguish", Config.ENABLE_EXTINGUISH))
+                // A toggle then the list it governs, over and over. Each toggle is wrapped in a group of
+                // its own because a category renders every loose option BEFORE any of its groups, and a
+                // list is a group -- left as plain options they all bunched at the top, three switches
+                // away from the three lists they switch.
+                .group(lead(bool("enableExtinguish", Config.ENABLE_EXTINGUISH)))
                 .group(strings("snuffedDevices", Config.SNUFFED_DEVICES))
-                .option(bool("enableScour", Config.ENABLE_SCOUR))
+                .group(lead(bool("enableScour", Config.ENABLE_SCOUR)))
                 .group(strings("scouredBlocks", Config.SCOURED_BLOCKS))
-                .option(bool("enableTransforms", Config.ENABLE_TRANSFORMS))
+                .group(lead(bool("enableTransforms", Config.ENABLE_TRANSFORMS)))
                 .group(strings("transforms", Config.TRANSFORMS))
                 .build();
     }
@@ -93,10 +97,10 @@ final class YaclCompatibility {
                 .option(bool("depthScaling", Config.DEPTH_SCALING))
                 .option(dbl("depthScalingBlocks", Config.DEPTH_SCALING_BLOCKS, 0.0, 128.0, 1.0))
                 .option(dbl("depthScalingPercent", Config.DEPTH_SCALING_PERCENT, 0.0, 100.0, 0.5))
-                .option(bool("mobSuffocation", Config.MOB_SUFFOCATION))
+                .group(lead(bool("mobSuffocation", Config.MOB_SUFFOCATION),
+                        integer("mobSuffocateDelaySeconds", Config.MOB_SUFFOCATE_DELAY, 0, 600, 1),
+                        dbl("mobSuffocateDamage", Config.MOB_SUFFOCATE_DAMAGE, 0.0, 40.0, 0.5)))
                 .group(strings("allowedMobs", Config.ALLOWED_MOBS))
-                .option(integer("mobSuffocateDelaySeconds", Config.MOB_SUFFOCATE_DELAY, 0, 600, 1))
-                .option(dbl("mobSuffocateDamage", Config.MOB_SUFFOCATE_DAMAGE, 0.0, 40.0, 0.5))
                 .build();
     }
 
@@ -203,6 +207,18 @@ final class YaclCompatibility {
                 .controller(StringControllerBuilder::create)
                 .initial("")
                 .build();
+    }
+
+    // A nameless group holding the options that belong just above a list. Groups keep the order they
+    // are added in, where loose options are all hoisted above them, so this is what puts a switch next
+    // to the thing it switches. No name: the options say what they are, and a header for each would
+    // be three headers where the lists already carry their own.
+    private static OptionGroup lead(Option<?>... options) {
+        OptionGroup.Builder group = OptionGroup.createBuilder();
+        for (Option<?> option : options) {
+            group.option(option);
+        }
+        return group.build();
     }
 
     private static OptionDescription describe(String key) {
