@@ -111,12 +111,24 @@ public class FoggedJeiPlugin implements IModPlugin {
         private static final int MARK_H = 56;
         private static final int ICON_W = 16;
         private static final int ICON_H = 18;
+        private static final int ICON_PAD = 4;  // breathing room around the cube in the category tab
 
-        private static final int WIDTH = 90;
-        private static final int HEIGHT = 60;
-        private static final int MARK_X = 24;
-        private static final int MARK_Y = 2;
-        private static final int SLOT_Y = 21;   // centred against the mark
+        // Laid out from the sizes JEI actually draws, not from the 16x16 ingredient areas: a standard
+        // slot background is 18x18 around its ingredient (offset -1) and an OUTPUT slot background is
+        // 26x26 (offset -5). Positioning both as if they were the same size is what left the row
+        // looking shoved to one side, with the output's larger frame hanging over the right edge.
+        private static final int PAD = 4;       // margin at the edges, and between each pair of parts
+        private static final int IN_BG = 18;
+        private static final int OUT_BG = 26;
+        private static final int INGREDIENT = 16;
+
+        private static final int WIDTH = PAD + IN_BG + PAD + MARK_W + PAD + OUT_BG + PAD;
+        private static final int HEIGHT = MARK_H + 2 * 2;
+        private static final int MARK_X = PAD + IN_BG + PAD;
+        private static final int MARK_Y = (HEIGHT - MARK_H) / 2;
+        private static final int SLOT_Y = (HEIGHT - INGREDIENT) / 2;
+        private static final int IN_X = PAD + 1;                        // +1: the 18x18 frame's inset
+        private static final int OUT_X = MARK_X + MARK_W + PAD + 5;     // +5: the 26x26 frame's inset
 
         private final IDrawable mark;
 
@@ -125,6 +137,7 @@ public class FoggedJeiPlugin implements IModPlugin {
                     Component.translatable("fogged.jei.murk_transform"),
                     guiHelper.drawableBuilder(ICON_TEXTURE, 0, 0, ICON_W, ICON_H)
                             .setTextureSize(ICON_W, ICON_H)
+                            .addPadding(ICON_PAD, ICON_PAD, ICON_PAD, ICON_PAD)
                             .build(),
                     WIDTH, HEIGHT);
             this.mark = guiHelper.drawableBuilder(MARK_TEXTURE, MARK_U, MARK_V, MARK_W, MARK_H)
@@ -134,10 +147,10 @@ public class FoggedJeiPlugin implements IModPlugin {
 
         @Override
         public void setRecipe(IRecipeLayoutBuilder builder, MurkTransform recipe, IFocusGroup focuses) {
-            builder.addSlot(RecipeIngredientRole.INPUT, 1, SLOT_Y)
+            builder.addSlot(RecipeIngredientRole.INPUT, IN_X, SLOT_Y)
                     .setStandardSlotBackground()
                     .addItemStacks(recipe.from());
-            builder.addSlot(RecipeIngredientRole.OUTPUT, WIDTH - 19, SLOT_Y)
+            builder.addSlot(RecipeIngredientRole.OUTPUT, OUT_X, SLOT_Y)
                     .setOutputSlotBackground()
                     .addItemStack(recipe.to());
         }
