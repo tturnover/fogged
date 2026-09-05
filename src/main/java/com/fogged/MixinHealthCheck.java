@@ -40,8 +40,6 @@ public final class MixinHealthCheck {
     public static volatile boolean cloudsFired = false;
     /** The terrain-pass fog re-assert; without it another mod's fog override wins (see FogModifier). */
     public static volatile boolean terrainFogFired = false;
-    /** Block-change notice for the waterline map; without it foam only refreshes on the backstop. */
-    public static volatile boolean blockChangeFired = false;
 
     private static int ticks = 0;
     private static boolean checked = false;
@@ -66,6 +64,9 @@ public final class MixinHealthCheck {
         warnIfNotFired("tickRain", rainTickFired, "rain-splash suppression under the murk");
         warnIfNotFired("renderClouds", cloudsFired,
                 "cloud suppression under the murk (also stays unfired if your own Clouds option is Off)");
+        warnIfNotFired("renderSectionLayer", terrainFogFired,
+                "the murk fog re-assert, which is what keeps the fog from being overwritten by another "
+                        + "mod injecting at the return of FogRenderer.setupFog");
     }
 
     private static void warnIfNotFired(String method, boolean fired, String feature) {

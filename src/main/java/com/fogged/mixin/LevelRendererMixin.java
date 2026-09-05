@@ -1,7 +1,6 @@
 package com.fogged.mixin;
 
 import com.fogged.Config;
-import com.fogged.WaterlineMap;
 import com.fogged.FogModifier;
 import com.fogged.MixinHealthCheck;
 
@@ -14,11 +13,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.material.FogType;
 
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -48,7 +45,8 @@ public class LevelRendererMixin {
     private void fogged$skipSkyInMurk(Matrix4f frustumMatrix, Matrix4f projectionMatrix, float partialTick,
                                       Camera camera, boolean isFoggy, Runnable skyFogSetup, CallbackInfo ci) {
         MixinHealthCheck.skyFired = true;
-        if (murk(camera)) {
+        Level level = Minecraft.getInstance().level;
+        if (level != null && Config.fogged(level, camera.getPosition().y)) {
             // Repaint the background to the murk colour before dropping the sky pass. Cancelling alone
             // used to be enough because the framebuffer had already been cleared to the fog colour --
             // but that clear colour comes out of FogRenderer.setupColor, and a mod injecting at its
@@ -67,7 +65,7 @@ public class LevelRendererMixin {
                                           double camX, double camY, double camZ, CallbackInfo ci) {
         MixinHealthCheck.weatherFired = true;
         Level level = Minecraft.getInstance().level;
-        if (level != null && Config.fogged(level, camY) && !Config.inFluid(level, camX, camY, camZ)) {
+        if (level != null && Config.fogged(level, camY)) {
             ci.cancel();
         }
     }
@@ -77,7 +75,8 @@ public class LevelRendererMixin {
     @Inject(method = "tickRain", at = @At("HEAD"), cancellable = true, require = 0)
     private void fogged$skipRainSplashesInMurk(Camera camera, CallbackInfo ci) {
         MixinHealthCheck.rainTickFired = true;
-        if (murk(camera)) {
+        Level level = Minecraft.getInstance().level;
+        if (level != null && Config.fogged(level, camera.getPosition().y)) {
             ci.cancel();
         }
     }
@@ -96,8 +95,7 @@ public class LevelRendererMixin {
         Minecraft mc = Minecraft.getInstance();
         Level level = mc.level;
         var player = mc.player;
-        if (level != null && player != null && Config.fogged(level, player.getEyeY())
-                && player.getEyeInFluidType().isAir()) {
+        if (level != null && player != null && Config.fogged(level, player.getEyeY())) {
             ci.cancel();
         }
     }
@@ -107,45 +105,14 @@ public class LevelRendererMixin {
     // NeoForge's fog event fires inside FogRenderer.setupFog, so a mod injecting at that method's
     // RETURN -- Distant Horizons does, to suppress vanilla fog -- overwrites the result and the murk
     // disappears. There is no render stage between the terrain fog setup and this call, so this is the
-    // last place the fog can be claimed before the world is drawn with it. FogModifier only ever
-    // shortens what is already there, so a mod with genuinely tighter fog still wins.
+    // last place the fog can be claimed before the world is drawn with it.
     //
     // Cheap: five calls a frame, each of which usually decides it has nothing to do.
     @Inject(method = "renderSectionLayer", at = @At("HEAD"), require = 0)
     private void fogged$enforceMurkFog(net.minecraft.client.renderer.RenderType renderType, double camX,
-                                       double camY, double camZ, org.joml.Matrix4f frustumMatrix,
-                                       org.joml.Matrix4f projectionMatrix, CallbackInfo ci) {
+                                       double camY, double camZ, Matrix4f frustumMatrix,
+                                       Matrix4f projectionMatrix, CallbackInfo ci) {
         MixinHealthCheck.terrainFogFired = true;
         FogModifier.enforceMurkFog();
-    }
-
-    // The client's only notice that a block changed: there is no event for it, and the waterline map
-    // has to know or its foam keeps describing terrain that is no longer there. Both of these are the
-    // whole reason the map can be event-driven at all rather than rescanning on a timer.
-    @Inject(method = "blockChanged", at = @At("HEAD"), require = 0)
-    private void fogged$blockChanged(net.minecraft.world.level.BlockGetter level,
-                                     net.minecraft.core.BlockPos pos,
-                                     net.minecraft.world.level.block.state.BlockState oldState,
-                                     net.minecraft.world.level.block.state.BlockState newState,
-                                     int flags, CallbackInfo ci) {
-        MixinHealthCheck.blockChangeFired = true;
-        WaterlineMap.markDirtyAt(pos.getX(), pos.getY(), pos.getZ());
-    }
-
-    // Chunks loading in, and edits large enough to rebuild a whole section, never reach blockChanged.
-    @Inject(method = "setSectionDirty(III)V", at = @At("HEAD"), require = 0)
-    private void fogged$sectionDirty(int sectionX, int sectionY, int sectionZ, CallbackInfo ci) {
-        WaterlineMap.markSectionDirty(sectionX, sectionY, sectionZ);
-    }
-
-    // Whether the camera is in the murk itself -- on the fogged side AND not inside a liquid. A liquid
-    // keeps its own fog and its own view of the sky (see FogModifier), so nothing is suppressed there.
-    @Unique
-    private static boolean murk(Camera camera) {
-        Level level = Minecraft.getInstance().level;
-        if (level == null || camera.getFluidInCamera() != FogType.NONE) {
-            return false;
-        }
-        return Config.fogged(level, camera.getPosition().y);
     }
 }

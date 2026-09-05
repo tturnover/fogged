@@ -5,11 +5,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -40,13 +38,14 @@ public class Config {
     //   FogPlaneRenderer.NOISE_ANCHOR (4096.0)
     //     == fog_plane.fsh  NOISE_PERIOD_BLOCKS
     //     == fog_vapor.fsh  NOISE_PERIOD_BLOCKS
+    //   FogPlaneRenderer.MAX_ENTITY_HOLES (32)
+    //     == fog_plane.fsh  entity-hole loop bound (`for (int i = 0; i < 32; i++)`)
+    //     == fog_plane.json / fog_plane.fsh  EntityHoles[128] (== MAX_ENTITY_HOLES * 4)
     //   Config.DebugView ordinals
     //     == fog_plane.fsh  DebugView uniform (0 = off, then one branch per constant, in order)
-    // WaterlineMap's resolutions are NOT in this list: they are threaded to the shaders every frame
-    // (see FogPlaneRenderer/FogVapor) precisely so they can change at runtime without a shader edit --
-    // MapPixelsPerBlock is the distance field's own cells (waterlineCellsPerBlock, capped by the cell
-    // budget), and FoamPixelsPerBlock/PixelsPerBlock is the finer grid the foam, spots and mist are
-    // actually drawn on (WaterlineMap.effectPixelsPerBlock).
+    // WaterlineMap's cellsPerBlock resolution is NOT in this list: it's threaded to the shaders as the
+    // FoamPixelsPerBlock/PixelsPerBlock uniforms every frame (see FogPlaneRenderer/FogVapor) precisely
+    // so it can change at runtime (waterlineCellsPerBlock) without needing a matching shader edit.
     // ====
 
     /** What the plane shader draws instead of the plane, for diagnosing the render path. */
@@ -59,23 +58,10 @@ public class Config {
         SCENE_DEPTH,
         /** The plane's own opacity: green where it is solid (writes depth), red where it is softened. */
         PLANE_OPACITY,
-        /** World XZ under each pixel of surface: it must stay locked to the world as you move. */
-        WORLD_XZ,
-        /** The raw waterline map: red = dist to solid/entity, green = dist to plant, blue = liquid. */
-        WATERLINE_MAP,
-        /** The surface mesh as lines, so the greedy merge and the omitted columns are visible. */
-        WIREFRAME
-    }
-
-    /** Render stage the murk composite is drawn at. Mapped to a RenderLevelStageEvent.Stage in
-     *  FogPlaneRenderer, which is where the trade-offs of each are written down. */
-    public enum PlaneStage {
-        AFTER_CUTOUT_BLOCKS,
-        AFTER_ENTITIES,
-        AFTER_BLOCK_ENTITIES,
-        AFTER_TRANSLUCENT_BLOCKS,
-        AFTER_PARTICLES,
-        AFTER_WEATHER
+        /** The dissolve holes: red = near-player disc, green = entity discs. */
+        DISSOLVE_HOLES,
+        /** The raw waterline map: red = distance to solid/entity, green = distance to plant. */
+        WATERLINE_MAP
     }
 
     // Config values below are grouped into TOML categories with push/pop. Those calls sit in static
@@ -228,40 +214,15 @@ public class Config {
             .define("sableFoam", true);
 
     public static final ModConfigSpec.BooleanValue PLANE_SOFT_OCCLUSION = CLIENT
-            .comment("Soft-fade the plane against the silhouettes of blocks, mobs and machines instead of",
-                    "a hard depth cut (uses a per-frame scene-depth snapshot -- see SceneDepth).",
-                    "",
-                    "Off by default: the fade is a screen-door dither, so where the surface meets a block",
-                    "it drops pixels and the murk behind it can be seen through the gaps. That reads as a",
-                    "hole around everything the boundary touches, and through water it is worse still --",
-                    "the surface is translucent there already. Off cuts every edge hard, and skips the",
-                    "snapshot when nothing else that frame needs it (a small perf win).")
-            .define("planeSoftOcclusion", false);
-
-    public static final ModConfigSpec.BooleanValue DH_COMPAT = CLIENT
-            .comment("Master switch for the Distant Horizons integration: extending the murk out to the",
-                    "LOD horizon, driving DH's fog so the murk reaches its terrain, and moving the murk",
-                    "to a later render stage so LODs do not draw over it. Off, this mod ignores DH",
-                    "entirely and the murk ends at the vanilla render distance, which is how it behaves",
-                    "without DH installed. Nothing else here has any effect while this is off.")
-            .define("distantHorizonsCompat", false);
-
-    public static final ModConfigSpec.BooleanValue DH_LOD_CUT = CLIENT
-            .comment("With Distant Horizons installed, cut the distant murk against its LOD terrain so",
-                    "far-off land rises through it instead of being painted over. Needs DH's terrain",
-                    "data, which is sampled on a background thread a few columns at a time. Off draws",
-                    "the distant murk as a flat haze, which is cheaper. Needs distantHorizonsCompat.",
-                    "Known limitation: DH's terrain query blocks until the column is fetched, and for",
-                    "terrain that does not exist yet it may never return -- the sampler gives up after",
-                    "five seconds and falls back to the flat haze.")
-            .define("distantHorizonsLodCut", true);
+            .comment("Soft-fade the plane and vapour against the silhouettes of blocks, mobs and machines",
+                    "instead of a hard depth cut (uses a per-frame scene-depth snapshot -- see SceneDepth).",
+                    "Off skips that snapshot entirely (a small perf win) and cuts every edge hard.")
+            .define("planeSoftOcclusion", true);
 
     public static final ModConfigSpec.IntValue WATERLINE_CELLS_PER_BLOCK = CLIENT
-            .comment("Highest sub-block resolution of the foam distance-field grid (see WaterlineMap), in",
-                    "cells per block. Lower trades a coarser foam ring for a smaller grid: halving this",
-                    "quarters the cost of every per-tick foam pass (recompute / chamfer / ease / upload).",
-                    "The grid widens with the render distance and drops below this on its own once it",
-                    "would cost more than a 192-block map at 4 cells per block.")
+            .comment("Sub-block resolution of the foam distance-field grid (see WaterlineMap), in cells",
+                    "per block. Lower trades a coarser foam ring for a smaller grid: halving this quarters",
+                    "the cost of every per-tick foam pass (recompute / chamfer / ease / upload).")
             .defineInRange("waterlineCellsPerBlock", 4, 1, 4);
 
     // ---- client [plane.vapor] : cold-vapour ("liquid nitrogen") layer ----
@@ -270,8 +231,7 @@ public class Config {
     public static final ModConfigSpec.BooleanValue RENDER_VAPOR = CLIENT
             .comment("Render the cold-vapour layer on top of the plane: drifting horizontal mist sheets",
                     "(overall variation, densest at grazing angles far away) plus animated vertical splash",
-                    "wisps near the camera, for a liquid-nitrogen look. Always sits on top of the",
-                    "surface, whichever side of it you are on. No effect if renderPlane is off.")
+                    "wisps near the camera, for a liquid-nitrogen look. No effect if renderPlane is off.")
             .define("renderVapor", true);
 
     public static final ModConfigSpec.DoubleValue VAPOR_OFFSET_RED = CLIENT
@@ -287,26 +247,6 @@ public class Config {
             .comment("Blue offset from the plane colour to the vapour colour (-1..1). The defaults together",
                     "lighten the plane colour toward an icy white-blue.")
             .defineInRange("vaporColorOffsetBlue", 0.55, -1.0, 1.0);
-
-    public static final ModConfigSpec.EnumValue<PlaneStage> VAPOR_STAGE = CLIENT
-            .comment("Which render stage the vapour sheets are drawn at, independently of planeStage.",
-                    "Defaults to the same stage as the murk; the vapour runs on a lower event priority",
-                    "so it still lands on top of it there. Move it later to put it over things that",
-                    "would otherwise draw over the mist -- or earlier to put it under them.")
-            .defineEnum("vaporStage", PlaneStage.AFTER_TRANSLUCENT_BLOCKS);
-
-    public static final ModConfigSpec.BooleanValue VAPOR_UNDERWATER = CLIENT
-            .comment("Draw a second copy of the mist before the water pass, so water composites OVER it",
-                    "and the layer reads as sitting beneath the surface of a lake rather than floating",
-                    "on top of it. The copy at vaporStage still draws as well, so the mist is unbroken",
-                    "as it crosses a shoreline. Off leaves only the copy at vaporStage.")
-            .define("vaporUnderwater", true);
-
-    public static final ModConfigSpec.EnumValue<PlaneStage> VAPOR_UNDERWATER_STAGE = CLIENT
-            .comment("Which stage that second copy is drawn at. It has to be one that runs BEFORE the",
-                    "translucent water pass, or water will not be over it and the copy is pointless --",
-                    "AFTER_ENTITIES (default) or earlier. Ignored when it matches vaporStage.")
-            .defineEnum("vaporUnderwaterStage", PlaneStage.AFTER_ENTITIES);
 
     public static final ModConfigSpec.DoubleValue VAPOR_STRENGTH = CLIENT
             .comment("Overall vapour strength (alpha). Lower for a fainter mist, 0 to hide it entirely.")
@@ -334,31 +274,9 @@ public class Config {
                     "OFF renders normally. FOAM shows the foam edge (red) and surface spots (blue).",
                     "SCENE_DEPTH shows the depth snapshot the soft edge samples -- flat blue means",
                     "nothing is being read. PLANE_OPACITY shows where the plane is solid (green, writes",
-                    "depth) versus softened (red). WORLD_XZ shows the world position under each pixel of",
-                    "surface. WATERLINE_MAP shows the raw foam distance field and the liquid mask.",
-                    "WIREFRAME draws the surface mesh as lines: one big rectangle over open ground, a",
-                    "patchwork along a shoreline, and nothing at all over solid blocks and liquids.",
-                    "Every view draws with the depth test off, so it covers the whole plane quad rather",
-                    "than only the part that would have been visible.")
+                    "depth) versus softened (red). DISSOLVE_HOLES shows the near-player disc (red) and",
+                    "the per-entity discs (green). WATERLINE_MAP shows the raw foam distance field.")
             .defineEnum("debugView", DebugView.OFF);
-
-    public static final ModConfigSpec.EnumValue<PlaneStage> PLANE_STAGE = CLIENT
-            .comment("Which render stage the murk is composited at -- i.e. what has already been drawn",
-                    "into the colour and depth buffers when it runs, and what is still to come.",
-                    "AFTER_CUTOUT_BLOCKS (default) draws it on terrain alone, before the translucent",
-                    "pass, so WATER GOES OVER THE MURK and veils it the way it veils anything else",
-                    "underneath. Composited after the translucent pass instead, the murk lands on top of",
-                    "the water and is read straight through it -- water is translucent, so the surface",
-                    "shows as a hard line across every lake and the view past it is not hidden at all.",
-                    "The cost of drawing this early is that everything later draws OVER the murk:",
-                    "entities, block entities and Flywheel's instanced parts appear in front of it",
-                    "whichever side of the boundary they are on.",
-                    "AFTER_TRANSLUCENT_BLOCKS is the first stage where everything the murk has to hide",
-                    "is already in the buffers. Later still puts particles (AFTER_PARTICLES) and then",
-                    "the whole level pass (AFTER_WEATHER) under it.",
-                    "Exposed because render order decides what the murk can cover, and that is worth",
-                    "being able to move without a rebuild.")
-            .defineEnum("planeStage", PlaneStage.AFTER_CUTOUT_BLOCKS);
 
     public static final ModConfigSpec.BooleanValue DEBUG_HUD = CLIENT
             .comment("Draw a text readout of the render state in the corner of the screen: boundary height,",
@@ -418,13 +336,6 @@ public class Config {
     public static boolean fogged(Level level, double y) {
         double fogLine = breathHeight(level) + PLANE_SURFACE_OFFSET + FOG_START_RAISE;
         return (y < fogLine) != FLIP_FOG.getAsBoolean();
-    }
-
-    // True when the given world position sits inside a liquid -- any liquid, vanilla or modded. The
-    // murk is cut out of liquids: they are not drawn over, not fogged, and nothing suffocates in them,
-    // so a lake or lava pool the boundary passes through keeps its own surface and its own rules.
-    public static boolean inFluid(BlockGetter level, double x, double y, double z) {
-        return !level.getFluidState(BlockPos.containing(x, y, z)).isEmpty();
     }
 
     // --- depth scaling ---

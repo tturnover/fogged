@@ -51,26 +51,11 @@ public final class SceneDepth {
     private static boolean depthAvailable = true;
     private static boolean loggedFailure = false;
 
-    // What the last capture actually read, for the debug HUD: the framebuffer it came off, and
-    // whether that was the bound target's own depth texture or the fallback to the main target.
+    // Framebuffer the last capture read from (0 = the default framebuffer), so the capture can rebind
+    // what it found rather than forcing main back into place.
     private static int sourceFbo;
-    private static boolean usedFallback;
 
     private SceneDepth() {
-    }
-
-    public static boolean depthAvailable() {
-        return depthAvailable;
-    }
-
-    /** Framebuffer the last capture read its depth from (0 = the default framebuffer). */
-    public static int sourceFramebuffer() {
-        return sourceFbo;
-    }
-
-    /** True when the bound target had no sampleable depth texture and main's was used instead. */
-    public static boolean usedFallbackSource() {
-        return usedFallback;
     }
 
     // Depth texture of the framebuffer currently bound for drawing, or 0 if it has none we can sample
@@ -87,6 +72,10 @@ public final class SceneDepth {
         }
         return GL30.glGetFramebufferAttachmentParameteri(GL30.GL_DRAW_FRAMEBUFFER,
                 GL30.GL_DEPTH_ATTACHMENT, GL30.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
+    }
+
+    public static boolean depthAvailable() {
+        return depthAvailable;
     }
 
     // Copy the current main depth buffer into our own target. Must be called on the render thread, after
@@ -109,8 +98,7 @@ public final class SceneDepth {
 
         // Prefer the bound target's own depth; fall back to main's only when it has none to sample.
         int depthTex = boundDepthTexture();
-        usedFallback = depthTex == 0;
-        if (usedFallback) {
+        if (depthTex == 0) {
             depthTex = main.getDepthTextureId();
         }
         if (depthTex == 0) {

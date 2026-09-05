@@ -14,7 +14,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -25,9 +24,8 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 // blocky terraces, faint and stacked so a grazing line of sight reads them as "overall variation far
 // from the player". Pixel-snapped by the fog_vapor shader to match the plane's blocky look.
 //
-// Drawn at up to two stages (see onRenderLevelStage): one after the water pass so the mist veils over
-// water, and one before it so water veils over the mist. Together they keep the layer continuous
-// where a lake meets the shore.
+// Drawn AFTER the translucent water pass (its own later stage) so the light mist veils OVER water,
+// instead of water compositing over it and tracing dark outlines along the waterline.
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public final class FogVapor {
 
@@ -39,30 +37,14 @@ public final class FogVapor {
     private FogVapor() {
     }
 
-    // LOW priority so that when the murk composite is at this same stage (the default) it has already
-    // run: two handlers on one stage are otherwise ordered by registration, and the mist has to veil
-    // OVER the murk, not be painted out by it.
-    @SubscribeEvent(priority = EventPriority.LOW)
+    @SubscribeEvent
     static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (!Config.RENDER_PLANE.getAsBoolean() || !Config.RENDER_VAPOR.getAsBoolean()) {
             return;
         }
-        // The mist is drawn at up to TWO stages, and the same sheets at that.
-        //
-        // vaporStage (default the murk's own) is after the water pass: terrain, murk and water are all
-        // in the buffers, so the mist veils over them. That copy alone floats on top of a lake.
-        //
-        // vaporUnderwaterStage (default AFTER_ENTITIES) is before the water pass, so water composites
-        // over the mist instead and it reads as lying beneath the surface. Drawing BOTH is what makes
-        // the layer continuous across a shoreline: over land the first copy shows, under a lake the
-        // second, and neither has to know where the water ends.
-        RenderLevelStageEvent.Stage main = FogPlaneRenderer.stage(Config.VAPOR_STAGE.get());
-        RenderLevelStageEvent.Stage under = Config.VAPOR_UNDERWATER.getAsBoolean()
-                ? FogPlaneRenderer.stage(Config.VAPOR_UNDERWATER_STAGE.get())
-                : null;
-        // `under != main` keeps a matching pair of settings from drawing the same sheets twice into
-        // the same buffer, which would just double the mist's density.
-        if (event.getStage() != main && !(event.getStage() == under && under != main)) {
+        // After the translucent water pass: the depth buffer holds water/terrain/plane, so the mist
+        // sits on top of the water rather than being darkened by it.
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -72,14 +54,10 @@ public final class FogVapor {
 
         Vec3 cam = event.getCamera().getPosition();
         double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
-        // Follows the surface it sits on: both are hidden inside the liquid the camera is in.
-        if (SubmergedMurk.hidesSurface(event.getCamera(), mc.level, surfaceY)) {
-            return;
-        }
         float relY = (float) (surfaceY - cam.y);
         boolean below = (cam.y < surfaceY) != Config.FLIP_FOG.getAsBoolean();
         // Same fade range the plane uses (see FogPlaneRenderer#visibleReach).
-        float fogFar = FogPlaneRenderer.visibleReach(mc, below);
+        float fogFar = FogPlaneRenderer.visibleReach(mc, event.getCamera(), below);
 
         // Monotonic clock so the boil never runs backward (see FogShaders#animTimeSeconds).
         double timeSeconds = FogShaders.animTimeSeconds();
@@ -119,20 +97,21 @@ public final class FogVapor {
         Minecraft mc = Minecraft.getInstance();
         float reach = Math.min(mc.options.getEffectiveRenderDistance() * 16.0F, fogFar);
 
-        // The mist always sits ON TOP of the surface, and is always drawn -- it does not follow the
-        // camera to the underside. From below the murk itself hides it wherever the ceiling is solid,
-        // and it shows through the dithered gaps around whatever crosses the boundary, which is where
-        // you would expect to catch sight of it.
-        final float side = 1.0F;
+        // Vapour lives on whichever side of the plane the camera is on (the side you can actually see).
+        float side = cam.y >= surfaceY ? 1.0F : -1.0F;
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.enableDepthTest(); // terrain and the murk occlude the vapour
+        RenderSystem.enableDepthTest(); // terrain / the plane occlude the vapour
         RenderSystem.depthMask(false);  // translucent: never writes depth
         RenderSystem.disableCull();     // seen from both sides
 
-        // Sampler0 = waterline map, so the mist can thin on the same foam ring the surface draws.
-        RenderSystem.setShaderTexture(0, WaterlineMap.textureId());
+        // Sampler3 = scene depth snapshot (shared with the plane) for the soft occlusion edge.
+        RenderSystem.setShaderTexture(3, SceneDepth.depthTextureId());
+        // Degrades to "never occlude" in the shader when occlusion is off or FogPlaneRenderer's capture
+        // this frame failed (see SceneDepth) -- mirrors FogPlaneRenderer's own DepthValid gating.
+        float depthValid = Config.PLANE_SOFT_OCCLUSION.getAsBoolean() && SceneDepth.depthAvailable() ? 1.0F : 0.0F;
+
         RenderSystem.setShader(() -> shader);
         // Anchor world coords to a tile near the camera so the floor()-snapped wisp noise stays precise
         // far from spawn instead of boiling/flickering. Same period as the plane (see NOISE_ANCHOR).
@@ -143,20 +122,14 @@ public final class FogVapor {
         shader.safeGetUniform("WorldOffset").set((float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
         shader.safeGetUniform("Time").set((float) timeSeconds);
         shader.safeGetUniform("WispScale").set(WISP_SCALE);
-        // The same grid the plane's foam and spots are drawn on (see WaterlineMap.effectPixelsPerBlock),
-        // so the mist's pixels line up with theirs instead of straddling them.
-        shader.safeGetUniform("PixelsPerBlock").set((float) WaterlineMap.effectPixelsPerBlock());
-        // Where the foam map sits and how its stored distance scales -- the same values the surface
-        // passes, anchored to the same tile, or the two would disagree about where the ring is.
-        shader.safeGetUniform("WaterlineOrigin").set((float) (WaterlineMap.originX() - ax),
-                (float) (WaterlineMap.originZ() - az));
-        shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
-        shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
-        shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.effectPixelsPerBlock());
-        shader.safeGetUniform("MapPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
-        shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
+        // Must match the waterline map's actual resolution (Config.waterlineCellsPerBlock) so the vapour's
+        // pixel-snap grid lines up with the plane's foam grid.
+        shader.safeGetUniform("PixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
         shader.safeGetUniform("PlaneFadeStart").set(fogFar * 0.8F);
         shader.safeGetUniform("PlaneFadeEnd").set(fogFar);
+        // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
+        shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
+        shader.safeGetUniform("DepthValid").set(depthValid);
         // Overall vapour tint, shared by every sheet: Color's rgb channels are repurposed below to pack
         // per-sheet data instead (see the sheet loop), so the tint now travels as a uniform.
         shader.safeGetUniform("VaporColor").set(vr, vg, vb);

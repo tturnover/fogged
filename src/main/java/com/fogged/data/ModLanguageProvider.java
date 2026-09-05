@@ -116,12 +116,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Also ring Sable ships and contraptions with foam. No effect without Sable installed.");
         cfg("planeSoftOcclusion", "Soft Occlusion Edge",
                 "Dissolve the plane against blocks, mobs and machines instead of cutting them hard at the boundary.");
-        cfg("distantHorizonsCompat", "Distant Horizons Support",
-                "Extend the murk to the LOD horizon and drive DH's fog. Off, the mod ignores Distant Horizons entirely.");
-        cfg("distantHorizonsLodCut", "Cut Distant Murk Against LOD",
-                "With Distant Horizons installed, let far-off LOD terrain rise through the distant murk instead of being covered by it.");
         cfg("waterlineCellsPerBlock", "Foam Grid Resolution",
-                "Highest cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper. A wide view drops it further on its own.");
+                "Cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper.");
         cfg("renderVapor", "Render Cold-Vapour Layer",
                 "Stacked mist sheets over the plane, for a liquid-nitrogen look.");
         cfg("vaporColorOffsetRed", "Vapour Red Offset",
@@ -130,12 +126,6 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Green added to the plane colour to get the vapour colour.");
         cfg("vaporColorOffsetBlue", "Vapour Blue Offset",
                 "Blue added to the plane colour to get the vapour colour.");
-        cfg("vaporStage", "Vapour Render Stage",
-                "Which render stage the mist sheets are drawn at, independently of the murk's.");
-        cfg("vaporUnderwater", "Vapour Under Water",
-                "Draw a second copy of the mist before the water pass, so it reads as lying beneath a lake's surface.");
-        cfg("vaporUnderwaterStage", "Vapour Under-Water Stage",
-                "Which stage that second copy is drawn at. Must be before the translucent water pass.");
         cfg("vaporStrength", "Vapour Strength",
                 "Overall mist alpha. 0 hides the vapour entirely.");
         cfg("vaporSheets", "Vapour Sheets",
@@ -144,8 +134,6 @@ public class ModLanguageProvider extends LanguageProvider {
                 "How high (in blocks) the mist sheets rise off the plane. 0 = flat.");
         cfg("debugView", "Render Debug View",
                 "Replace the plane with a raw view of one of the buffers behind it.");
-        cfg("planeStage", "Composite Render Stage",
-                "Which render stage the murk is composited at \u2014 i.e. what is already in the colour and depth buffers when it runs.");
         cfg("debugHud", "Debug Readout",
                 "Draw the render state (boundary, fade range, depth capture, hole count) in the corner.");
         cfg("logRenderCompatWarnings", "Log Compatibility Warnings",

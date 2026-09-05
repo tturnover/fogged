@@ -2,7 +2,7 @@
     "vertex": "fogged:fog_vapor",
     "fragment": "fogged:fog_vapor",
     "samplers": [
-        { "name": "Sampler0" }
+        { "name": "Sampler3" }
     ],
     "attributes": [
         "Position",
@@ -19,14 +19,10 @@
         { "name": "Time", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "WorldOffset", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
         { "name": "WispScale", "type": "float", "count": 1, "values": [ 0.08 ] },
-        { "name": "PixelsPerBlock", "type": "float", "count": 1, "values": [ 8.0 ] },
-        { "name": "WaterlineOrigin", "type": "float", "count": 2, "values": [ 0.0, 0.0 ] },
-        { "name": "WaterlineSize", "type": "float", "count": 1, "values": [ 96.0 ] },
-        { "name": "WaterlineMaxDist", "type": "float", "count": 1, "values": [ 8.0 ] },
-        { "name": "FoamPixelsPerBlock", "type": "float", "count": 1, "values": [ 8.0 ] },
-        { "name": "MapPixelsPerBlock", "type": "float", "count": 1, "values": [ 4.0 ] },
-        { "name": "FoamWidth", "type": "float", "count": 1, "values": [ 1.25 ] },
+        { "name": "PixelsPerBlock", "type": "float", "count": 1, "values": [ 4.0 ] },
         { "name": "PlaneFadeStart", "type": "float", "count": 1, "values": [ 100000.0 ] },
-        { "name": "PlaneFadeEnd", "type": "float", "count": 1, "values": [ 1000000.0 ] }
+        { "name": "PlaneFadeEnd", "type": "float", "count": 1, "values": [ 1000000.0 ] },
+        { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1920.0, 1080.0 ] },
+        { "name": "DepthValid", "type": "float", "count": 1, "values": [ 1.0 ] }
     ]
 }

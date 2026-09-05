@@ -7,8 +7,9 @@
 // carves a drifting, PIXELATED wispy mask out of each quad and dissolves it into the world fog so it
 // matches the blocky look of the plane and never shows a hard rim.
 
+uniform sampler2D Sampler3;     // scene depth snapshot (taken just before the plane) for the soft edge
+
 uniform vec4 ColorModulator;
-uniform sampler2D Sampler0;     // waterline map, for thinning the mist where the foam is strong
 uniform vec3 VaporColor;        // overall vapour tint, shared by every sheet (see the note on vertexColor below)
 uniform float FogStart;
 uniform float FogEnd;
@@ -16,15 +17,11 @@ uniform int FogShape;
 uniform float Time;             // smooth game time in seconds (drives the drift)
 uniform float WispScale;        // world-space frequency of the wisp/terrace noise
 uniform float PixelsPerBlock;   // snap the noise to this grid (matches the plane's foam pixels)
-uniform vec2 WaterlineOrigin;   // world XZ of the waterline map's corner
-uniform float WaterlineSize;    // map edge length in blocks
-uniform float WaterlineMaxDist; // distance (blocks) the map's stored value of 1.0 represents
-uniform float FoamPixelsPerBlock; // pixels per block the foam and spots are drawn on
-uniform float MapPixelsPerBlock;  // cells per block the waterline map itself holds (Config.waterlineCellsPerBlock)
-uniform float FoamWidth;        // same foam band the surface draws, so the two line up
 uniform float PlaneFadeStart;   // distance at which the vapour starts fading with the horizon
 uniform float PlaneFadeEnd;     // distance at which it is fully gone
-uniform mat4 ProjMat;
+uniform mat4 ProjMat;           // reused to linearise depth for the soft-occlusion fade
+uniform vec2 ScreenSize;        // framebuffer size in pixels, to map gl_FragCoord into the depth sampler
+uniform float DepthValid;       // 0 if the scene-depth snapshot is unavailable/disabled this frame (see SceneDepth)
 
 in vec4 vertexColor;
 in vec2 worldXZ;
@@ -35,20 +32,17 @@ out vec4 fragColor;
 const float WISP_STEPS = 4.0; // alpha quantised into this many chunky bands
 const float VAPOR_TIME_RATE = 0.1; // noise time-axis advance per second (~one reshuffle per 10 s)
 
+// Soft occlusion (fogged_softOcclusion, shared with fog_plane.fsh -- see fogged_occlusion.glsl); needs
+// Sampler3/ScreenSize/ProjMat/DepthValid, all declared above. The snapshot omits the plane, so the
+// vapour never fades against the surface it rides on.
+#moj_import <fogged:fogged_occlusion.glsl>
+
 // --- world-space 3D value-noise fbm (fogged_fbm3 etc., shared with fog_plane.fsh -- see
 // fogged_noise.glsl). TILEABLE: the spatial lattice (xy) wraps at a world period equal to the
 // renderer's NOISE_ANCHOR, so the field is identical across the anchor tile flip -> no seam at any
 // distance. z is time (unwrapped); no octave rotation (a rotated lattice would not tile). ---
 const float NOISE_PERIOD_BLOCKS = 4096.0; // MUST equal FogPlaneRenderer.NOISE_ANCHOR for a seamless wrap -- see Config.java's mirrored-constants comment
 #moj_import <fogged:fogged_noise.glsl>
-
-// Waterline map sampling, shared with fog_plane.fsh (see fogged_foam.glsl).
-#moj_import <fogged:fogged_foam.glsl>
-
-// How much of the mist the foam takes away where it is at full strength. Not all of it: the two are
-// the same surface seen two ways, and a hard hole in the mist around every block reads worse than a
-// thinning does.
-const float FOAM_THINNING = 0.85;
 
 void main() {
     // All sheets are drawn in one call (see FogVapor.render), so the per-sheet StepThreshold and alpha
@@ -96,17 +90,8 @@ void main() {
     // the surface than it can see, so it doesn't hang in the void after the world below fogs out.
     a *= 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, max(length(relPos.xz), abs(relPos.y)));
 
-    // Thin out over foam. Mist and foam are both "the surface is disturbed here", and stacking them
-    // buries the foam's shape under a wash of grey exactly where it is most worth seeing -- against
-    // the blocks and entities breaking through. Read from the same map through the same helper the
-    // surface uses, so the two agree on where the ring is to the pixel.
-    a *= 1.0 - fogged_foamEdge(fogged_waterline(worldXZ)) * FOAM_THINNING;
-
-    // No depth-based fade here. The mist used to dissolve against the scene-depth snapshot, but the
-    // murk composite now runs after the translucent pass, so that snapshot contains WATER -- and the
-    // sheets ride a couple of blocks over the surface, which put nearly every pixel of mist over
-    // water inside the fade band and erased the layer. Hard occlusion by real geometry is already
-    // handled by the depth test; the murk hides everything past the surface on its own.
+    // Soft occlusion edge against terrain (see fogged_softOcclusion), so vapour grazing a block dissolves.
+    a *= fogged_softOcclusion();
 
     if (a <= 0.003) {
         discard;

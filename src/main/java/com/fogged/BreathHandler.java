@@ -2,6 +2,7 @@ package com.fogged;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectUtil;
@@ -42,7 +43,7 @@ public class BreathHandler {
                 || player.isSpectator()
                 || player.canBreatheUnderwater()
                 || MobEffectUtil.hasWaterBreathing(player)
-                || !player.getEyeInFluidType().isAir() // any liquid: it has its own breathing rules
+                || player.isEyeInFluid(FluidTags.WATER)
                 || player.getEyeY() >= Config.breathHeight(player.level()) + Config.PLANE_SURFACE_OFFSET
                 || BreatheSpheres.isBreathable(player.level(), player.getEyePosition()); // nozzle-filter sphere
         if (handledElsewhere) {
@@ -84,9 +85,9 @@ public class BreathHandler {
             return; // not our doing: with player suffocation off we never induce drowning
         }
         Level level = player.level();
-        if (!player.getEyeInFluidType().isAir()
+        if (player.isEyeInFluid(FluidTags.WATER)
                 || player.getEyeY() >= Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET) {
-            return; // a real liquid, or above the boundary -> leave vanilla drowning alone
+            return; // real water, or above the boundary -> leave vanilla drowning alone
         }
         event.setCanceled(true);
         player.hurt(ModDamageTypes.fogSuffocation(level), event.getAmount());

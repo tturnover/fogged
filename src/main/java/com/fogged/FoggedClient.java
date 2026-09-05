@@ -43,12 +43,10 @@ public class FoggedClient {
         return new ConfigurationScreen(container, parent);
     }
 
-    // Bind the colour-tintable particles to their renderers: puff reuses the vanilla POOF sprites (the
-    // nozzle filter emits it white above the fog plane and foam-coloured below), foam the cosy
-    // campfire smoke sprites for the waterline spray.
+    // Bind the colour-tintable puff particle to its renderer (reuses the vanilla POOF sprites). The
+    // nozzle filter emits it white above the fog plane and foam-coloured below.
     private static void registerParticleProviders(RegisterParticleProvidersEvent event) {
         event.registerSpriteSet(ModParticles.PUFF.get(), PuffParticle.Provider::new);
-        event.registerSpriteSet(ModParticles.FOAM.get(), FoamParticle.Provider::new);
     }
 
     // Wrap the fog-detector / extension models so their pole retextures to the column's chosen log.

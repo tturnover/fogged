@@ -9,10 +9,8 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 
-// Registers this mod's core shaders. fog_plane is POSITION only -- it is a screen-space composite
-// fed by a clip-space quad (see FogPlaneRenderer); fog_vapor is still POSITION_COLOR world quads.
-// Both sample the world fog uniforms, unlike vanilla's, so they fade into the distance with the rest
-// of the world (incl. our thick under-fog).
+// Registers a POSITION_COLOR shader that, unlike vanilla's, samples the world fog uniforms so the
+// separation plane fades into the distance with the rest of the world (incl. our thick under-fog).
 @EventBusSubscriber(modid = Fogged.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class FogShaders {
 
@@ -22,9 +20,6 @@ public class FogShaders {
     // Copies the main render target's depth by sampling it (see SceneDepth) instead of glBlitFramebuffer,
     // so it never depends on the source/destination depth formats matching.
     public static ShaderInstance DEPTH_COPY;
-    // Screen-space murk for a camera inside a liquid, where fog uniforms cannot express it (see
-    // SubmergedMurk). POSITION only: it is a clip-space full-screen quad like depth_copy.
-    public static ShaderInstance SUBMERGED_MURK;
 
     // Monotonic wall clock for the surface boil. The game's per-frame partial tick can slip backward
     // between frames (esp. at uncapped FPS), which made the time-driven noise morph run forward then
@@ -41,7 +36,7 @@ public class FogShaders {
         event.registerShader(
                 new ShaderInstance(event.getResourceProvider(),
                         ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "fog_plane"),
-                        DefaultVertexFormat.POSITION),
+                        DefaultVertexFormat.POSITION_COLOR),
                 shader -> FOG_PLANE = shader);
         event.registerShader(
                 new ShaderInstance(event.getResourceProvider(),
@@ -53,10 +48,5 @@ public class FogShaders {
                         ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "depth_copy"),
                         DefaultVertexFormat.POSITION),
                 shader -> DEPTH_COPY = shader);
-        event.registerShader(
-                new ShaderInstance(event.getResourceProvider(),
-                        ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "submerged_murk"),
-                        DefaultVertexFormat.POSITION),
-                shader -> SUBMERGED_MURK = shader);
     }
 }
