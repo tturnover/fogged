@@ -25,6 +25,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 
@@ -73,11 +75,24 @@ public class FoggedJeiPlugin implements IModPlugin {
             }
             recipes.add(new MurkTransform(from, to, shown.minDepth()));
         }
+        // Item rules are conversions like any other and share the category; they just start from items
+        // rather than from blocks, so there is nothing to look up in the block registry.
+        for (ScourRules.ShownItem shown : ScourRules.shownItemTransforms()) {
+            List<ItemStack> from = shown.fromTag() != null
+                    ? tagItemStacks(shown.fromTag())
+                    : shown.from().stream().map(ItemStack::new).filter(s -> !s.isEmpty()).toList();
+            ItemStack to = new ItemStack(shown.to());
+            if (from.isEmpty() || to.isEmpty()) {
+                continue;
+            }
+            recipes.add(new MurkTransform(from, to, shown.minDepth()));
+        }
         registration.addRecipes(MURK_TRANSFORM, recipes);
         // Which entries made it in is otherwise invisible: an id nothing registers, a block with no
         // item and an entry with no '|jei' all look the same from the outside -- an empty category.
-        Fogged.LOGGER.debug("Fogged: showing {} of {} recipe transforms in JEI",
-                recipes.size(), Config.RECIPE_TRANSFORMS.get().size());
+        Fogged.LOGGER.debug("Fogged: showing {} of {} shown transforms in JEI",
+                recipes.size(),
+                Config.RECIPE_TRANSFORMS.get().size() + Config.ITEM_TRANSFORMS.get().size());
     }
 
     // Tags are expanded here rather than when the config is read: their contents come from the
@@ -87,6 +102,13 @@ public class FoggedJeiPlugin implements IModPlugin {
         BuiltInRegistries.BLOCK.getTag(shown.fromTag())
                 .ifPresent(holders -> holders.forEach(holder -> blocks.add(holder.value())));
         return stacks(blocks);
+    }
+
+    private static List<ItemStack> tagItemStacks(TagKey<Item> tag) {
+        List<ItemStack> out = new ArrayList<>();
+        BuiltInRegistries.ITEM.getTag(tag)
+                .ifPresent(holders -> holders.forEach(holder -> out.add(new ItemStack(holder.value()))));
+        return out;
     }
 
     private static List<ItemStack> stacks(List<Block> blocks) {

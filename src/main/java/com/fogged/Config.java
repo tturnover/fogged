@@ -179,6 +179,17 @@ public class Config {
                     () -> "minecraft:copper_block=minecraft:oxidized_copper",
                     o -> o instanceof String s && parseTransformEntry(s) != null);
 
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ITEM_TRANSFORMS = COMMON
+            .comment("Dropped ITEMS the murk turns into other items, in the same \"from=to\" form as the",
+                    "block lists, '@N' depths included. Both sides are item ids -- '*' wildcards and '#'",
+                    "item tags work on the left, one plain id on the right -- and the target may be any",
+                    "item, a block's item included. Unlike transformDroppedItems, which only follows the",
+                    "block rules, these are rules of their own and can name items that are not blocks.",
+                    "All of them are shown in JEI, under \"Murk Conversion\". Needs submergeWorld.",
+                    "Example: itemTransforms = [\"minecraft:diamond=minecraft:dirt\", \"#c:seeds=stick@30\"]")
+            .defineListAllowEmpty("itemTransforms", ArrayList::new, () -> "minecraft:diamond=minecraft:dirt",
+                    o -> o instanceof String s && parseTransformEntry(s) != null);
+
     static { COMMON.pop(); }   // [boundary]
 
     // ==== common [suffocation] : what the murk does to the things breathing in it ====

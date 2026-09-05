@@ -98,6 +98,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "\"from=to\" swaps the murk makes under the boundary, unannounced. Copper weathers right through.");
         cfg("recipeTransforms", "Shown Transforms",
                 "The same, for conversions worth knowing: each is listed in JEI as a recipe.");
+        cfg("itemTransforms", "Item Transforms",
+                "\"from=to\" swaps for dropped items, by item id. All of them are listed in JEI.");
         cfg("playerSuffocation", "Player Suffocation",
                 "Players drown under the boundary: air drains, then drowning damage.");
         cfg("airLossPerTick", "Air Loss Per Tick",

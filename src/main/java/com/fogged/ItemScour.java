@@ -2,6 +2,7 @@ package com.fogged;
 
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -15,12 +16,14 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
  * {@link ScourRules}). Copper thrown down there oxidises where copper built down there does; moss
  * dropped fifty blocks under the surface goes the way the moss floor does.
  *
- * <p>Only items whose block form has a rule are touched, so a pack that lists no block transforms
- * gets none of this either. Non-block items are not covered at all -- the rules are written in block
- * ids, and there is nothing to look up for a coal or an ingot.
+ * <p>Two ways in. An itemTransforms rule names the item outright, so it can turn anything into
+ * anything -- a diamond into dirt, if that is what a pack wants. Failing that, an item that places a
+ * block the block rules cover follows those, which is what keeps a dropped stack in step with the
+ * world it is lying in.
  *
- * <p>Server-side only, gated by {@link Config#SUBMERGE_WORLD} along with the rest of the scour and by
- * {@link Config#TRANSFORM_DROPPED_ITEMS} on its own.
+ * <p>Server-side only, gated by {@link Config#SUBMERGE_WORLD} along with the rest of the scour;
+ * {@link Config#TRANSFORM_DROPPED_ITEMS} switches off the block-derived half on its own, leaving the
+ * item rules, which are an explicit list and are only there because someone wrote them.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class ItemScour {
@@ -39,18 +42,22 @@ public final class ItemScour {
         if (level.isClientSide || item.tickCount % CHECK_INTERVAL != 0) {
             return;
         }
-        if (!Config.SUBMERGE_WORLD.get() || !Config.TRANSFORM_DROPPED_ITEMS.get()) {
+        if (!Config.SUBMERGE_WORLD.get()) {
             return;
         }
         if (!Config.fogged(level, item.getY())) {
             return;
         }
         ItemStack stack = item.getItem();
-        if (!(stack.getItem() instanceof BlockItem blockItem)) {
-            return;
+        // An itemTransforms rule first: it names this item outright, where the block path only knows
+        // items that happen to place something the block rules cover.
+        Item to = ScourRules.itemTransform(level, stack, item.getY());
+        if (to == null && Config.TRANSFORM_DROPPED_ITEMS.get()
+                && stack.getItem() instanceof BlockItem blockItem) {
+            Block block = ScourRules.transformForItem(level, blockItem.getBlock(), item.getY());
+            to = block == null ? null : block.asItem();
         }
-        Block to = ScourRules.transformForItem(level, blockItem.getBlock(), item.getY());
-        if (to == null || to.asItem() == stack.getItem()) {
+        if (to == null || to == stack.getItem()) {
             return;
         }
         // Count carries over; anything else the stack held does not, because the item it held it as is

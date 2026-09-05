@@ -81,6 +81,7 @@ final class YaclCompatibility {
                 .option(bool("transformDroppedItems", Config.TRANSFORM_DROPPED_ITEMS))
                 .group(strings("silentTransforms", Config.SILENT_TRANSFORMS))
                 .group(strings("recipeTransforms", Config.RECIPE_TRANSFORMS))
+                .group(strings("itemTransforms", Config.ITEM_TRANSFORMS))
                 .build();
     }
 

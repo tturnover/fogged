@@ -13,6 +13,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -36,6 +38,7 @@ public final class ScourRules {
     private ScourRules() {}
 
     private static List<? extends String> cachedScoured;
+    private static List<? extends String> cachedItems;
     private static List<? extends String> cachedSilent;
     private static List<? extends String> cachedRecipes;
 
@@ -44,11 +47,22 @@ public final class ScourRules {
     private static Map<Block, Transform> transformBlocks = Map.of();
     private static List<TagTransform> transformTags = List.of();
     private static List<Shown> shown = List.of();
+    private static Map<Item, ItemRule> itemRules = Map.of();
+    private static List<ItemTagRule> itemTagRules = List.of();
+    private static List<ShownItem> shownItems = List.of();
 
     /** What a block turns into, and how far under the surface it has to be first (0 = anywhere). */
     private record Transform(Block to, int minDepth) {}
 
     private record TagTransform(TagKey<Block> tag, Transform transform) {}
+
+    /** The same pair for items: what it becomes, and how deep it has to be lying first. */
+    private record ItemRule(Item to, int minDepth) {}
+
+    private record ItemTagRule(TagKey<Item> tag, ItemRule rule) {}
+
+    /** An item rule for JEI. Exactly one of {@code from} and {@code fromTag} is set. */
+    public record ShownItem(List<Item> from, TagKey<Item> fromTag, Item to, int minDepth) {}
 
     /**
      * A transform from the shown list, for JEI. Exactly one of {@code from}
@@ -61,6 +75,38 @@ public final class ScourRules {
     public static List<Shown> shownTransforms() {
         ensureRules();
         return shown;
+    }
+
+    /** Item rules to display; every item transform is shown, so this is simply all of them. */
+    public static List<ShownItem> shownItemTransforms() {
+        ensureRules();
+        return shownItems;
+    }
+
+    /**
+     * What a dropped {@code stack} turns into at world height {@code y} by the ITEM rules, or null.
+     * These are rules in their own right, so unlike the block-derived path they can name an item that
+     * is not a block at all.
+     */
+    public static Item itemTransform(Level level, ItemStack stack, double y) {
+        ensureRules();
+        ItemRule rule = itemRules.get(stack.getItem());
+        if (rule == null) {
+            for (ItemTagRule tagged : itemTagRules) {
+                if (stack.is(tagged.tag())) {
+                    rule = tagged.rule();
+                    break;
+                }
+            }
+        }
+        if (rule == null || rule.to() == stack.getItem()) {
+            return null;
+        }
+        if (rule.minDepth() > 0
+                && Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET - y < rule.minDepth()) {
+            return null;
+        }
+        return rule.to();
     }
 
     /**
@@ -162,6 +208,11 @@ public final class ScourRules {
             cachedScoured = scoured;
             rebuildScoured(scoured);
         }
+        List<? extends String> items = Config.ITEM_TRANSFORMS.get();
+        if (items != cachedItems) {
+            cachedItems = items;
+            rebuildItemTransforms(items);
+        }
         List<? extends String> silent = Config.SILENT_TRANSFORMS.get();
         List<? extends String> recipes = Config.RECIPE_TRANSFORMS.get();
         if (silent != cachedSilent || recipes != cachedRecipes) {
@@ -241,6 +292,70 @@ public final class ScourRules {
                 display.add(new Shown(from, null, to, minDepth));
             }
         }
+    }
+
+    private static void rebuildItemTransforms(List<? extends String> raw) {
+        Map<Item, ItemRule> rules = new HashMap<>();
+        List<ItemTagRule> tagged = new ArrayList<>();
+        List<ShownItem> display = new ArrayList<>();
+        for (String entry : raw) {
+            String[] pair = Config.parseTransformEntry(entry.trim());
+            if (pair == null) {
+                Fogged.LOGGER.warn("Fogged: ignoring malformed itemTransforms entry \"{}\" -- expected "
+                        + "\"from=to\", where 'to' is a single item id.", entry);
+                continue;
+            }
+            Item to = item(pair[1]);
+            if (to == null) {
+                Fogged.LOGGER.warn("Fogged: itemTransforms entry \"{}\" names an unknown item \"{}\" -- "
+                        + "skipped. (A mod that owns it may simply not be installed.)", entry, pair[1]);
+                continue;
+            }
+            int minDepth = Integer.parseInt(pair[2]);
+            ItemRule rule = new ItemRule(to, minDepth);
+            if (pair[0].startsWith("#")) {
+                TagKey<Item> tag = itemTag(pair[0].substring(1));
+                if (tag != null) {
+                    tagged.add(new ItemTagRule(tag, rule));
+                    display.add(new ShownItem(List.of(), tag, to, minDepth));
+                }
+                continue;
+            }
+            List<Item> from = matchingItems(Config.idGlob(pair[0]));
+            for (Item i : from) {
+                rules.putIfAbsent(i, rule);
+            }
+            if (!from.isEmpty()) {
+                display.add(new ShownItem(from, null, to, minDepth));
+            }
+        }
+        itemRules = Map.copyOf(rules);
+        itemTagRules = List.copyOf(tagged);
+        shownItems = List.copyOf(display);
+    }
+
+    private static List<Item> matchingItems(Pattern pattern) {
+        List<Item> found = new ArrayList<>();
+        for (Item item : BuiltInRegistries.ITEM) {
+            if (pattern.matcher(BuiltInRegistries.ITEM.getKey(item).toString()).matches()) {
+                found.add(item);
+            }
+        }
+        return List.copyOf(found);
+    }
+
+    private static Item item(String id) {
+        ResourceLocation key = ResourceLocation.tryParse(id);
+        return key == null ? null : BuiltInRegistries.ITEM.getOptional(key).orElse(null);
+    }
+
+    private static TagKey<Item> itemTag(String id) {
+        ResourceLocation key = ResourceLocation.tryParse(Config.withNamespace(id));
+        if (key == null) {
+            Fogged.LOGGER.warn("Fogged: ignoring \"#{}\" -- not a valid tag id.", id);
+            return null;
+        }
+        return TagKey.create(Registries.ITEM, key);
     }
 
     // Every registered block whose id matches one of these patterns. One walk of the registry per

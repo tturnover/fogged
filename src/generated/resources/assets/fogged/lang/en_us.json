@@ -30,6 +30,8 @@
   "fogged.configuration.fogDistance.tooltip": "How far you can see (in blocks) once the camera is under the boundary. Lower = denser murk.",
   "fogged.configuration.fogStartRaise": "Murk Start Offset",
   "fogged.configuration.fogStartRaise.tooltip": "Where the murk begins, from the plane: above it, 0 at it, or below it.",
+  "fogged.configuration.itemTransforms": "Item Transforms",
+  "fogged.configuration.itemTransforms.tooltip": "\"from=to\" swaps for dropped items, by item id. All of them are listed in JEI.",
   "fogged.configuration.logRenderCompatWarnings": "Log Compatibility Warnings",
   "fogged.configuration.logRenderCompatWarnings.tooltip": "Log once when this mod detects it cannot work with the current rendering setup.",
   "fogged.configuration.mobSuffocateDamage": "Mob Suffocation Damage",
