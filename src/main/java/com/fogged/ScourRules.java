@@ -41,18 +41,21 @@ public final class ScourRules {
 
     private static Set<Block> scouredBlocks = Set.of();
     private static List<TagKey<Block>> scouredTags = List.of();
-    private static Map<Block, Block> transformBlocks = Map.of();
+    private static Map<Block, Transform> transformBlocks = Map.of();
     private static List<TagTransform> transformTags = List.of();
     private static List<Shown> shown = List.of();
 
-    private record TagTransform(TagKey<Block> tag, Block to) {}
+    /** What a block turns into, and how far under the surface it has to be first (0 = anywhere). */
+    private record Transform(Block to, int minDepth) {}
+
+    private record TagTransform(TagKey<Block> tag, Transform transform) {}
 
     /**
      * A transform the config asked to be shown as a recipe ("from=to|jei"). Exactly one of {@code from}
      * and {@code fromTag} is set: an id entry resolves to the blocks it matched, a tag entry stays a tag
      * so whoever displays it can expand it against the datapack in force.
      */
-    public record Shown(List<Block> from, TagKey<Block> fromTag, Block to) {}
+    public record Shown(List<Block> from, TagKey<Block> fromTag, Block to, int minDepth) {}
 
     /** The transforms flagged for display, in config order. Never null; empty when none are flagged. */
     public static List<Shown> shownTransforms() {
@@ -66,8 +69,16 @@ public final class ScourRules {
      */
     public static boolean apply(Level level, BlockPos pos, BlockState state) {
         ensureRules();
-        Block to = transformFor(state);
-        if (to != null) {
+        Transform transform = transformFor(state);
+        if (transform != null) {
+            // A depth is measured from the visible surface down, so it moves with the boundary rather
+            // than sitting at some fixed Y: fifty blocks under the murk stays fifty blocks under it as
+            // the plane rises and falls. Above the depth the block is simply left to the rules below.
+            if (transform.minDepth() > 0
+                    && Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET - pos.getY() < transform.minDepth()) {
+                return false;
+            }
+            Block to = transform.to();
             if (!state.is(to)) {
                 level.setBlock(pos, carryOver(state, to.defaultBlockState()), Block.UPDATE_ALL);
             }
@@ -100,14 +111,14 @@ public final class ScourRules {
         return to.setValue(property, from.getValue(property));
     }
 
-    private static Block transformFor(BlockState state) {
-        Block direct = transformBlocks.get(state.getBlock());
+    private static Transform transformFor(BlockState state) {
+        Transform direct = transformBlocks.get(state.getBlock());
         if (direct != null) {
             return direct;
         }
         for (TagTransform t : transformTags) {
             if (state.is(t.tag())) {
-                return t.to();
+                return t.transform();
             }
         }
         return null;
@@ -165,7 +176,7 @@ public final class ScourRules {
     // Both lists build one set of rules; only the second contributes to what JEI is shown. A block in
     // both is the silent entry's, since that one is read first.
     private static void rebuildTransforms(List<? extends String> silent, List<? extends String> recipes) {
-        Map<Block, Block> blocks = new HashMap<>();
+        Map<Block, Transform> blocks = new HashMap<>();
         List<TagTransform> tags = new ArrayList<>();
         List<Shown> display = new ArrayList<>();
         readTransforms(silent, false, blocks, tags, display);
@@ -176,7 +187,7 @@ public final class ScourRules {
     }
 
     private static void readTransforms(List<? extends String> raw, boolean show,
-                                       Map<Block, Block> blocks, List<TagTransform> tags,
+                                       Map<Block, Transform> blocks, List<TagTransform> tags,
                                        List<Shown> display) {
         for (String entry : raw) {
             String[] pair = Config.parseTransformEntry(entry.trim());
@@ -191,22 +202,24 @@ public final class ScourRules {
                         + "skipped. (A mod that owns it may simply not be installed.)", entry, pair[1]);
                 continue;
             }
+            int minDepth = Integer.parseInt(pair[2]);
+            Transform transform = new Transform(to, minDepth);
             if (pair[0].startsWith("#")) {
                 TagKey<Block> tag = tag(pair[0].substring(1));
                 if (tag != null) {
-                    tags.add(new TagTransform(tag, to));
+                    tags.add(new TagTransform(tag, transform));
                     if (show) {
-                        display.add(new Shown(List.of(), tag, to));
+                        display.add(new Shown(List.of(), tag, to, minDepth));
                     }
                 }
                 continue;
             }
             List<Block> from = List.copyOf(matching(List.of(Config.idGlob(pair[0]))));
             for (Block block : from) {
-                blocks.putIfAbsent(block, to);
+                blocks.putIfAbsent(block, transform);
             }
             if (show && !from.isEmpty()) {
-                display.add(new Shown(from, null, to));
+                display.add(new Shown(from, null, to, minDepth));
             }
         }
     }

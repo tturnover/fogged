@@ -152,6 +152,8 @@ public class Config {
                     "overrides what the murk would otherwise do to that block. A transform whose result",
                     "matches another rule is itself scoured on the next pass, so do not point one at a",
                     "block another rule takes.",
+                    "Append '@N' to require the block to be at least N blocks BELOW the surface before it",
+                    "turns; without one it turns anywhere the scour reaches.",
                     "These are the SILENT ones: they happen, and nothing documents them. The default is",
                     "coal ore going back to the rock it sat in. Needs submergeWorld.",
                     "Example: silentTransforms = [\"minecraft:coal_ore=minecraft:stone\"]")
@@ -160,11 +162,13 @@ public class Config {
                     o -> o instanceof String s && parseTransformEntry(s) != null);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> RECIPE_TRANSFORMS = COMMON
-            .comment("The same thing, in the same \"from=to\" form, for conversions worth telling players",
-                    "about: each one is also shown in JEI as a recipe of its own, under \"Murk Conversion\".",
+            .comment("The same thing, in the same form ('@N' depths included), for conversions worth",
+                    "telling players about: each is also shown in JEI as a recipe of its own, under",
+                    "\"Murk Conversion\", with the depth it asks for drawn in the corner of the recipe.",
                     "Keep this list short -- a tag entry here can put hundreds of blocks in that category.",
-                    "Defaults are coal ore going back to the rock it sat in. Needs submergeWorld.",
-                    "Example: recipeTransforms = [\"minecraft:coal_ore=minecraft:stone\"]")
+                    "Defaults are the unwaxed copper, which the murk carries straight to fully oxidised, and",
+                    "moss, which cannot hold on fifty blocks down. Needs submergeWorld.",
+                    "Example: recipeTransforms = [\"minecraft:moss_block=minecraft:coarse_dirt@50\"]")
             .defineListAllowEmpty("recipeTransforms", Config::defaultRecipeTransforms,
                     () -> "minecraft:copper_block=minecraft:oxidized_copper",
                     o -> o instanceof String s && parseTransformEntry(s) != null);
@@ -574,6 +578,10 @@ public class Config {
 
     private static List<String> defaultRecipeTransforms() {
         List<String> out = new ArrayList<>();
+        // Moss cannot hold on that far down: fifty blocks under the surface it gives up and is coarse
+        // dirt. The depth is exactly what makes it worth showing -- it is a rule you would otherwise
+        // have to find by digging.
+        out.add("minecraft:moss_block=minecraft:coarse_dirt@50");
         for (String[] family : COPPER_FAMILIES) {
             String oxidized = "minecraft:" + family[family.length - 1];
             for (int i = 0; i < family.length - 1; i++) {
@@ -583,12 +591,34 @@ public class Config {
         return out;
     }
 
+    /** Deepest a transform may ask to be, in blocks below the surface. Past the world's own height. */
+    static final int MAX_TRANSFORM_DEPTH = 512;
+
     /**
-     * Split one "from=to" transform entry. Returns {from, to} with namespaces filled in, or null if it
-     * is not a usable pair -- which is also what the config validator tests, so a malformed line is
-     * rejected at load rather than silently ignored later.
+     * Split one transform entry, "from=to" or "from=to@depth". Returns {from, to, depth} with
+     * namespaces filled in and depth as a plain integer string ("0" when the entry names none), or
+     * null if it is not usable -- which is also what the config validator tests, so a malformed line
+     * is rejected at load rather than silently ignored later.
+     *
+     * <p>'@' cannot appear in a resource location, so it can never be part of either id.
      */
-    static String[] parseTransformEntry(String entry) {
+    static String[] parseTransformEntry(String rawEntry) {
+        String entry = rawEntry;
+        String depth = "0";
+        int at = entry.lastIndexOf('@');
+        if (at >= 0) {
+            String tail = entry.substring(at + 1).trim();
+            entry = entry.substring(0, at);
+            try {
+                int blocks = Integer.parseInt(tail);
+                if (blocks < 0 || blocks > MAX_TRANSFORM_DEPTH) {
+                    return null;
+                }
+                depth = Integer.toString(blocks);
+            } catch (NumberFormatException e) {
+                return null; // '@' followed by something that is not a depth is a typo, not an id
+            }
+        }
         int eq = entry.indexOf('=');
         if (eq <= 0 || eq == entry.length() - 1) {
             return null;
@@ -605,7 +635,7 @@ public class Config {
         if (fromId.startsWith("#") && ResourceLocation.tryParse(fromId.substring(1)) == null) {
             return null;
         }
-        return new String[] { fromId, withNamespace(to) };
+        return new String[] { fromId, withNamespace(to), depth };
     }
 
     /**

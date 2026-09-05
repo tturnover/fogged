@@ -20,6 +20,7 @@ import mezz.jei.api.recipe.category.AbstractRecipeCategory;
 import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -39,8 +40,12 @@ import net.minecraft.world.level.block.Block;
 @JeiPlugin
 public class FoggedJeiPlugin implements IModPlugin {
 
-    /** One shown conversion: what may go in (a tag's blocks, or the ids an entry matched) and what comes out. */
-    public record MurkTransform(List<ItemStack> from, ItemStack to) {}
+    /**
+     * One shown conversion: what may go in (a tag's blocks, or the ids an entry matched), what comes
+     * out, and how far under the surface the block has to be for it to happen ({@code 0} = anywhere
+     * the murk reaches).
+     */
+    public record MurkTransform(List<ItemStack> from, ItemStack to, int minDepth) {}
 
     public static final RecipeType<MurkTransform> MURK_TRANSFORM =
             RecipeType.create(Fogged.MODID, "murk_transform", MurkTransform.class);
@@ -66,7 +71,7 @@ public class FoggedJeiPlugin implements IModPlugin {
             if (from.isEmpty() || to.isEmpty()) {
                 continue;
             }
-            recipes.add(new MurkTransform(from, to));
+            recipes.add(new MurkTransform(from, to, shown.minDepth()));
         }
         registration.addRecipes(MURK_TRANSFORM, recipes);
         // Which entries made it in is otherwise invisible: an id nothing registers, a block with no
@@ -135,6 +140,11 @@ public class FoggedJeiPlugin implements IModPlugin {
         private static final int IN_X = PAD + 1;                        // +1: the 18x18 frame's inset
         private static final int OUT_X = MARK_X + MARK_W + PAD + 5;     // +5: the 26x26 frame's inset
 
+        // The depth mark, bottom-left: the arrow is 6x8, the number sits beside it on the same rows.
+        private static final int DEPTH_X = 2;
+        private static final int DEPTH_Y = HEIGHT - 10;
+        private static final int DEPTH_COLOR = 0xFF404040;
+
         private final IDrawable mark;
 
         MurkTransformCategory(IGuiHelper guiHelper) {
@@ -163,6 +173,24 @@ public class FoggedJeiPlugin implements IModPlugin {
         public void draw(MurkTransform recipe, IRecipeSlotsView slots, GuiGraphics graphics,
                 double mouseX, double mouseY) {
             mark.draw(graphics, MARK_X, MARK_Y);
+            if (recipe.minDepth() > 0) {
+                drawDepth(graphics, recipe.minDepth());
+            }
+        }
+
+        // How deep the block has to be, in the bottom-left corner: an arrow pointing down and the
+        // number of blocks. Drawn rather than written out, because the recipe has no room for a
+        // sentence and the arrow says which way the number goes.
+        private static void drawDepth(GuiGraphics graphics, int blocks) {
+            final int x = DEPTH_X;
+            final int y = DEPTH_Y;
+            // Shaft, then a head three rows tall narrowing to a point.
+            graphics.fill(x + 2, y, x + 3, y + 5, DEPTH_COLOR);
+            graphics.fill(x, y + 4, x + 5, y + 5, DEPTH_COLOR);
+            graphics.fill(x + 1, y + 5, x + 4, y + 6, DEPTH_COLOR);
+            graphics.fill(x + 2, y + 6, x + 3, y + 7, DEPTH_COLOR);
+            graphics.drawString(Minecraft.getInstance().font, Integer.toString(blocks),
+                    x + 7, y, DEPTH_COLOR, false);
         }
     }
 }
