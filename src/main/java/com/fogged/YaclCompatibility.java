@@ -103,6 +103,8 @@ final class YaclCompatibility {
                 .option(dbl("depthScalingBlocks", Config.DEPTH_SCALING_BLOCKS, 0.0, 128.0, 1.0))
                 .option(dbl("depthScalingPercent", Config.DEPTH_SCALING_PERCENT, 0.0, 100.0, 0.5))
                 .option(bool("mobSuffocation", Config.MOB_SUFFOCATION))
+                .option(bool("mobSpawnsInBreathingSpheres", Config.MOB_SPAWNS_IN_SPHERES))
+                .option(bool("mobEscape", Config.MOB_ESCAPE))
                 .option(integer("mobSuffocateDelaySeconds", Config.MOB_SUFFOCATE_DELAY, 0, 600, 1))
                 .option(dbl("mobSuffocateDamage", Config.MOB_SUFFOCATE_DAMAGE, 0.0, 40.0, 0.5))
                 .group(strings("allowedMobs", Config.ALLOWED_MOBS))

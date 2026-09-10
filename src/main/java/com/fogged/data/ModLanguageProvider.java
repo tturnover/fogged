@@ -155,6 +155,10 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Per step: air loss up by this percent, nozzle-filter sphere radius down by it. Steps compound.");
         cfg("mobSuffocation", "Mob Suffocation",
                 "Non-allowed mobs cannot spawn in the murk and take damage once they linger there.");
+        cfg("mobSpawnsInBreathingSpheres", "Mobs Spawn In Breathing Spheres",
+                "Nozzle-filter spheres are exempt from the spawn ban: mobs spawn inside them as they would above the boundary.");
+        cfg("mobEscape", "Mobs Flee The Murk",
+                "Suffocating mobs run for the nearest breathing sphere, or climb towards the boundary.");
         cfg("allowedMobs", "Mobs Allowed Under The Fog",
                 "Entity-type ids that may live in the murk. The 'minecraft:' namespace may be omitted.");
         cfg("mobSuffocateDelaySeconds", "Mob Suffocation Delay",

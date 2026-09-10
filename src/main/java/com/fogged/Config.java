@@ -267,6 +267,21 @@ public class Config {
                     "Off lets any mob live under the fog. Players are unaffected either way.")
             .define("mobSuffocation", true);
 
+    public static final ModConfigSpec.BooleanValue MOB_SPAWNS_IN_SPHERES = COMMON
+            .comment("Whether nozzle-filter breathing spheres are exempt from the spawn ban above: on,",
+                    "a mob may spawn inside a sphere under the fog like anywhere above the boundary, and",
+                    "only starts suffocating once it leaves. Off keeps the ban over the whole fogged side.",
+                    "No effect with mobSuffocation off.")
+            .define("mobSpawnsInBreathingSpheres", true);
+
+    public static final ModConfigSpec.BooleanValue MOB_ESCAPE = COMMON
+            .comment("Whether a non-allowed mob caught under the fog runs for air: it heads for the nearest",
+                    "nozzle-filter breathing sphere, or climbs towards the boundary when none is near.",
+                    "This is an ordinary AI goal driving the mob's own pathfinding, so modded mobs handle it",
+                    "with their own movement. Off = mobs stay put and drown where they stand.",
+                    "No effect with mobSuffocation off.")
+            .define("mobEscape", true);
+
     public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLOWED_MOBS = COMMON
             .comment("Entity-type IDs allowed to live under the fog (on the murk side of the boundary).",
                     "Anything NOT listed cannot spawn there and starts taking damage after",

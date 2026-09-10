@@ -70,6 +70,29 @@ public final class BreatheSpheres {
     }
 
     /**
+     * World-space centre of the sphere nearest {@code point}, or {@code null} when none has its centre
+     * within {@code maxDist}. Used by {@link FogEscapeGoal} to pick the shelter a drowning mob runs for.
+     * The centre, not the nearest point on the surface: a mob that stops on the rim drifts back out as
+     * the sphere breathes with depth, so it is aimed at the middle.
+     */
+    public static Vec3 nearestCenter(Level level, Vec3 point, double maxDist) {
+        Map<BlockPos, Sphere> dim = side(level).get(level.dimension());
+        if (dim == null || dim.isEmpty()) {
+            return null;
+        }
+        Vec3 best = null;
+        double bestSqr = maxDist * maxDist;
+        for (Sphere s : dim.values()) {
+            double distSqr = point.distanceToSqr(s.center());
+            if (distSqr <= bestSqr) {
+                bestSqr = distSqr;
+                best = s.center();
+            }
+        }
+        return best;
+    }
+
+    /**
      * True when {@code point} lies inside some sphere other than {@code self}'s. Hides edge particles
      * where a neighbour already covers the spot -- two overlapping filters otherwise draw their edges
      * through the shared volume, which reads as a wall across open air.
