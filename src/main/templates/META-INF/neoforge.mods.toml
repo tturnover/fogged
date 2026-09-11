@@ -6,6 +6,11 @@ issueTrackerURL="https://github.com/tturnover/fogged/issues"
 [[mixins]]
 config="fogged.mixins.json"
 
+# Optional, and separate on purpose: it targets Particle Rain's own classes, so it must be allowed to
+# not apply at all when that mod is absent.
+[[mixins]]
+config="fogged.particlerain.mixins.json"
+
 [[mods]] #mandatory
 modId="${mod_id}" #mandatory
 version="${mod_version}" #mandatory
