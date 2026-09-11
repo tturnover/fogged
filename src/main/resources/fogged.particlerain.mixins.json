@@ -4,7 +4,8 @@
   "package": "com.fogged.mixin.compat",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "ParticleRainWeatherMixin"
+    "ParticleRainWeatherMixin",
+    "ParticleRainHeightMixin"
   ],
   "injectors": {
     "defaultRequire": 0

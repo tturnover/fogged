@@ -9,15 +9,19 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import org.lwjgl.opengl.GL11;
 
 import net.minecraft.client.Camera;
+import net.minecraft.core.BlockPos;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.LevelReader;
 
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Skip the vanilla sky/rain/cloud passes while the camera is on the fogged side of the breathing
@@ -79,6 +83,39 @@ public class LevelRendererMixin {
         if (level != null && Config.fogged(level, camera.getPosition().y)) {
             ci.cancel();
         }
+    }
+
+    // Land the rain splashes on the murk instead of under it.
+    //
+    // tickRain finds the ground with the heightmap, which knows nothing of the separation plane -- so
+    // on a flooded landscape it reports the sea floor and vanilla puts its splashes down there, beneath
+    // a surface the rain never reaches through. The HEAD injector above only helps while the camera is
+    // itself in the murk; stood on the surface looking out, the splashes were still going on below it.
+    //
+    // Raising the answer to the plane puts them where the rain actually lands. Only raises: ground
+    // standing out of the murk keeps its own splashes.
+    //
+    // ordinal 0 on purpose. tickRain asks the heightmap twice -- once for where to put a splash, and
+    // once, further down, to decide whether the rain sound should be the muffled "from above" one.
+    // Only the first is this method's business; how the rain sounds under the murk is a question worth
+    // answering on its own terms, not by a side effect of moving splashes.
+    @Redirect(method = "tickRain",
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/world/level/LevelReader;getHeightmapPos"
+                            + "(Lnet/minecraft/world/level/levelgen/Heightmap$Types;"
+                            + "Lnet/minecraft/core/BlockPos;)Lnet/minecraft/core/BlockPos;",
+                    ordinal = 0),
+            require = 0)
+    private BlockPos fogged$splashOnTheMurk(LevelReader reader, Heightmap.Types types, BlockPos pos) {
+        BlockPos found = reader.getHeightmapPos(types, pos);
+        Level level = Minecraft.getInstance().level;
+        if (level == null) {
+            return found;
+        }
+        int plane = Config.planeSurfaceY(level);
+        return plane != Integer.MIN_VALUE && found.getY() < plane
+                ? new BlockPos(found.getX(), plane, found.getZ())
+                : found;
     }
 
     // Hide clouds while submerged: they sit far above the boundary and would otherwise shine through the

@@ -655,6 +655,20 @@ public class Config {
         return peak + Math.max(OVERDAY_OFFSET_NOON.get(), OVERDAY_OFFSET_MIDNIGHT.get());
     }
 
+    /**
+     * World Y of the murk's visible surface -- the top of the separation plane.
+     *
+     * <p>{@link Integer#MIN_VALUE} when there is nothing there to land on: the plane is not being
+     * drawn, or flipFog has put the murk overhead, where it is a ceiling rather than a floor. Callers
+     * that treat the plane as ground should check for that rather than assume a surface exists.
+     */
+    public static int planeSurfaceY(Level level) {
+        if (!RENDER_PLANE.getAsBoolean() || FLIP_FOG.getAsBoolean()) {
+            return Integer.MIN_VALUE;
+        }
+        return (int) Math.ceil(breathHeight(level) + PLANE_SURFACE_OFFSET);
+    }
+
     // True when a camera at world height y is on the fogged side of the boundary (the thick murk side).
     // Normally that is below the boundary; flipFog moves it to the side above. Shared by the fog
     // override, the separation plane and the weather suppression so they all agree on the murk side.
