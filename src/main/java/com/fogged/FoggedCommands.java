@@ -27,6 +27,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  * <ul>
  *   <li>{@code /fogged fogheight} -- report the current fog surface Y in this dimension.</li>
  *   <li>{@code /fogged depth [player]} -- report how far a player's eyes are below the fog surface.</li>
+ *   <li>{@code /fogged pillars} -- why the towers near you came out as they did.</li>
  *   <li>{@code /fogged locate pillars|ridge|isle} -- the nearest karst tower of that kind, as a
  *       clickable position.</li>
  * </ul>
@@ -49,6 +50,8 @@ public final class FoggedCommands {
                         .executes(ctx -> depth(ctx, ctx.getSource().getPlayerOrException()))
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(ctx -> depth(ctx, EntityArgument.getPlayer(ctx, "player")))))
+                .then(Commands.literal("pillars")
+                        .executes(FoggedCommands::pillarReport))
                 .then(Commands.literal("locate")
                         .then(Commands.literal("pillars")
                                 .executes(ctx -> locatePillars(ctx, KarstPillarsFeature.Layout.ANY)))
@@ -100,6 +103,24 @@ public final class FoggedCommands {
             case ISLE -> "karst isle";
             default -> "karst pillar";
         };
+    }
+
+    // Why the towers near you came out as they did: how many the group wanted, how many the density or
+    // crest-gap roll turned down, and how many were stopped by a structure standing in the way.
+    private static int pillarReport(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        if (!(src.getLevel() instanceof ServerLevel level)) {
+            src.sendFailure(Component.literal("No server level."));
+            return 0;
+        }
+        Vec3 from = src.getPosition();
+        var r = KarstPillarsFeature.report(level, Mth.floor(from.x), Mth.floor(from.z));
+        src.sendSuccess(() -> Component.literal(String.format(
+                "%s group at %.0f, %.0f: %d towers wanted, %d passed over by chance, %d placed",
+                r.ridge() ? "Ridge" : "Isle", r.anchorX(), r.anchorZ(), r.considered(),
+                r.skippedByChance(), r.placed())), false);
+
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int locatePillars(CommandContext<CommandSourceStack> ctx,

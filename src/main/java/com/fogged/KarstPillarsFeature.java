@@ -2,6 +2,7 @@ package com.fogged;
 
 import com.mojang.serialization.Codec;
 
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -136,10 +137,6 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
     // Soil under the grass on a bench, in blocks.
     private static final int SOIL_DEPTH = 2;
 
-    // One candidate tower per chunk-sized cell, jittered within it so the grid never shows.
-    private static final int CELL = 16;
-    private static final int CELL_MARGIN = 3; // blocks kept clear of the cell edge by the jitter
-
     /** Which way a group laid itself out. Ridges and isles are locatable separately. */
     public enum Layout implements StringRepresentable {
         ANY("any"), RIDGE("ridge"), ISLE("isle");
@@ -176,11 +173,18 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
             return topY - bottomY;
         }
 
-        /** The furthest this tower's surface can be from its base column, horizontally. */
+        /**
+         * The furthest this tower's surface can be from its base column, horizontally.
+         *
+         * <p>Additive, because that is what the geometry does: the strata widen the radius, and the
+         * benches and ribs then add to it. Multiplying the three together, as this once did, roughly
+         * doubled the answer -- harmless where it only widens a search, but it also sets how much room
+         * is kept around a structure, and there it was enough to rule out the whole world.
+         */
         double maxReach() {
             return Math.hypot(driftX, driftZ) * height()
-                    + radius * LUMP_MAX * (1.0 + STRATA_TOTAL_MAX)
-                            * (1.0 + LEDGE_EXTRA_MAX + RIB_EXTRA_MAX * RIBS_PER_BAND);
+                    + radius * (1.0 + strataTotal) * LUMP_MAX
+                    + radius * (LEDGE_EXTRA_MAX + RIB_EXTRA_MAX * RIBS_PER_BAND);
         }
     }
 
@@ -364,21 +368,23 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
     private static Tower towerOf(long seed, Group group, int index, double waterMark,
             int minBuildHeight, int maxBuildHeight) {
         RandomSource rnd = RandomSource.create(mix(group.key(), index, 0, 0x70B3E5L));
-        double baseX;
-        double baseZ;
         if (group.ridge()) {
             if (rnd.nextDouble() < RIDGE_GAP_CHANCE) {
                 return null; // a notch in the crest
             }
+        } else if (rnd.nextDouble() >= Config.PILLAR_DENSITY.get()) {
+            return null;
+        }
+
+        double baseX;
+        double baseZ;
+        if (group.ridge()) {
             double step = ridgeStep();
             double along = -group.halfLength() + index * step + (rnd.nextDouble() - 0.5) * step * 0.5;
             double across = (rnd.nextDouble() - 0.5) * 2.0 * RIDGE_WANDER;
             baseX = group.anchorX() + group.dirX() * along - group.dirZ() * across;
             baseZ = group.anchorZ() + group.dirZ() * along + group.dirX() * across;
         } else {
-            if (rnd.nextDouble() >= Config.PILLAR_DENSITY.get()) {
-                return null;
-            }
             // Square-rooted so the scatter is even over the disc instead of piling into the middle.
             double r = group.isleRadius() * Math.sqrt(rnd.nextDouble());
             double a = rnd.nextDouble() * Math.PI * 2.0;
@@ -777,6 +783,30 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
             slot = nextSlot;
         }
         return placedAny;
+    }
+
+    /** What became of one group's towers, for the {@code /fogged pillars} diagnostic. */
+    public record GroupReport(boolean ridge, double anchorX, double anchorZ, int considered,
+            int skippedByChance, int placed) {}
+
+    /** Walks the group nearest {@code (x, z)} exactly as generation would, and counts the outcomes. */
+    public static GroupReport report(ServerLevel level, int x, int z) {
+        double waterMark = Config.maxBreathHeight();
+        int spacing = Config.PILLAR_GROUP_SPACING.getAsInt();
+        long seed = level.getSeed();
+        Group group = groupAt(seed, Math.floorDiv(x, spacing), Math.floorDiv(z, spacing), spacing);
+        int count = towerCount(group);
+        int chance = 0;
+        int placed = 0;
+        for (int i = 0; i < count; i++) {
+            if (towerOf(seed, group, i, waterMark, level.getMinBuildHeight(),
+                    level.getMaxBuildHeight()) == null) {
+                chance++;
+            } else {
+                placed++;
+            }
+        }
+        return new GroupReport(group.ridge(), group.anchorX(), group.anchorZ(), count, chance, placed);
     }
 
     // The height of the real floor in this column -- the bed a scree slope could actually rest on.
