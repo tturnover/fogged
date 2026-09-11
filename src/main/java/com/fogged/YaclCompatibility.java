@@ -54,6 +54,7 @@ final class YaclCompatibility {
                 .title(Component.translatable("fogged.configuration.title"))
                 .category(boundary())
                 .category(suffocation())
+                .category(pillars())
                 .category(plane())
                 .category(debug())
                 .save(() -> {
@@ -138,6 +139,44 @@ final class YaclCompatibility {
                 .build();
     }
 
+    private static ConfigCategory pillars() {
+        return ConfigCategory.createBuilder()
+                .name(Component.translatable(KEY + "pillars"))
+                .tooltip(Component.translatable(KEY + "pillars.tooltip"))
+                .option(bool("generatePillars", Config.GENERATE_PILLARS))
+                .group(OptionGroup.createBuilder()
+                        .name(Component.translatable(KEY + "layout"))
+                        .description(describe("layout"))
+                        .option(integer("pillarGroupSpacing", Config.PILLAR_GROUP_SPACING, 64, 60000, 500))
+                        .option(bool("pillarSpawnGroup", Config.PILLAR_SPAWN_GROUP))
+                        .option(dbl("pillarRidgeChance", Config.PILLAR_RIDGE_CHANCE, 0.0, 1.0, 0.05))
+                        .option(integer("pillarRidgeLengthMin", Config.PILLAR_RIDGE_LENGTH_MIN, 32, 2000, 20))
+                        .option(integer("pillarRidgeLengthMax", Config.PILLAR_RIDGE_LENGTH_MAX, 32, 2000, 20))
+                        .option(integer("pillarIsleRadius", Config.PILLAR_ISLE_RADIUS, 16, 500, 5))
+                        .option(dbl("pillarDensity", Config.PILLAR_DENSITY, 0.0, 1.0, 0.05))
+                        .build())
+                .group(OptionGroup.createBuilder()
+                        .name(Component.translatable(KEY + "shape"))
+                        .description(describe("shape"))
+                        .option(text("pillarBlock", Config.PILLAR_BLOCK))
+                        .option(dbl("pillarRadiusMin", Config.PILLAR_RADIUS_MIN, 1.0, 24.0, 0.5))
+                        .option(dbl("pillarRadiusMax", Config.PILLAR_RADIUS_MAX, 1.0, 24.0, 0.5))
+                        .option(integer("pillarTopVariance", Config.PILLAR_TOP_VARIANCE, 0, 128, 1))
+                        .option(dbl("pillarTilt", Config.PILLAR_TILT, 0.0, 20.0, 0.5))
+                        .option(integer("pillarLedges", Config.PILLAR_LEDGES, 0, 12, 1))
+                        .build())
+                .group(OptionGroup.createBuilder()
+                        .name(Component.translatable(KEY + "surface"))
+                        .description(describe("surface"))
+                        .option(bool("pillarStoneBands", Config.PILLAR_STONE_BANDS))
+                        .option(integer("pillarBaseErosion", Config.PILLAR_BASE_EROSION, 0, 16, 1))
+                        .option(bool("pillarClimate", Config.PILLAR_CLIMATE))
+                        .option(bool("pillarGreenery", Config.PILLAR_GREENERY))
+                        .option(integer("pillarGreeneryDepth", Config.PILLAR_GREENERY_DEPTH, 0, 384, 4))
+                        .build())
+                .build();
+    }
+
     private static ConfigCategory debug() {
         return ConfigCategory.createBuilder()
                 .name(Component.translatable(KEY + "debug"))
@@ -161,6 +200,15 @@ final class YaclCompatibility {
                 .description(describe(key))
                 .binding(value.getDefault(), value, value::set)
                 .controller(TickBoxControllerBuilder::create)
+                .build();
+    }
+
+    private static Option<String> text(String key, ModConfigSpec.ConfigValue<String> value) {
+        return Option.<String>createBuilder()
+                .name(Component.translatable(KEY + key))
+                .description(describe(key))
+                .binding(value.getDefault(), value, value::set)
+                .controller(StringControllerBuilder::create)
                 .build();
     }
 

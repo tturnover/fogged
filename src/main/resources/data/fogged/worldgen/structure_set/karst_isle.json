@@ -1,0 +1,4 @@
+{
+  "structures": [ { "structure": "fogged:karst_isle", "weight": 1 } ],
+  "placement": { "type": "minecraft:random_spread", "spacing": 4, "separation": 2, "salt": 1904273 }
+}

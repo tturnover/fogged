@@ -301,6 +301,165 @@ public class Config {
 
     static { COMMON.pop(); }   // [suffocation]
 
+    // ==== common [pillars] : karst towers standing out of the murk ====
+    static {
+        COMMON.comment("Stone karst towers -- the Ha Long Bay kind -- raised from bedrock up to around the",
+                "murk's high-water mark, in scattered groups. Worldgen, so changing any of this only",
+                "affects chunks generated afterwards; it never reshapes ground you have already seen.");
+        COMMON.push("pillars");
+    }
+
+    public static final ModConfigSpec.BooleanValue GENERATE_PILLARS = COMMON
+            .comment("Whether pillar groups are generated at all. Off leaves worldgen untouched.")
+            .define("generatePillars", true);
+
+    static {
+        COMMON.comment("Where the groups stand and how often you meet them.");
+        COMMON.push("layout");
+    }
+
+    public static final ModConfigSpec.IntValue PILLAR_GROUP_SPACING = COMMON
+            .comment("Average distance between one group and the next, in blocks. This is the single",
+                    "setting that decides how often you meet them at all, and it is meant to be large:",
+                    "a group is a landmark you come across, and at close spacing they stop being a find",
+                    "and become the scenery.",
+                    "Note how it scales. Groups sit on a grid of this size, so how often you run into one",
+                    "as you travel goes with the SQUARE of it: doubling this makes them four times as",
+                    "hard to come across, not twice.",
+                    "Crests are allowed to run through one another where they happen to meet -- a pair",
+                    "that crosses is worth stumbling on -- which is the other reason to keep this well",
+                    "above pillarRidgeLengthMax, so that it stays a rarity rather than the rule.")
+            .defineInRange("pillarGroupSpacing", 1250, 64, 60000);
+
+    public static final ModConfigSpec.BooleanValue PILLAR_SPAWN_GROUP = COMMON
+            .comment("Always put one group within a hundred blocks of the world origin, whatever the",
+                    "spacing is set to. At the default spacing a new world can easily start thousands of",
+                    "blocks from the nearest group, and these are most of what the mod has to show.",
+                    "Measured from x=0 z=0, not from the spawn point the game later picks: worldgen has",
+                    "to give the same answer every time it is asked about a chunk, and the spawn point is",
+                    "not settled until some of the world has already been generated. The two are near",
+                    "enough each other that it makes no practical difference.")
+            .define("pillarSpawnGroup", true);
+
+    public static final ModConfigSpec.DoubleValue PILLAR_RIDGE_CHANCE = COMMON
+            .comment("Share of groups that come out as a RIDGE rather than as a cluster of isles, 0 to 1.",
+                    "A ridge strings its towers along one line, close enough to run together into a wall",
+                    "you can follow; a cluster scatters them over open ground as separate sea stacks.")
+            .defineInRange("pillarRidgeChance", 0.33, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue PILLAR_RIDGE_LENGTH_MIN = COMMON
+            .comment("Shortest a ridge may run, in blocks, end to end.")
+            .defineInRange("pillarRidgeLengthMin", 400, 32, 20000);
+
+    public static final ModConfigSpec.IntValue PILLAR_RIDGE_LENGTH_MAX = COMMON
+            .comment("Longest a ridge may run, in blocks. Clamped up to the minimum if set below it.",
+                    "A ridge is free to be longer than the spacing between groups -- it is laid out from",
+                    "its own midpoint rather than inside a patch -- so a long one will run past its",
+                    "neighbours, which is what makes it read as a coastline rather than a clump.")
+            .defineInRange("pillarRidgeLengthMax", 1000, 32, 20000);
+
+    public static final ModConfigSpec.IntValue PILLAR_ISLE_RADIUS = COMMON
+            .comment("How far from its middle a cluster of isles scatters its towers, in blocks.")
+            .defineInRange("pillarIsleRadius", 80, 16, 2000);
+
+    public static final ModConfigSpec.DoubleValue PILLAR_DENSITY = COMMON
+            .comment("How thickly a CLUSTER packs its isles, 0 to 1 -- the chance that any one spot in it",
+                    "raises a tower. Ridges ignore this: a crest is continuous by definition, and only",
+                    "notches itself here and there.")
+            .defineInRange("pillarDensity", 0.45, 0.0, 1.0);
+
+    static { COMMON.pop(); }   // [pillars.layout]
+
+    static {
+        COMMON.comment("What one tower is built out of, and the range of builds a group draws from.");
+        COMMON.push("shape");
+    }
+
+    public static final ModConfigSpec.ConfigValue<String> PILLAR_BLOCK = COMMON
+            .comment("Block the towers are built from, by id. The 'minecraft:' namespace may be omitted.",
+                    "Falls back to stone if the id names nothing.")
+            .define("pillarBlock", "stone");
+
+    public static final ModConfigSpec.DoubleValue PILLAR_RADIUS_MIN = COMMON
+            .comment("Thinnest tower, as a radius in blocks.")
+            .defineInRange("pillarRadiusMin", 3.0, 1.0, 24.0);
+
+    public static final ModConfigSpec.DoubleValue PILLAR_RADIUS_MAX = COMMON
+            .comment("Thickest tower, as a radius in blocks. Clamped up to the minimum if set below it.",
+                    "The span from the minimum is what gives a group its range of builds: at the defaults",
+                    "the slenderest tower is a sea stack and the boldest is a headland twice the girth.")
+            .defineInRange("pillarRadiusMax", 14.0, 1.0, 24.0);
+
+    public static final ModConfigSpec.IntValue PILLAR_TOP_VARIANCE = COMMON
+            .comment("How far a tower's top may fall either side of the murk's high-water mark, in blocks.",
+                    "0 tops every tower off at exactly that height; the default lets them break the",
+                    "surface or stop short of it by up to this much, which is what makes a group read as",
+                    "islands rather than a fence.")
+            .defineInRange("pillarTopVariance", 20, 0, 128);
+
+    public static final ModConfigSpec.DoubleValue PILLAR_TILT = COMMON
+            .comment("Greatest lean off vertical, in degrees. Each tower leans a random amount up to this,",
+                    "in a random direction. 0 stands them all straight up.")
+            .defineInRange("pillarTilt", 5.0, 0.0, 20.0);
+
+    public static final ModConfigSpec.IntValue PILLAR_LEDGES = COMMON
+            .comment("Most flat shelves a tower may carry on its flanks. Each is a level bench a few",
+                    "blocks thick jutting from one side, which is where the greenery below gets a footing;",
+                    "0 leaves the flanks sheer.")
+            .defineInRange("pillarLedges", 4, 0, 12);
+
+    static { COMMON.pop(); }   // [pillars.shape]
+
+    static {
+        COMMON.comment("Everything laid over the bare rock: its bedding, the scree at its foot, and what grows",
+                "or freezes on it.");
+        COMMON.push("surface");
+    }
+
+    public static final ModConfigSpec.BooleanValue PILLAR_STONE_BANDS = COMMON
+            .comment("Band the towers with the vanilla stone variants -- granite, diorite, andesite,",
+                    "tuff, deepslate -- following the same strata the flanks step on, so the rock reads",
+                    "as bedded layers rather than one grey mass. The beds roll and dip across a tower",
+                    "and thin out part-way over it, so they read as rock rather than as painted stripes.",
+                    "Ores are not touched here at all: ordinary world generation runs through the towers",
+                    "at a later step and seeds them exactly as it seeds any other stone.",
+                    "Only applies when pillarBlock is left at stone; any other choice is used as given.")
+            .define("pillarStoneBands", true);
+
+    public static final ModConfigSpec.IntValue PILLAR_BASE_EROSION = COMMON
+            .comment("How far a tower's debris skirt spreads where it meets the ground, in blocks.",
+                    "Without one a tower is a shape stamped through the landscape, meeting it at a hard",
+                    "vertical seam that reads as a build rather than as rock; the skirt is the scree that",
+                    "would have come off it, piled where it fell so the two run into each other.",
+                    "It beds on the sea floor, not on the water or the ice above it, so a tower standing",
+                    "out of a lake or a frozen ocean gets its skirt down where the rock is.",
+                    "0 leaves the seam bare.")
+            .defineInRange("pillarBaseErosion", 6, 0, 16);
+
+    public static final ModConfigSpec.BooleanValue PILLAR_CLIMATE = COMMON
+            .comment("Dress each tower to the climate it stands in, instead of giving them all the same",
+                    "temperate grass: snow over the level ground and icicles hung from the undercut where",
+                    "it is cold, leaves and trailing vines down the flanks with jungle bushes on the flats",
+                    "where it is warm and wet. The rock itself is the same everywhere either way.",
+                    "Warm needs rainfall as well as heat, so a desert -- the hottest biome there is --",
+                    "stays bare rather than being hung with vines.")
+            .define("pillarClimate", true);
+
+    public static final ModConfigSpec.BooleanValue PILLAR_GREENERY = COMMON
+            .comment("Grass the level ground on a tower -- its cap and its shelves -- and scatter foliage",
+                    "over it. Sheer faces are always left as bare stone. Off leaves the whole tower bare.")
+            .define("pillarGreenery", true);
+
+    public static final ModConfigSpec.IntValue PILLAR_GREENERY_DEPTH = COMMON
+            .comment("How far below the murk's high-water mark greenery still grows, in blocks. Deeper",
+                    "shelves are left bare: the murk scours flora under the boundary anyway, so growing it",
+                    "down there only to have it stripped is wasted worldgen.")
+            .defineInRange("pillarGreeneryDepth", 24, 0, 384);
+
+    static { COMMON.pop(); }   // [pillars.surface]
+
+    static { COMMON.pop(); }   // [pillars]
+
     // ==== client [plane] : separation plane (and its cold-vapour layer) ====
     static {
         CLIENT.comment("The murk's visible surface: its colour, the foam along its waterline, and how it",
@@ -472,6 +631,28 @@ public class Config {
         cachedHeightDayTime = dayTime;
         cachedHeight = result;
         return result;
+    }
+
+    /**
+     * The highest the breathing boundary ever gets: the tallest height in the schedule plus the larger
+     * of the two overday offsets. This is the murk's high-water mark, and what the karst towers are
+     * sized against (see {@code KarstPillarsFeature}).
+     *
+     * <p>Deliberately independent of the world clock, unlike {@link #breathHeight}. Worldgen happens
+     * once, whenever a chunk is first reached, so sizing towers against the CURRENT boundary would make
+     * their height depend on how far into the game the player was when they walked that way. Against
+     * the schedule's peak, every group in the world is cut to the same line no matter when it is found.
+     */
+    public static double maxBreathHeight() {
+        ensureSchedule();
+        double peak = Double.NEGATIVE_INFINITY;
+        for (double h : schedHeights) {
+            peak = Math.max(peak, h);
+        }
+        if (peak == Double.NEGATIVE_INFINITY) {
+            peak = 0.0; // empty schedule: breathHeight() falls back the same way
+        }
+        return peak + Math.max(OVERDAY_OFFSET_NOON.get(), OVERDAY_OFFSET_MIDNIGHT.get());
     }
 
     // True when a camera at world height y is on the fogged side of the boundary (the thick murk side).

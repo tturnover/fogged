@@ -6,8 +6,11 @@ import com.mojang.logging.LogUtils;
 
 import com.fogged.registry.ModBlockEntities;
 import com.fogged.registry.ModBlocks;
+import com.fogged.registry.ModFeatures;
 import com.fogged.registry.ModItems;
 import com.fogged.registry.ModParticles;
+import com.fogged.registry.ModStructurePieces;
+import com.fogged.registry.ModStructures;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -30,6 +33,9 @@ public class Fogged {
         ModItems.register(modEventBus);
         ModBlockEntities.register(modEventBus);
         ModParticles.register(modEventBus);
+        ModFeatures.register(modEventBus);
+        ModStructures.register(modEventBus);
+        ModStructurePieces.register(modEventBus);
 
         // Gameplay config only. Everything the client draws lives in a CLIENT spec registered from
         // FoggedClient, so a server never dictates someone's visuals.

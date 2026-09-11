@@ -67,6 +67,10 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.section.fogged.client.toml.title", "Fogged Rendering");
         add("fogged.configuration.boundary", "Boundary");
         add("fogged.configuration.suffocation", "Suffocation");
+        add("fogged.configuration.pillars", "Karst Pillars");
+        add("fogged.configuration.layout", "Where They Stand");
+        add("fogged.configuration.shape", "How They Are Built");
+        add("fogged.configuration.surface", "What Covers Them");
         add("fogged.configuration.plane", "Separation Plane");
         add("fogged.configuration.vapor", "Cold Vapour");
         add("fogged.configuration.debug", "Debug");
@@ -93,6 +97,10 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.group.murkActions", "What The Murk Does");
         add("fogged.configuration.boundary.tooltip", "Where the boundary sits, how the murk behaves at it, and what it does to the world underneath. Shared by the server and its clients: gameplay, not looks.");
         add("fogged.configuration.suffocation.tooltip", "What the murk does to the things breathing in it -- players and mobs -- and how much worse that gets with depth.");
+        add("fogged.configuration.pillars.tooltip", "Stone towers raised from bedrock to around the murk's high-water mark, in groups. Worldgen: changes here only reach chunks generated afterwards.");
+        add("fogged.configuration.layout.tooltip", "Where the groups stand and how often you meet them.");
+        add("fogged.configuration.shape.tooltip", "What one tower is built out of, and the range of builds a group draws from.");
+        add("fogged.configuration.surface.tooltip", "Everything laid over the bare rock: its bedding, the scree at its foot, and what grows or freezes on it.");
         add("fogged.configuration.plane.tooltip", "The murk's visible surface: its colour, the foam along its waterline, and how it meets the blocks that cross it. Yours alone; a server cannot dictate it.");
         add("fogged.configuration.vapor.tooltip", "The cold-vapour layer: stacked mist sheets over the surface, terraced by a noise field so the plane never reads as dead flat.");
         add("fogged.configuration.debug.tooltip", "Ways of seeing what the renderer is doing: raw views of the buffers behind the murk, a readout of its state, and whether compatibility trouble is logged.");
@@ -159,6 +167,44 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Nozzle-filter spheres are exempt from the spawn ban: mobs spawn inside them as they would above the boundary.");
         cfg("mobEscape", "Mobs Flee The Murk",
                 "Suffocating mobs run for the nearest breathing sphere, or climb towards the boundary.");
+        cfg("generatePillars", "Generate Karst Pillars",
+                "Raise groups of stone towers from bedrock towards the murk's high-water mark.");
+        cfg("pillarBlock", "Pillar Block",
+                "Block id the towers are built from. Falls back to stone if the id names nothing.");
+        cfg("pillarGroupSpacing", "Pillar Group Spacing",
+                "Average distance in blocks between one group of towers and the next. Higher means you meet them far less often.");
+        cfg("pillarSpawnGroup", "Group At Spawn",
+                "Always place one group within a hundred blocks of the world origin, however rare they are set to be elsewhere.");
+        cfg("pillarRidgeChance", "Pillar Ridges",
+                "Share of groups that string their towers along one line, as a ridge, instead of scattering them as a cluster of isles.");
+        cfg("pillarRidgeLengthMin", "Shortest Ridge",
+                "Shortest a ridge may run, end to end, in blocks.");
+        cfg("pillarRidgeLengthMax", "Longest Ridge",
+                "Longest a ridge may run, in blocks. A ridge may be longer than the spacing between groups.");
+        cfg("pillarIsleRadius", "Isle Cluster Radius",
+                "How far from its middle a cluster scatters its isles, in blocks.");
+        cfg("pillarDensity", "Isle Density",
+                "How thickly a cluster packs its isles. Ridges ignore this -- a crest is continuous.");
+        cfg("pillarRadiusMin", "Thinnest Pillar",
+                "Radius in blocks of the thinnest tower.");
+        cfg("pillarRadiusMax", "Thickest Pillar",
+                "Radius in blocks of the thickest tower.");
+        cfg("pillarLedges", "Pillar Shelves",
+                "Most flat benches a tower may carry on its flanks. These are what greenery grows on.");
+        cfg("pillarGreenery", "Pillar Greenery",
+                "Grass the level ground on a tower -- its cap and its shelves -- and scatter foliage over it. Sheer faces stay bare.");
+        cfg("pillarGreeneryDepth", "Pillar Greenery Depth",
+                "How far below the murk's high-water mark greenery still grows. Deeper shelves are left bare.");
+        cfg("pillarClimate", "Pillar Climate Dressing",
+                "Snow and icicles on cold towers, leaves and vines and bushes on warm wet ones, grass on the rest.");
+        cfg("pillarBaseErosion", "Pillar Base Erosion",
+                "How far the scree skirt spreads where a tower meets the ground, so it runs into the landscape instead of being stamped through it.");
+        cfg("pillarStoneBands", "Pillar Stone Bands",
+                "Band the towers with granite, diorite, andesite, tuff and deepslate. The beds roll, dip and thin out rather than running as stripes.");
+        cfg("pillarTopVariance", "Pillar Top Variance",
+                "How far a tower's top may fall either side of the murk's high-water mark, in blocks.");
+        cfg("pillarTilt", "Pillar Lean",
+                "Greatest lean off vertical, in degrees. Each tower leans a random amount up to this.");
         cfg("allowedMobs", "Mobs Allowed Under The Fog",
                 "Entity-type ids that may live in the murk. The 'minecraft:' namespace may be omitted.");
         cfg("mobSuffocateDelaySeconds", "Mob Suffocation Delay",

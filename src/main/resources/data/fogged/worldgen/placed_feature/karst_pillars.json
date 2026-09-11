@@ -1,0 +1,9 @@
+{
+  "feature": "fogged:karst_pillars",
+  "placement": [
+    {
+      "type": "minecraft:count",
+      "count": 1
+    }
+  ]
+}
