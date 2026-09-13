@@ -543,35 +543,35 @@ public class FogPlaneRenderer {
         mvStack.set(view);
         RenderSystem.applyModelViewMatrix();
 
-        // The foam map only covers a patch around the camera, while the plane spans the whole render
-        // distance. Stretching one quad's UVs over that span would put |u| in the tens of thousands,
-        // where the interpolator's float32 precision near the map lands the foam a block or two off
-        // the blocks it rings. Emit a 3x3 patch instead: the centre quad maps the map's footprint
-        // exactly and the eight around it pin to its border texels ("far water", i.e. bare plane
-        // colour), so no UV ever leaves [0,1]. Vertex colour stays white -- all colour is in the map.
+        // One quad for the whole plane, its UVs running off the foam map's footprint and out past
+        // [0,1] wherever the plane reaches further. The map's texture is CLAMP_TO_EDGE (see
+        // WaterlineMap.newFoamColorTexture), so everything beyond the footprint samples the same border
+        // texels a pinned UV would have -- "far water", i.e. bare plane colour. Vertex colour stays
+        // white: all colour is in the map.
+        //
+        // This was a 3x3 patch, on the grounds that one quad would put |u| in the tens of thousands and
+        // lose the foam's alignment to float32 interpolation. It does not: u is (x - mx0) / mapSize with
+        // x camera-relative, so at a 32-chunk render distance it spans -2.33 to 3.33, and the worst case
+        // the clamps allow (a 48-block map) reaches 11.8 -- where float32 resolves about 1.4e-6 against
+        // a texel of 1/192, some three thousand times finer than the foam needs.
+        //
+        // What the patch did cost was three different UV gradients on one surface: both coordinates
+        // moving across the centre quad, one across each edge quad, neither across the corners. A pack
+        // that reads anything off the albedo's screen-space derivatives -- Complementary derives normals
+        // that way -- shades those three regimes differently, and the plane came out with a plus and
+        // four corners drawn on it in a 3x3 around the player. One quad has one gradient everywhere.
         float mapSize = Math.max(1.0F, (float) WaterlineMap.size());
         float mx0 = (float) (WaterlineMap.originX() - cam.x);
         float mz0 = (float) (WaterlineMap.originZ() - cam.z);
-        float[] xs = {-s, Mth.clamp(mx0, -s, s), Mth.clamp(mx0 + mapSize, -s, s), s};
-        float[] zs = {-s, Mth.clamp(mz0, -s, s), Mth.clamp(mz0 + mapSize, -s, s), s};
-        float[] us = new float[4];
-        float[] vs = new float[4];
-        for (int k = 0; k < 4; k++) {
-            us[k] = Mth.clamp((xs[k] - mx0) / mapSize, 0.0F, 1.0F);
-            vs[k] = Mth.clamp((zs[k] - mz0) / mapSize, 0.0F, 1.0F);
-        }
+        float u0 = (-s - mx0) / mapSize;
+        float u1 = (s - mx0) / mapSize;
+        float v0 = (-s - mz0) / mapSize;
+        float v1 = (s - mz0) / mapSize;
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                if (xs[i] >= xs[i + 1] || zs[j] >= zs[j + 1]) {
-                    continue; // span collapsed by the clamp above
-                }
-                bb.addVertex(xs[i], relY, zs[j]).setUv(us[i], vs[j]).setColor(1.0F, 1.0F, 1.0F, 1.0F);
-                bb.addVertex(xs[i], relY, zs[j + 1]).setUv(us[i], vs[j + 1]).setColor(1.0F, 1.0F, 1.0F, 1.0F);
-                bb.addVertex(xs[i + 1], relY, zs[j + 1]).setUv(us[i + 1], vs[j + 1]).setColor(1.0F, 1.0F, 1.0F, 1.0F);
-                bb.addVertex(xs[i + 1], relY, zs[j]).setUv(us[i + 1], vs[j]).setColor(1.0F, 1.0F, 1.0F, 1.0F);
-            }
-        }
+        bb.addVertex(-s, relY, -s).setUv(u0, v0).setColor(1.0F, 1.0F, 1.0F, 1.0F);
+        bb.addVertex(-s, relY, s).setUv(u0, v1).setColor(1.0F, 1.0F, 1.0F, 1.0F);
+        bb.addVertex(s, relY, s).setUv(u1, v1).setColor(1.0F, 1.0F, 1.0F, 1.0F);
+        bb.addVertex(s, relY, -s).setUv(u1, v0).setColor(1.0F, 1.0F, 1.0F, 1.0F);
 
         float[] nd = nearDither();
         float pixelSize = Config.DITHER_PIXEL_SIZE.getAsInt();
@@ -580,6 +580,7 @@ public class FogPlaneRenderer {
         double az = Math.rint(cam.z / NOISE_ANCHOR) * NOISE_ANCHOR;
         IrisCompatibility.draw(bb.buildOrThrow(), RenderSystem.getShader(), true, program -> {
             IrisCompatibility.uniform1f(program, "fogged_PixelSize", pixelSize);
+            IrisCompatibility.uniform1i(program, "fogged_DebugView", Config.DEBUG_VIEW.get().ordinal());
             IrisCompatibility.uniform3f(program, "fogged_WorldOffset", (float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
             IrisCompatibility.sampler(program, "fogged_Waterline", WaterlineMap.textureId(), 1);
             IrisCompatibility.uniform4f(program, "fogged_WaterlineInfo", (float) (WaterlineMap.originX() - ax),

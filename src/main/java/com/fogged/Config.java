@@ -490,6 +490,15 @@ public class Config {
                     "entities. 0 disables the foam; larger = wider foam band around every edge.")
             .defineInRange("foamWidth", 2.25, 0.0, 8.0);
 
+    public static final ModConfigSpec.DoubleValue FOAM_REACH = CLIENT
+            .comment("How far (in blocks) above and below the plane something still raises foam. At the",
+                    "plane itself the ring is full strength and it fades to nothing at this distance, so",
+                    "a block or a mob just clear of the surface still marks it, faintly. 0 restricts the",
+                    "foam to what the plane actually cuts through.",
+                    "Note that the plane sits at a fractional height inside its block row, so a reach",
+                    "under ~0.65 will not reach the block row below it at all.")
+            .defineInRange("foamReach", 1.0, 0.0, 4.0);
+
     public static final ModConfigSpec.BooleanValue SABLE_FOAM = CLIENT
             .comment("If the Sable physics mod is installed, also generate foam around its sub-levels",
                     "(ships / contraptions) where they cross the boundary. No effect without Sable.")

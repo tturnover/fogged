@@ -57,10 +57,38 @@ vec3 unproject(float depth) {
     return sky ? normalize(rel) * 1.0e5 : rel;
 }
 
+// Whether this pixel is the murk surface itself rather than something else that happens to reach its
+// height. Matching the height alone is not enough: the surface sits at a fractional Y, so no block's
+// TOP shares it -- but a block's SIDE runs through every height between its own, so the sides of
+// everything the boundary cuts through had a row of pixels passing the test, and got painted with the
+// surface's fog: a murk-coloured line drawn across every column where it meets the plane.
+//
+// The pre-plane depth copy settles it as a fact rather than a guess. Sampler1 is the frame as it stood
+// BEFORE the plane was drawn (SceneDepth.OPAQUE), so a pixel is the plane exactly when the finished
+// frame is nearer than that copy: the column's side face sits at the same depth in both and is not the
+// plane, while the plane is in front of whatever the copy holds. The height band stays, and is what
+// keeps the water -- also drawn after the copy -- from being taken for the surface.
+//
+// An earlier version asked instead whether the surface under the pixel was flat, by comparing the
+// screen-space gradients of rel.y and rel.xz. That drew a shape of its own: |dFdx| + |dFdy| summed
+// over x and z is an L1 norm, and its level set is a square turned 45 degrees -- with rel.y rebuilt
+// from quantised depth, the gradient grows with distance until the test flips, and it flipped at a
+// different distance along the world axes than along the diagonals. The result was a diamond edge
+// standing around the camera. Derivatives of a value read back from a depth buffer -- one the plane
+// itself dithers into -- have no bound worth relying on here.
+bool onPlaneSurface(vec3 rel, float dist, float depth, float behind) {
+    return depth < 1.0
+        && abs(rel.y - PlaneY) < 0.05 + dist * 0.004
+        && (OpaqueValid < 0.5 || behind > depth);
+}
+
 void main() {
     float depth = texelFetch(Sampler0, ivec2(gl_FragCoord.xy), 0).r;
     vec3 rel = unproject(depth);
     float dist = length(rel);
+    // The frame before the plane and the water, where there is one this frame (see SceneDepth.OPAQUE).
+    float behind = OpaqueValid > 0.5 ? texelFetch(Sampler1, ivec2(gl_FragCoord.xy), 0).r : depth;
+    bool onPlane = onPlaneSurface(rel, dist, depth, behind);
 
     float fog;
     if (CameraInside > 0.5 && FogInside < 0.5) {
@@ -76,18 +104,16 @@ void main() {
         // right up against the camera, so it is told apart by distance alone -- eased in over a
         // sliver, since a hard cut showed as a disc on water the camera was nearly touching.
         if (OpaqueValid > 0.5) {
-            float behind = texelFetch(Sampler1, ivec2(gl_FragCoord.xy), 0).r;
             if (behind > depth) {
                 float fogBehind = smoothstep(MurkRange.x, MurkRange.y, length(unproject(behind)));
                 fog += (1.0 - fog) * WATER_SEE_THROUGH * fogBehind * smoothstep(0.06, 0.14, dist);
             }
         }
-        // The surface's own tighter fog (see PlaneFogEnd). Depth precision loosens with distance; the
-        // surface sits at a fractional height, so no block face shares it within this band.
-        if (PlaneFogEnd > 0.0 && depth < 1.0 && abs(rel.y - PlaneY) < 0.05 + dist * 0.004) {
+        // The surface's own tighter fog (see PlaneFogEnd), on the surface only (see onPlaneSurface).
+        if (PlaneFogEnd > 0.0 && onPlane) {
             fog = max(fog, smoothstep(0.0, PlaneFogEnd, dist));
         }
-    } else if (depth < 1.0 && abs(rel.y - PlaneY) < 0.05 + dist * 0.004) {
+    } else if (onPlane) {
         fog = 0.0; // the surface itself, seen from the clear side: the murk is behind it, not in front
     } else {
         // Signed height of the camera and of the point over the boundary, negative on the murk side.

@@ -27,7 +27,8 @@ final class SableCompatibility {
 
     @FunctionalInterface
     interface CellStamper {
-        void stamp(int cellX, int cellZ);
+        /** {@code weight} is 1 where the hull meets the surface, easing to 0 at the band's edge. */
+        void stamp(int cellX, int cellZ, float weight);
     }
 
     /** Receives each non-air sub-level block (in its own level + local coords) that sits under the plane. */
@@ -152,7 +153,40 @@ final class SableCompatibility {
      *  whole sub-level moved this tick. */
     @FunctionalInterface
     interface WakeSink {
-        void accept(double worldX, double worldZ, Vec3 motion);
+        /** {@code weight} is 1 where the hull meets the surface, easing to 0 at the band's edge. */
+        void accept(double worldX, double worldZ, Vec3 motion, float weight);
+    }
+
+    // Heights probed either side of the surface, as shares of the band, nearest first. The surface
+    // itself is probed before any of them, so a hull that actually crosses costs exactly the one
+    // lookup it always did and only one that merely comes close pays for the rest.
+    private static final double[] BAND_PROBES = { 1.0 / 3.0, 2.0 / 3.0 };
+
+    /**
+     * Weight of the sub-level block nearest the surface on the world column {@code (wx, wz)}: 1 when it
+     * meets the surface, easing to 0 over {@code band} either side, and 0 when there is none in reach.
+     */
+    private static float probeColumn(Level subLevel, Pose3dc pose, Vector3d src, Vector3d dst,
+            BlockPos.MutableBlockPos local, double wx, double wz, double surfaceY, double band) {
+        if (solidAt(subLevel, pose, src, dst, local, wx, surfaceY, wz)) {
+            return 1.0F;
+        }
+        for (double share : BAND_PROBES) {
+            double dy = share * band;
+            if (solidAt(subLevel, pose, src, dst, local, wx, surfaceY - dy, wz)
+                    || solidAt(subLevel, pose, src, dst, local, wx, surfaceY + dy, wz)) {
+                return (float) (1.0 - share);
+            }
+        }
+        return 0.0F;
+    }
+
+    private static boolean solidAt(Level subLevel, Pose3dc pose, Vector3d src, Vector3d dst,
+            BlockPos.MutableBlockPos local, double wx, double wy, double wz) {
+        src.set(wx, wy, wz);
+        pose.transformPositionInverse(src, dst);
+        local.set(Mth.floor(dst.x), Mth.floor(dst.y), Mth.floor(dst.z));
+        return subLevel.getBlockState(local).blocksMotion();
     }
 
     /**
@@ -168,7 +202,8 @@ final class SableCompatibility {
      * local space: a rotated hull's footprint is not axis-aligned, and {@code attempts} random probes
      * against it cost the same whatever size the ship is, where a full local scan is cubic.
      */
-    static void sampleWakes(Level level, double surfaceY, int attempts, RandomSource rnd, WakeSink sink) {
+    static void sampleWakes(Level level, double surfaceY, double band, int attempts,
+            RandomSource rnd, WakeSink sink) {
         SubLevelContainer container = SubLevelContainer.getContainer(level);
         if (container == null) {
             return;
@@ -179,8 +214,8 @@ final class SableCompatibility {
 
         for (SubLevel sub : container.getAllSubLevels()) {
             BoundingBox3dc bb = sub.boundingBox();
-            if (bb.maxY() < surfaceY || bb.minY() > surfaceY) {
-                continue; // does not reach the boundary, so it cannot be breaking it
+            if (bb.maxY() < surfaceY - band || bb.minY() > surfaceY + band) {
+                continue; // not even within the band of the boundary, so it cannot be raising foam
             }
             Pose3dc pose = sub.logicalPose();
             Vector3dc now = pose.position();
@@ -191,32 +226,30 @@ final class SableCompatibility {
             for (int i = 0; i < attempts; i++) {
                 double wx = bb.minX() + rnd.nextDouble() * (bb.maxX() - bb.minX());
                 double wz = bb.minZ() + rnd.nextDouble() * (bb.maxZ() - bb.minZ());
-                src.set(wx, surfaceY, wz);
-                pose.transformPositionInverse(src, dst);
-                local.set(Mth.floor(dst.x), Mth.floor(dst.y), Mth.floor(dst.z));
-                if (subLevel.getBlockState(local).blocksMotion()) {
-                    sink.accept(wx, wz, motion);
+                float weight = probeColumn(subLevel, pose, src, dst, local, wx, wz, surfaceY, band);
+                if (weight > 0.0F) {
+                    sink.accept(wx, wz, motion, weight);
                 }
             }
         }
     }
 
-    static void stampSubLevels(Level level, int boundaryY, int originX, int originZ,
+    static void stampSubLevels(Level level, double surfaceY, double band, int originX, int originZ,
                                int size, int cellsPerBlock, CellStamper stamper) {
         SubLevelContainer container = SubLevelContainer.getContainer(level);
         if (container == null) {
             return;
         }
         int cells = size * cellsPerBlock;
-        double sampleY = boundaryY + 0.5;
         BlockPos.MutableBlockPos local = new BlockPos.MutableBlockPos();
         Vector3d src = new Vector3d();
         Vector3d dst = new Vector3d();
 
         for (SubLevel sub : container.getAllSubLevels()) {
             BoundingBox3dc bb = sub.boundingBox();
-            // Skip sub-levels that don't straddle the boundary slab.
-            if (bb.maxY() < boundaryY || bb.minY() > boundaryY + 1) {
+            // Skip sub-levels that come nowhere near the boundary. Measured off the surface's own
+            // height rather than off its block row, which sits up to a block away from it.
+            if (bb.maxY() < surfaceY - band || bb.minY() > surfaceY + band) {
                 continue;
             }
             // World XZ footprint, clamped to the map.
@@ -234,12 +267,9 @@ final class SableCompatibility {
                 double wz = originZ + (cz + 0.5) / cellsPerBlock;
                 for (int cx = x0; cx <= x1; cx++) {
                     double wx = originX + (cx + 0.5) / cellsPerBlock;
-                    // World -> sub-level-local, then test the block there (reusing joml vectors).
-                    src.set(wx, sampleY, wz);
-                    pose.transformPositionInverse(src, dst);
-                    local.set(Mth.floor(dst.x), Mth.floor(dst.y), Mth.floor(dst.z));
-                    if (subLevel.getBlockState(local).blocksMotion()) {
-                        stamper.stamp(cx, cz);
+                    float weight = probeColumn(subLevel, pose, src, dst, local, wx, wz, surfaceY, band);
+                    if (weight > 0.0F) {
+                        stamper.stamp(cx, cz, weight);
                     }
                 }
             }

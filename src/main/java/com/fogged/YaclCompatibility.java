@@ -121,6 +121,7 @@ final class YaclCompatibility {
                 .option(color("planeColor", Config.PLANE_COLOR, false))
                 .option(color("foamColor", Config.FOAM_COLOR, true))
                 .option(dbl("foamWidth", Config.FOAM_WIDTH, 0.0, 8.0, 0.25))
+                .option(dbl("foamReach", Config.FOAM_REACH, 0.0, 4.0, 0.25))
                 .option(bool("sableFoam", Config.SABLE_FOAM))
                 .option(bool("planeSoftOcclusion", Config.PLANE_SOFT_OCCLUSION))
                 .option(dbl("murkDarkness", Config.MURK_DARKNESS, 0.0, 1.0, 0.05))

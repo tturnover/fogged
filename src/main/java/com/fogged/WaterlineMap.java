@@ -39,6 +39,12 @@ public final class WaterlineMap {
     private static final int MIN_SIZE = 48;           // clamp the simulation-distance-driven block edge
     private static final int MAX_SIZE = 192;
     private static final float INF = 1.0e9F;
+    // How far above and below the surface something can sit and still raise foam, in blocks. At the
+    // surface the ring is full strength; at the edge of the band there is none left. Read once per
+    // rescan rather than per column -- it is a config lookup.
+    static double foamBand() {
+        return Config.FOAM_REACH.get();
+    }
 
     // Cost of a diagonal step, against 1.0 for an orthogonal one. Used by BOTH the distance transform
     // and the foam's growth wavefront, and they have to agree: the transform's contours are what the
@@ -216,6 +222,13 @@ public final class WaterlineMap {
         return foamColorTexture == null ? 0 : foamColorTexture.getId();
     }
 
+    /** Radii in blocks over which the map's answer fades to nothing, for the debug HUD: {from, to}. */
+    public static float[] fadeRadii() {
+        float halfSize = size * 0.5F;
+        float to = Math.max(1.0F, halfSize - FOAM_FADE_MARGIN);
+        return new float[] { Math.min(FOAM_FADE_START * halfSize, to - 1.0F), to };
+    }
+
     public static int size() {
         return size;
     }
@@ -251,6 +264,9 @@ public final class WaterlineMap {
     // eases the shown field toward it once per tick, and sprinkles foam particles. wantFoamColor asks
     // for the baked colour map alongside (see foamColorTexture).
     public static void update(Level level, Vec3 camPos, int boundaryY, int mapBlocks, boolean wantFoamColor) {
+        // The surface's own fractional height: the block row alone is up to a block away from it, and
+        // the foam band is measured in half blocks (see bandSeedCells).
+        double surfaceY = Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET;
         int want = Mth.clamp(mapBlocks, MIN_SIZE, MAX_SIZE);
         int wantC = Mth.clamp(Config.WATERLINE_CELLS_PER_BLOCK.getAsInt(), 1, 4);
         if (texture == null || want != size || wantC != cellsPerBlock) {
@@ -296,7 +312,7 @@ public final class WaterlineMap {
             lastBoundaryY = boundaryY;
             lastRecomputeTick = tick;
             long t0 = System.nanoTime();
-            reseedAll(level, boundaryY);
+            reseedAll(level, boundaryY, surfaceY, foamBand());
             long t1 = System.nanoTime();
             finishRecompute();
             lastReseedMs = (t1 - t0) / 1.0e6;
@@ -309,7 +325,7 @@ public final class WaterlineMap {
             // Whatever moves is re-stamped every tick, so a boat's ring keeps up with it rather than
             // waiting on the block rescan's cadence above.
             long t0 = System.nanoTime();
-            boolean restamped = restampDynamic(level, boundaryY);
+            boolean restamped = restampDynamic(level, boundaryY, surfaceY, foamBand());
             long t1 = System.nanoTime();
             long elapsed = lastTick == Long.MIN_VALUE ? 1 : Math.max(1, tick - lastTick);
             float step = EASE_CELLS_PER_TICK * elapsed;
@@ -399,23 +415,69 @@ public final class WaterlineMap {
     // Reseed the whole block-state field. Solids and flowing water (currents, falls) seed the full
     // field; plants the plant field. Still water (source) and air are left as open surface so foam has
     // somewhere to fade into.
-    private static void reseedAll(Level level, int boundaryY) {
+    /**
+     * Seed distance, in cells, for something whose nearest face sits {@code gap} blocks from the
+     * surface, or a negative value when it is too far to count.
+     *
+     * <p>A seed stamped at a distance rather than at zero is how "less of an effect" is said in a
+     * field that only stores distance: the ring it raises starts that far along its own ramp, so it
+     * comes out narrower and fainter, and at the band's edge it is gone. Scaled by the foam's width so
+     * the fade spans the whole ring whatever that width is set to -- with a fixed slice instead, a wide
+     * ring would barely notice half a block and a narrow one would lose everything in the first inch.
+     *
+     * <p>The dissolve reads the same field (fogged_nearCrossing), so something under the surface now
+     * softens it a little as well as ringing it -- weakly, and only within the band.
+     */
+    private static float bandSeedCells(double gap, double band, float foamWidth) {
+        float near = bandFalloff(gap, band);
+        if (near <= 0.0F || foamWidth <= 0.0F) {
+            return -1.0F;
+        }
+        return (1.0F - near) * foamWidth * cellsPerBlock;
+    }
+
+    /**
+     * How much of its full effect something {@code gap} blocks clear of the surface still has: 1 at the
+     * surface, 0 at the edge of the band. The weight form of {@link #bandSeedCells}, which is written
+     * in terms of this so the painted ring and the thrown spray cannot fall out of step.
+     */
+    static float bandFalloff(double gap, double band) {
+        return band <= 0.0 || gap >= band ? 0.0F : (float) (1.0 - gap / band);
+    }
+
+    /** Blocks between the surface and the nearest face of {@code box}; zero while it straddles. */
+    static double surfaceGap(AABB box, double surfaceY) {
+        return Math.max(0.0, Math.max(surfaceY - box.maxY, box.minY - surfaceY));
+    }
+
+    // Vertical gap in blocks between the surface and the block row y, which spans [y, y + 1]. Zero when
+    // the surface runs through the row.
+    static double rowGap(double surfaceY, int y) {
+        if (surfaceY >= y && surfaceY <= y + 1) {
+            return 0.0;
+        }
+        return surfaceY > y + 1 ? surfaceY - (y + 1) : y - surfaceY;
+    }
+
+    private static void reseedAll(Level level, int boundaryY, double surfaceY, double band) {
         java.util.Arrays.fill(target, INF);
         java.util.Arrays.fill(targetP, INF);
         rowsClear(seedMin, seedMax);
         rowsClear(seedMinP, seedMaxP);
         flowingColumnCount = 0;
+        float foamWidth = (float) (double) Config.FOAM_WIDTH.get();
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int bz = 0; bz < size; bz++) {
             for (int bx = 0; bx < size; bx++) {
-                reseedColumn(level, pos, boundaryY, bx, bz);
+                reseedColumn(level, pos, boundaryY, surfaceY, band, foamWidth, bx, bz);
             }
         }
     }
 
     // Reseed one block column's cells from its current block state. Relies on reseedAll having already
     // cleared the whole field to INF, so this only needs to stamp the cells that turn out to be solid.
-    private static void reseedColumn(Level level, BlockPos.MutableBlockPos pos, int boundaryY, int bx, int bz) {
+    private static void reseedColumn(Level level, BlockPos.MutableBlockPos pos, int boundaryY,
+            double surfaceY, double band, float foamWidth, int bx, int bz) {
         final int C = cellsPerBlock;
         int x0 = bx * C;
         int z0 = bz * C;
@@ -442,6 +504,39 @@ public final class WaterlineMap {
             fillCells(targetP, x0, z0, x1, z1, 0.0F);
             rowsAdd(seedMinP, seedMaxP, x0, z0, x1, z1);
         }
+
+        // Whatever sits just clear of the surface rings it too, the further out the fainter. Every row
+        // the band reaches is looked at, not just the nearest: the surface sits at a fractional height,
+        // so the two rows touching its own are at different distances from it and a reach wide enough
+        // for both has to see both.
+        for (int y = bandLow(surfaceY, band); y <= bandHigh(surfaceY, band); y++) {
+            if (y == boundaryY) {
+                continue; // the row the surface runs through, already seeded above at full strength
+            }
+            float seed = bandSeedCells(rowGap(surfaceY, y), band, foamWidth);
+            if (seed < 0.0F) {
+                continue;
+            }
+            pos.set(originX + bx, y, originZ + bz);
+            BlockState near = level.getBlockState(pos);
+            boolean nearPlant = !near.blocksMotion() && near.getFluidState().isEmpty() && !near.isAir();
+            if (columnClosed(near) || standingWaterCrossing(level, pos, near)) {
+                fillCellsMin(target, x0, z0, x1, z1, seed);
+                rowsAdd(seedMin, seedMax, x0, z0, x1, z1);
+            } else if (nearPlant) {
+                fillCellsMin(targetP, x0, z0, x1, z1, seed);
+                rowsAdd(seedMinP, seedMaxP, x0, z0, x1, z1);
+            }
+        }
+    }
+
+    /** Lowest / highest block row any part of which lies within {@code band} of the surface. */
+    static int bandLow(double surfaceY, double band) {
+        return Mth.floor(surfaceY - band);
+    }
+
+    static int bandHigh(double surfaceY, double band) {
+        return Mth.floor(surfaceY + band);
     }
 
     // Standing (source) water with a side open to the air: a wall or column of it standing in the
@@ -509,11 +604,14 @@ public final class WaterlineMap {
      * <p>Restoring the block-only field is what un-stamps what moved off: it is exact, so nothing has
      * to be un-chamfered, and only the new seeds need relaxing back in.
      */
-    private static boolean restampDynamic(Level level, int boundaryY) {
+    private static boolean restampDynamic(Level level, int boundaryY, double surfaceY, double band) {
         final int C = cellsPerBlock;
         AABB area = new AABB(originX, boundaryY - 2.0, originZ, originX + size, boundaryY + 2.0, originZ + size);
+        // Measured off the surface itself rather than off its block row, so the band is the same half
+        // block above and below that the block seeds use -- the row is up to a block away from where
+        // the surface actually sits.
         var crossing = level.getEntities((Entity) null, area,
-                e -> e.getBoundingBox().minY <= boundaryY + 0.5 && e.getBoundingBox().maxY >= boundaryY - 0.5);
+                e -> surfaceGap(e.getBoundingBox(), surfaceY) < band);
         boolean sable = SABLE && Config.SABLE_FOAM.getAsBoolean();
         if (crossing.isEmpty() && !sable && !lastStamped) {
             return false; // nothing crossed last tick and nothing crosses now: the field is untouched
@@ -523,22 +621,38 @@ public final class WaterlineMap {
         stampBoxCount = 0;
         stampOverflow = false;
 
+        float foamWidth = (float) (double) Config.FOAM_WIDTH.get();
         for (Entity e : crossing) {
             AABB b = e.getBoundingBox();
+            // Zero while the box straddles the surface, growing as it clears it either way; the same
+            // falloff the block seeds get, so a boat riding the surface still rings it hard and one
+            // sinking away from it lets go gradually instead of at a block boundary.
+            double gap = surfaceGap(b, surfaceY);
+            float seed = gap <= 0.0 ? 0.0F : bandSeedCells(gap, band, foamWidth);
+            if (seed < 0.0F) {
+                continue;
+            }
             int x0 = Mth.floor((b.minX - originX) * C);
             int x1 = Mth.floor((b.maxX - originX) * C);
             int z0 = Mth.floor((b.minZ - originZ) * C);
             int z1 = Mth.floor((b.maxZ - originZ) * C);
-            fillCells(target, x0, z0, x1, z1, 0.0F);
+            fillCellsMin(target, x0, z0, x1, z1, seed);
             addStampBox(x0, z0, x1, z1);
         }
 
         // A sub-level's stamped cells are scattered over its hull's footprint, so one box covers the lot.
         if (sable) {
             int[] u = { Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE };
-            SableCompatibility.stampSubLevels(level, boundaryY, originX, originZ, size, C,
-                    (cellX, cellZ) -> {
-                        target[cellZ * cells + cellX] = 0.0F;
+            float ringWidth = foamWidth * cellsPerBlock;
+            SableCompatibility.stampSubLevels(level, surfaceY, band, originX, originZ, size, C,
+                    (cellX, cellZ, weight) -> {
+                        // The same seed-at-a-distance the blocks and entities get: a hull meeting the
+                        // surface stamps zero, one that only comes near stamps further along the ramp.
+                        float seed = (1.0F - weight) * ringWidth;
+                        int i = cellZ * cells + cellX;
+                        if (seed < target[i]) {
+                            target[i] = seed;
+                        }
                         u[0] = Math.min(u[0], cellX);
                         u[1] = Math.min(u[1], cellZ);
                         u[2] = Math.max(u[2], cellX);
@@ -581,6 +695,24 @@ public final class WaterlineMap {
         stampBoxes[b + 1] = z0;
         stampBoxes[b + 2] = x1;
         stampBoxes[b + 3] = z1;
+    }
+
+    // As fillCells, but only where it lowers the field: the band seeds (see bandSeedCells) are weaker
+    // than a crossing's, and a block sitting under the surface must not rub out the ring of the one
+    // standing through it in the same column.
+    private static void fillCellsMin(float[] field, int x0, int z0, int x1, int z1, float value) {
+        x0 = Math.max(0, x0);
+        z0 = Math.max(0, z0);
+        x1 = Math.min(cells - 1, x1);
+        z1 = Math.min(cells - 1, z1);
+        for (int z = z0; z <= z1; z++) {
+            int row = z * cells;
+            for (int x = x0; x <= x1; x++) {
+                if (value < field[row + x]) {
+                    field[row + x] = value;
+                }
+            }
+        }
     }
 
     private static void fillCells(float[] field, int x0, int z0, int x1, int z1, float value) {
@@ -825,6 +957,25 @@ public final class WaterlineMap {
         // touch the map's rim would otherwise streak to the horizon.
         int rimPixel = foamImg == null ? 0
                 : packAbgr(planeCol[0] * PLANE_BASE, planeCol[1] * PLANE_BASE, planeCol[2] * PLANE_BASE);
+        // Fade the foam out radially, from the camera at the map's centre, and reach zero before any
+        // point the map's rim can be sampled at.
+        //
+        // The map is a square and the plane is not. Under a shader pack the plane is drawn as a 3x3
+        // patch whose centre quad is this footprint and whose eight outer quads are the rim ring
+        // stretched to the render distance (FogPlaneRenderer.drawThroughPack, and the rim pin just
+        // below), so anything present inside the footprint and absent outside draws the footprint onto
+        // the surface: a square standing around the player, measured at 95.8 blocks against a
+        // half-width of 96.0. Easing towards the rim only decides how sharp that square is.
+        //
+        // Ending on a circle removes it instead of softening it. Past the fade every texel is the same
+        // bare plane colour the rim ring is pinned to -- foamPixel with no foam is exactly rimPixel --
+        // so the two sides of the patch seam hold identical colour and the seam cannot be seen. The
+        // radius is the largest one that is certainly still on the map in every direction: the square's
+        // inscribed circle, less a block because the map re-anchors on whole blocks and the camera is
+        // therefore within a block of its centre. Nothing here is tuned by eye.
+        float halfCells = cells * 0.5F;
+        float fadeTo = Math.max(1.0F, halfCells - FOAM_FADE_MARGIN * cellsPerBlock);
+        float fadeFrom = Math.min(FOAM_FADE_START * halfCells, fadeTo - cellsPerBlock);
         for (int z = 0; z < cells; z++) {
             int x0 = partial ? workMin[z] : 0;
             int x1 = partial ? workMax[z] : cells - 1;
@@ -836,9 +987,14 @@ public final class WaterlineMap {
                 int g = (int) (dp / maxCells * 255.0F + 0.5F) & 0xFF;
                 img.setPixelRGBA(x, z, 0xFF000000 | (g << 8) | v); // ABGR: R = solid/entity dist, G = plant dist
                 if (foamImg != null) {
-                    boolean rim = x == 0 || z == 0 || x == cells - 1 || z == cells - 1;
-                    foamImg.setPixelRGBA(x, z, rim ? rimPixel
-                            : foamPixel(d / cellsPerBlock, dp / cellsPerBlock, planeCol, foamCol, foamWidth));
+                    float rx = x - halfCells + 0.5F;
+                    float rz = z - halfCells + 0.5F;
+                    float keep = 1.0F - Mth.clamp(((float) Math.sqrt(rx * rx + rz * rz) - fadeFrom)
+                            / (fadeTo - fadeFrom), 0.0F, 1.0F);
+                    keep = keep * keep * (3.0F - 2.0F * keep); // smoothstep, as the shaders'
+                    foamImg.setPixelRGBA(x, z, keep <= 0.0F ? rimPixel
+                            : foamPixel(d / cellsPerBlock, dp / cellsPerBlock, planeCol, foamCol,
+                                    foamWidth, keep));
                 }
             }
         }
@@ -855,9 +1011,16 @@ public final class WaterlineMap {
     private static final float SOLID_STRENGTH = 1.0F; // == fogged_foam.glsl FOGGED_SOLID_STRENGTH
     private static final float PLANT_STRENGTH = 0.5F; // == fogged_foam.glsl FOGGED_PLANT_STRENGTH
     private static final float PLANE_BASE = 0.92F;    // == fog_plane.fsh planarFog's plane-colour scale
+    // Where the foam starts fading out, as a share of the map's half-width, measured from the camera
+    // outwards. It ends at the inscribed radius less a block -- see the note in upload() for why that
+    // is the number and not a taste. Must match FOGGED_FOAM_FADE_START in fogged_iris.glsl and
+    // fogged_foam.glsl, which fade the dissolve off over the same circle.
+    static final float FOAM_FADE_START = 0.60F;
+    /** Blocks of margin inside the inscribed circle: the camera sits within one block of the centre. */
+    static final float FOAM_FADE_MARGIN = 1.0F;
 
     private static int foamPixel(float solidBlocks, float plantBlocks,
-                                 float[] plane, float[] foamCol, float width) {
+                                 float[] plane, float[] foamCol, float width, float keep) {
         float foam = 0.0F;
         if (width > 0.0F) {
             float solidEdge = SOLID_STRENGTH
@@ -867,7 +1030,7 @@ public final class WaterlineMap {
             float edge = Math.max(solidEdge, plantEdge);
             foam = edge * edge * (3.0F - 2.0F * edge);
             foam = (float) Math.ceil(foam * FOAM_STEPS) / FOAM_STEPS;
-            foam *= foamCol[3];
+            foam *= foamCol[3] * keep;
         }
         return packAbgr(Mth.lerp(foam, plane[0] * PLANE_BASE, foamCol[0]),
                 Mth.lerp(foam, plane[1] * PLANE_BASE, foamCol[1]),
@@ -903,10 +1066,11 @@ public final class WaterlineMap {
         // Standing foam along the waterline comes from FoamSites, which remembers where the boundary
         // touches blocks per chunk and so reaches the whole loaded world. Scattering samples over this
         // map instead capped foam at the map's own edge and made it travel with the player.
-        FoamSites.tick(level, camPos, boundaryY, surfaceY, foam, rnd);
+        double band = foamBand();
+        FoamSites.tick(level, camPos, boundaryY, surfaceY, band, foam, rnd);
         // Spray thrown by things crossing it is per-entity and stays close, since that is where the
         // entities are.
-        emitWakeFoam(level, camPos, surfaceY, foam, rnd);
+        emitWakeFoam(level, camPos, surfaceY, band, foam, rnd);
     }
 
     // One channel of the foam colour, lifted toward white by SPRAY_WHITENING.
@@ -928,13 +1092,18 @@ public final class WaterlineMap {
     // the particles are biased into the arc AHEAD of the direction of travel -- foam piles up against
     // the bow rather than ringing the hull evenly. Each one then carries a fraction of the entity's
     // own motion, so it slides backwards past it and is left behind instead of riding along.
-    private static void emitWakeFoam(Level level, Vec3 camPos, double surfaceY,
+    private static void emitWakeFoam(Level level, Vec3 camPos, double surfaceY, double band,
                                      ParticleOptions foam, RandomSource rnd) {
         double reach = particleRadius();
-        AABB area = new AABB(camPos.x - reach, surfaceY - 2.0, camPos.z - reach,
-                camPos.x + reach, surfaceY + 2.0, camPos.z + reach);
+        double slab = Math.max(2.0, band);
+        AABB area = new AABB(camPos.x - reach, surfaceY - slab, camPos.z - reach,
+                camPos.x + reach, surfaceY + slab, camPos.z + reach);
+        // The band, not a strict straddle: a mob wading just under the surface or clearing it on a jump
+        // is half in it, and the painted ring already says so (see bandSeedCells). Its spray fades over
+        // the same half block, so the two agree instead of the particles cutting out a block early.
         for (Entity e : level.getEntities((Entity) null, area,
-                e -> e.getBoundingBox().minY <= surfaceY && e.getBoundingBox().maxY >= surfaceY)) {
+                e -> surfaceGap(e.getBoundingBox(), surfaceY) < band)) {
+            float near = bandFalloff(surfaceGap(e.getBoundingBox(), surfaceY), band);
             // How far it actually moved last tick, NOT getDeltaMovement(): on the client only the
             // local player keeps a meaningful delta, while every other entity is interpolated from
             // position packets and reports nothing. Reading the positions is what makes other players,
@@ -943,10 +1112,13 @@ public final class WaterlineMap {
             double speed = Math.sqrt(motion.x * motion.x + motion.z * motion.z);
             double strength = Math.min(1.0, speed / FULL_SPEED);
 
-            int count = (int) Math.round(strength * WAKE_MAX);
+            // The falloff scales how MUCH is thrown, not how fast the thing is going: strength still
+            // shapes the wake into a bow wave, so a mob half under the surface throws a thinner version
+            // of the same wake rather than a slow-looking one.
+            int count = (int) Math.round(strength * WAKE_MAX * near);
             if (count == 0) {
                 // Still, or nearly: the odd puff so a moored boat is not bone dry, and no more.
-                if (rnd.nextFloat() >= STATIC_CHANCE) {
+                if (rnd.nextFloat() >= STATIC_CHANCE * near) {
                     continue;
                 }
                 count = 1;
@@ -983,9 +1155,15 @@ public final class WaterlineMap {
         // SableCompatibility.sampleWakes), and each hit throws spray outward from the sub-level's
         // centre with the sub-level's own travel behind it.
         if (SABLE && Config.SABLE_FOAM.getAsBoolean()) {
-            SableCompatibility.sampleWakes(level, surfaceY, SUBLEVEL_PROBES, rnd, (wx, wz, motion) -> {
+            SableCompatibility.sampleWakes(level, surfaceY, band, SUBLEVEL_PROBES, rnd,
+                    (wx, wz, motion, weight) -> {
                 double speed = Math.sqrt(motion.x * motion.x + motion.z * motion.z);
                 double strength = Math.min(1.0, speed / FULL_SPEED);
+                // A probe that only came near the surface throws that much less often -- the same
+                // falloff the entity wake gets, applied to how much is thrown rather than to the speed.
+                if (weight < 1.0F && rnd.nextFloat() >= weight) {
+                    return;
+                }
                 if (strength <= 0.0 && rnd.nextFloat() >= SUBLEVEL_STATIC_CHANCE) {
                     return; // moored: the odd puff along the hull, no more
                 }

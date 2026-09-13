@@ -38,6 +38,8 @@
   "fogged.configuration.flipFog.tooltip": "Put the murk above the boundary instead of below it. Does not move the breathing boundary.",
   "fogged.configuration.foamColor": "Foam Colour",
   "fogged.configuration.foamColor.tooltip": "Colour of the foam ring around everything crossing the surface. Alpha scales how strongly it shows.",
+  "fogged.configuration.foamReach": "Foam Reach",
+  "fogged.configuration.foamReach.tooltip": "How far above and below the plane something still raises foam. Full strength at the plane, fading to nothing at this distance. 0 restricts the foam to what the plane actually cuts through. The plane sits at a fractional height in its block row, so a reach under about 0.65 never reaches the row below it.",
   "fogged.configuration.foamWidth": "Foam Width",
   "fogged.configuration.foamWidth.tooltip": "How far the foam reaches (in blocks) from every edge. 0 disables it.",
   "fogged.configuration.fogDistance": "Under-Plane Fog Distance",

@@ -34,14 +34,25 @@ final class FoamSites {
     private static final int RESCAN_INTERVAL = 200;    // ticks before a cached chunk is refreshed
     private static final int SPAWN_ATTEMPTS = 20;      // sites picked per tick, one particle each
 
-    // Sites of one chunk, packed as (localX << 4 | localZ) -- a chunk holds at most 256 columns, so a
-    // byte pair each rather than a BlockPos per site.
+    // Sites of one chunk, packed as (weight << 8 | localX << 4 | localZ) -- a chunk holds at most 256
+    // columns, so a byte each rather than a BlockPos per site, and the short's four spare bits carry how
+    // strongly the site counts (see WEIGHT_STEPS). Twelve bits used of sixteen, so the value stays
+    // positive and no masking games are needed on the way out.
     private record Sites(short[] packed, long scannedTick) {
     }
+
+    // Resolution of a site's weight, in the four bits above the coordinates: 0 is nothing, 15 is a
+    // column the surface runs straight through.
+    private static final int WEIGHT_STEPS = 15;
 
     private static final Long2ObjectOpenHashMap<Sites> cache = new Long2ObjectOpenHashMap<>();
     private static final LongArrayList active = new LongArrayList();
     private static int cachedBoundaryY = Integer.MIN_VALUE;
+    // The rows the foam band covered when the cache was filled. The surface sits at a fractional height,
+    // so these slide as it drifts inside its own row and change outright when the reach is edited -- and
+    // a scan taken over a different set of rows is wrong everywhere, so it is thrown away.
+    private static int cachedBandLow = Integer.MIN_VALUE;
+    private static int cachedBandHigh = Integer.MIN_VALUE;
 
     private FoamSites() {
     }
@@ -55,15 +66,20 @@ final class FoamSites {
      * Refresh part of the cache and throw this tick's foam. Called once per tick while the camera is
      * near the surface.
      */
-    static void tick(Level level, Vec3 cam, int boundaryY, double surfaceY,
+    static void tick(Level level, Vec3 cam, int boundaryY, double surfaceY, double band,
                      ParticleOptions foam, RandomSource rnd) {
-        if (boundaryY != cachedBoundaryY) {
-            // The boundary moved a whole block: every cached waterline is at the wrong height now.
+        int low = WaterlineMap.bandLow(surfaceY, band);
+        int high = WaterlineMap.bandHigh(surfaceY, band);
+        if (boundaryY != cachedBoundaryY || low != cachedBandLow || high != cachedBandHigh) {
+            // The boundary moved a whole block, or the band grew, shrank or slid onto another row:
+            // either way every cached waterline was taken over the wrong set of rows.
             cache.clear();
             cachedBoundaryY = boundaryY;
+            cachedBandLow = low;
+            cachedBandHigh = high;
         }
         int reach = reach(level);
-        scanSome(level, cam, boundaryY, reach);
+        scanSome(level, cam, boundaryY, surfaceY, band, reach);
         emit(level, cam, reach, surfaceY, foam, rnd);
     }
 
@@ -74,7 +90,8 @@ final class FoamSites {
 
     // Walk the chunks in range, scanning the ones with no entry and refreshing the stalest of the rest,
     // a few per tick. Entries for chunks that have left the range are dropped so the map stays bounded.
-    private static void scanSome(Level level, Vec3 cam, int boundaryY, int reach) {
+    private static void scanSome(Level level, Vec3 cam, int boundaryY, double surfaceY, double band,
+            int reach) {
         int chunkReach = (reach >> 4) + 1;
         int camChunkX = Mth.floor(cam.x) >> 4;
         int camChunkZ = Mth.floor(cam.z) >> 4;
@@ -94,7 +111,7 @@ final class FoamSites {
                 if (have != null && tick - have.scannedTick() < RESCAN_INTERVAL) {
                     continue;
                 }
-                if (scanChunk(level, key, boundaryY, tick)) {
+                if (scanChunk(level, key, boundaryY, surfaceY, band, tick)) {
                     budget--;
                 }
             }
@@ -103,7 +120,8 @@ final class FoamSites {
 
     // Scan one chunk's boundary row. Returns false without spending budget when the chunk is not
     // loaded -- there is nothing to look at and no point coming back for it this tick.
-    private static boolean scanChunk(Level level, long key, int boundaryY, long tick) {
+    private static boolean scanChunk(Level level, long key, int boundaryY, double surfaceY,
+            double band, long tick) {
         int chunkX = ChunkPos.getX(key);
         int chunkZ = ChunkPos.getZ(key);
         ChunkAccess chunk = level.getChunkSource().getChunk(chunkX, chunkZ, false);
@@ -113,15 +131,33 @@ final class FoamSites {
         int baseX = chunkX << 4;
         int baseZ = chunkZ << 4;
 
-        // Openness over the chunk plus a one-block border, so a column on the chunk edge can see the
-        // neighbour it borders without a second lookup per side.
-        boolean[] open = new boolean[18 * 18];
+        int bandLow = WaterlineMap.bandLow(surfaceY, band);
+        int bandHigh = WaterlineMap.bandHigh(surfaceY, band);
+
+        // How strongly each column blocks the surface, over the chunk plus a one-block border so a
+        // column on the chunk edge can see the neighbour it borders without a second lookup per side.
+        // 1 where the boundary row itself is closed, and the band row's lesser weight where only that
+        // is -- so something sitting just clear of the surface still rings it, just more faintly.
+        float[] closed = new float[18 * 18];
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int z = -1; z <= 16; z++) {
             for (int x = -1; x <= 16; x++) {
-                pos.set(baseX + x, boundaryY, baseZ + z);
-                BlockState state = level.getBlockState(pos);
-                open[(z + 1) * 18 + (x + 1)] = !WaterlineMap.columnClosed(state);
+                // The boundary row first, at full weight; then the rest of the band, and only while a
+                // row could still raise the answer -- a full-weight hit ends the column outright.
+                float w = 0.0F;
+                for (int y = bandLow; y <= bandHigh && w < 1.0F; y++) {
+                    float rowWeight = y == boundaryY
+                            ? 1.0F
+                            : WaterlineMap.bandFalloff(WaterlineMap.rowGap(surfaceY, y), band);
+                    if (rowWeight <= w) {
+                        continue;
+                    }
+                    pos.set(baseX + x, y, baseZ + z);
+                    if (WaterlineMap.columnClosed(level.getBlockState(pos))) {
+                        w = rowWeight;
+                    }
+                }
+                closed[(z + 1) * 18 + (x + 1)] = w;
             }
         }
 
@@ -130,13 +166,17 @@ final class FoamSites {
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
                 int i = (z + 1) * 18 + (x + 1);
-                if (!open[i]) {
+                if (closed[i] >= 1.0F) {
                     continue; // no surface here, so nothing for foam to sit on
                 }
-                boolean edge = !open[i - 1] || !open[i + 1] || !open[i - 18] || !open[i + 18];
-                if (edge) {
-                    sites[count++] = (short) ((x << 4) | z);
+                // The site is as strong as the strongest thing it borders.
+                float edge = Math.max(Math.max(closed[i - 1], closed[i + 1]),
+                        Math.max(closed[i - 18], closed[i + 18]));
+                if (edge <= 0.0F) {
+                    continue;
                 }
+                int w = Math.max(1, Math.round(edge * WEIGHT_STEPS));
+                sites[count++] = (short) ((w << 8) | (x << 4) | z);
             }
         }
 
@@ -170,6 +210,13 @@ final class FoamSites {
             long key = active.getLong(rnd.nextInt(active.size()));
             short[] sites = cache.get(key).packed();
             short packed = sites[rnd.nextInt(sites.length)];
+            // A site the surface only nearly touches throws that much less often than one it runs
+            // through -- the band's falloff, spent here as a chance rather than as a strength, since a
+            // particle is either thrown or it is not.
+            int weight = (packed >> 8) & 0xF;
+            if (weight < WEIGHT_STEPS && rnd.nextInt(WEIGHT_STEPS) >= weight) {
+                continue;
+            }
             double wx = (ChunkPos.getX(key) << 4) + ((packed >> 4) & 0xF) + rnd.nextDouble();
             double wz = (ChunkPos.getZ(key) << 4) + (packed & 0xF) + rnd.nextDouble();
             // A chunk can straddle the reach, so the site itself is checked rather than its chunk.

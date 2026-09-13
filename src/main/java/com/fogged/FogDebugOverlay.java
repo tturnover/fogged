@@ -68,8 +68,10 @@ public final class FogDebugOverlay {
         lines.add(new Line(String.format("map cpu: rescan reseed %.2f + chamfer %.2f ms; tick stamp %.2f + ease %.2f + upload %.2f ms",
                 WaterlineMap.lastReseedMs, WaterlineMap.lastChamferMs, WaterlineMap.lastStampMs,
                 WaterlineMap.lastEaseMs, WaterlineMap.lastUploadMs), PLAIN));
-        lines.add(new Line(String.format("waterline %d blk @ %d cells/blk  tex %d",
-                WaterlineMap.size(), WaterlineMap.cellsPerBlock(), WaterlineMap.textureId()), PLAIN));
+        float[] fade = WaterlineMap.fadeRadii();
+        lines.add(new Line(String.format("waterline %d blk @ %d cells/blk  tex %d  fade %.0f..%.0f blk",
+                WaterlineMap.size(), WaterlineMap.cellsPerBlock(), WaterlineMap.textureId(),
+                fade[0], fade[1]), PLAIN));
         lines.add(new Line("foam sites in " + FoamSites.cachedChunks() + " chunks", PLAIN));
         lines.add(new Line("vapor " + (Config.VAPOR_SHEETS.getAsInt() > 0
                 ? Config.VAPOR_SHEETS.getAsInt() + " sheets"

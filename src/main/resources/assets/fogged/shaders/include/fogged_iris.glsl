@@ -26,6 +26,7 @@ uniform sampler2D fogged_SceneDepth;  // this mod's pre-plane depth snapshot (Sc
 uniform float fogged_DepthValid;      // 0 when that snapshot is off or failed this frame: never occlude
 uniform sampler2D fogged_Waterline;   // the waterline map (WaterlineMap), on a unit of its own
 uniform vec4 fogged_WaterlineInfo;    // its world XZ origin (anchored as WorldOffset), edge length, and the distance its 1.0 means
+uniform int fogged_DebugView;         // == Config.DebugView's ordinal; see fogged_apply
 uniform sampler2D fogged_Noise;       // the baked noise fields (NoiseField), on a unit of its own
 uniform vec4 fogged_NoiseInfo;        // its anchored XZ origin, edge length in texels (0 = none this frame), cells per block
 
@@ -60,9 +61,24 @@ float fogged_softOcclusion() {
     return clamp(gap / 3.0, 0.0, 1.0); // == FOGGED_OCCLUSION_FADE
 }
 
-// How close a world XZ is to something crossing the surface, from the waterline map -- the gate on
-// the soft occlusion, as fogged_foam.glsl's fogged_nearCrossing is for the core shaders: the depth
-// gap alone lets everything a few blocks under the surface show through as a ghost.
+// Where the map's answer starts fading out, as a share of its half-width, measured from the camera
+// outwards; it reaches zero at the inscribed radius less a block. == WaterlineMap.FOAM_FADE_START /
+// FOAM_FADE_MARGIN, which fade the baked foam over the same circle.
+const float FOGGED_FOAM_FADE_START = 0.60;
+const float FOGGED_FOAM_FADE_MARGIN = 1.0;
+
+// How far into the map this point is, 1 well inside and 0 from the last radius that is certainly on
+// the map outwards. The map is a square around the camera while the plane runs to the render distance,
+// so anything that stops at the rim draws the rim -- and under a pack the plane is seamed on exactly
+// that outline (FogPlaneRenderer.drawThroughPack). Stopping on the square's inscribed circle instead,
+// less a block for the whole-block re-anchoring, means the map's contribution is already zero wherever
+// the rim can be sampled: both sides of the seam then hold the same bare plane colour.
+float fogged_mapReach(float radius, float halfSize) {
+    float fadeTo = max(1.0, halfSize - FOGGED_FOAM_FADE_MARGIN);
+    float fadeFrom = min(FOGGED_FOAM_FADE_START * halfSize, fadeTo - 1.0);
+    return 1.0 - smoothstep(fadeFrom, fadeTo, radius);
+}
+
 // How close a world XZ is to something crossing the surface, from the waterline map (R: solids,
 // entities and flowing water, not plants) -- the gate on the soft occlusion, as fogged_foam.glsl's
 // fogged_nearCrossing is for the core shaders: the depth gap alone lets everything a few blocks
@@ -74,7 +90,8 @@ float fogged_nearCrossing(vec3 rel) {
         return 0.0;
     }
     float d = texture(fogged_Waterline, luv).r * fogged_WaterlineInfo.w;
-    return 1.0 - smoothstep(0.75, 2.0, d);
+    float near = 1.0 - smoothstep(0.75, 2.0, d);
+    return near * fogged_mapReach(length(rel.xz), fogged_WaterlineInfo.z * 0.5);
 }
 
 float fogged_occlusion(vec3 rel) {
@@ -141,6 +158,17 @@ void fogged_apply() {
         return;
     }
     vec3 rel = fogged_relPos();
+    // The debug views proper live in fog_plane.fsh, which owns its colour; this code cannot write one
+    // (see the header), so the one it can answer is "where does the waterline map actually reach".
+    // WATERLINE_MAP keeps only the plane standing over the map's footprint: whatever square is left on
+    // screen IS the footprint, which either matches the seam being chased or rules it out.
+    if (fogged_DebugView == 5 && fogged_Mode == 1) {
+        vec2 luv = (rel.xz + fogged_WorldOffset.xz - fogged_WaterlineInfo.xy) / fogged_WaterlineInfo.z;
+        if (luv.x < 0.0 || luv.x > 1.0 || luv.y < 0.0 || luv.y > 1.0) {
+            discard;
+        }
+        return;
+    }
     float vis = fogged_Mode == 1 ? fogged_planeVisibility(rel) : fogged_vaporVisibility(rel);
     if (vis < fogged_bayer(gl_FragCoord.xy, fogged_PixelSize)) {
         discard;

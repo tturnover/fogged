@@ -221,6 +221,11 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Colour of the foam ring around everything crossing the surface. Alpha scales how strongly it shows.");
         cfg("foamWidth", "Foam Width",
                 "How far the foam reaches (in blocks) from every edge. 0 disables it.");
+        cfg("foamReach", "Foam Reach",
+                "How far above and below the plane something still raises foam. Full strength at the "
+                        + "plane, fading to nothing at this distance. 0 restricts the foam to what the "
+                        + "plane actually cuts through. The plane sits at a fractional height in its "
+                        + "block row, so a reach under about 0.65 never reaches the row below it.");
         cfg("sableFoam", "Sable Sub-Level Foam",
                 "Also ring Sable ships and contraptions with foam. No effect without Sable installed.");
         cfg("planeSoftOcclusion", "Soft Occlusion Edge (experimental)",

@@ -12,6 +12,24 @@
 const float FOGGED_SOLID_STRENGTH = 1.0;
 const float FOGGED_PLANT_STRENGTH = 0.5;
 
+// Where the map's answer starts fading out, as a share of its half-width, measured from the camera
+// outwards; it reaches zero at the inscribed radius less a block. == WaterlineMap.FOAM_FADE_START /
+// FOAM_FADE_MARGIN, which fade the baked foam over the same circle.
+const float FOGGED_FOAM_FADE_START = 0.60;
+const float FOGGED_FOAM_FADE_MARGIN = 1.0;
+
+// How far into the map this point is, 1 well inside and 0 from the last radius that is certainly on
+// the map outwards. The map is a square around the camera while the plane runs to the render distance,
+// so anything that stops at the rim draws the rim -- and under a pack the plane is seamed on exactly
+// that outline (FogPlaneRenderer.drawThroughPack). Stopping on the square's inscribed circle instead,
+// less a block for the whole-block re-anchoring, means the map's contribution is already zero wherever
+// the rim can be sampled: both sides of the seam then hold the same bare plane colour.
+float fogged_mapReach(float radius, float halfSize) {
+    float fadeTo = max(1.0, halfSize - FOGGED_FOAM_FADE_MARGIN);
+    float fadeFrom = min(FOGGED_FOAM_FADE_START * halfSize, fadeTo - 1.0);
+    return 1.0 - smoothstep(fadeFrom, fadeTo, radius);
+}
+
 // World position snapped to the foam pixel grid, so everything drawn on the surface pixelates on the
 // same lattice and lines up with the blocks: the foam ring, the surface spots, and the vapour's
 // thinning. Anything reading the map or drawing over it should snap through here.
@@ -20,7 +38,8 @@ vec2 fogged_pixelSnap(vec2 worldXZ) {
 }
 
 // Raw map sample at this world position: R = distance to the nearest solid block or entity, G =
-// distance to the nearest plant. Off the map it reads "nothing near".
+// distance to the nearest plant. Off the map it reads "nothing near", and it is eased to that answer
+// on the circle fogged_mapReach describes, so the rim is never where it changes.
 //
 // Sampled at the texel centre (+0.5) so NEAREST does not bias the whole ring a cell in -X/-Z.
 vec2 fogged_waterline(vec2 worldXZ) {
@@ -29,7 +48,9 @@ vec2 fogged_waterline(vec2 worldXZ) {
     if (luv.x < 0.0 || luv.x > 1.0 || luv.y < 0.0 || luv.y > 1.0) {
         return vec2(1.0);
     }
-    return texture(Sampler0, luv).rg;
+    float halfSize = WaterlineSize * 0.5;
+    float reach = fogged_mapReach(length(pworld - (WaterlineOrigin + halfSize)), halfSize);
+    return mix(vec2(1.0), texture(Sampler0, luv).rg, reach);
 }
 
 // How strongly foam rings this spot, 0 well clear of anything to 1 hard against it.
