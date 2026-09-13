@@ -14,6 +14,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.Clearable;
+import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.SignalGetter;
@@ -24,6 +25,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 
@@ -37,6 +39,12 @@ import net.neoforged.neoforge.items.IItemHandler;
  */
 public final class FogSnuff {
     private FogSnuff() {}
+
+    // Cold Sweat's hearth is held still by its own mixin rather than doused here, but its fuel slot is
+    // still emptied on the sweep; ColdSweatCompatibility names the mod's classes, so it is only called
+    // when the mod is there to load them.
+    private static final boolean COLD_SWEAT = ModList.get().isLoaded("cold_sweat");
+
 
     // Resolved once per config change: matching ids per block would run a registry lookup and a regex
     // for every block in the scour band, the hottest loop in the mod.
@@ -132,12 +140,16 @@ public final class FogSnuff {
         }
 
         // A burn timer to zero (fuel burners) and/or a redstone-fed output to cut; the latter stay down
-        // because the murk isolates their input too (see isolated).
+        // because the murk isolates their input too (see isolated). Cold Sweat's hearth and boiler are
+        // neither: their fuel is a number no setter reaches, and they are held still by their own
+        // mixins instead (see snuffedAt), keeping that fuel -- here they lose their lit flag and
+        // whatever was waiting in the fuel slot.
         boolean burner = zeroInt(be, "setCurrentBurnTime");
-        boolean stopped = burner | zeroInt(be, "setSignalStrength");
-        // Dropping the fuel needs an item handler; a device exposing none has it destroyed instead, since
-        // the alternative is a device that never actually goes out.
-        if (burner && !dropFuel(level, pos) && be instanceof Clearable clearable) {
+        boolean stopped = burner | zeroInt(be, "setSignalStrength")
+                | (COLD_SWEAT && ColdSweatCompatibility.ejectFuel(level, pos, be));
+        // Dropping the fuel needs an item handler or a container; a device exposing neither has it
+        // destroyed instead, since the alternative is a device that never actually goes out.
+        if (burner && !dropFuel(level, pos, be) && be instanceof Clearable clearable) {
             clearable.clearContent();
         }
         if (stopped) {
@@ -168,18 +180,29 @@ public final class FogSnuff {
         return changed;
     }
 
-    // False when the device exposes no handler, or the handler refused to hand anything over.
-    private static boolean dropFuel(Level level, BlockPos pos) {
-        IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
-        if (handler == null) {
-            return false;
-        }
+    // False when the device exposes neither a handler nor a container, or neither handed anything over.
+    // The container is tried second: a modded device is a Container far more often than it registers
+    // an item handler, and a hearth or boiler holds its fuel that way.
+    private static boolean dropFuel(Level level, BlockPos pos, BlockEntity be) {
         boolean dropped = false;
-        for (int slot = 0; slot < handler.getSlots(); slot++) {
-            ItemStack stack = handler.extractItem(slot, Integer.MAX_VALUE, false);
-            if (!stack.isEmpty()) {
-                Block.popResource(level, pos, stack);
-                dropped = true;
+        IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+        if (handler != null) {
+            for (int slot = 0; slot < handler.getSlots(); slot++) {
+                ItemStack stack = handler.extractItem(slot, Integer.MAX_VALUE, false);
+                if (!stack.isEmpty()) {
+                    Block.popResource(level, pos, stack);
+                    dropped = true;
+                }
+            }
+        }
+        if (!dropped && be instanceof Container container) {
+            for (int slot = 0; slot < container.getContainerSize(); slot++) {
+                ItemStack stack = container.getItem(slot);
+                if (!stack.isEmpty()) {
+                    Block.popResource(level, pos, stack.copy());
+                    container.setItem(slot, ItemStack.EMPTY);
+                    dropped = true;
+                }
             }
         }
         return dropped;
@@ -192,8 +215,19 @@ public final class FogSnuff {
      * once the boundary rises past it.
      */
     public static boolean isolated(SignalGetter getter, BlockPos pos) {
+        return getter instanceof Level level && snuffedAt(level, pos);
+    }
+
+    /**
+     * True when {@code pos} holds a listed device the murk is keeping out: under the active band, with
+     * the extinguishing on. The one test behind everything that holds a device down between sweeps --
+     * its redstone input (see {@link #isolated}), and a Cold Sweat hearth's tick (see
+     * ColdSweatHearthMixin) -- so they can never disagree with the sweep itself about which devices
+     * are the murk's.
+     */
+    public static boolean snuffedAt(Level level, BlockPos pos) {
         ensureDevices();
-        if (devices.isEmpty() || !(getter instanceof Level level) || !Config.ENABLE_WORLD_CHANGES.get()) {
+        if (devices.isEmpty() || !Config.ENABLE_WORLD_CHANGES.get() || !Config.ENABLE_EXTINGUISH.get()) {
             return false;
         }
         if (!devices.contains(level.getBlockState(pos).getBlock())) {

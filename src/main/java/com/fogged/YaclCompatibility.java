@@ -78,6 +78,8 @@ final class YaclCompatibility {
                 .option(bool("flipFog", Config.FLIP_FOG))
                 .option(bool("enableWorldChanges", Config.ENABLE_WORLD_CHANGES))
                 .option(integer("worldChangeSkip", Config.WORLD_CHANGE_SKIP, 0, 64, 1))
+                .option(dbl("murkThirstScale", Config.MURK_THIRST_SCALE, 0.0, 1.0, 0.05))
+                .option(dbl("murkColdness", Config.MURK_COLDNESS, 0.0, 1.0, 0.05))
                 // The three switches together, under one heading, and then the three lists they govern
                 // in the same order. They cannot be interleaved with their lists: a category renders
                 // every loose option BEFORE any of its groups, and a list IS a group.

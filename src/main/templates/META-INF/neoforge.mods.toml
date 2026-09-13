@@ -19,6 +19,15 @@ config="fogged.iris.mixins.json"
 [[mixins]]
 config="fogged.sodium.mixins.json"
 
+# Likewise optional: it targets Thirst Was Taken's thirst tracker. Common, not client: thirst is
+# server-side.
+[[mixins]]
+config="fogged.thirst.mixins.json"
+
+# Likewise optional: it targets Cold Sweat's hearth. Common: the hearth burns server-side.
+[[mixins]]
+config="fogged.coldsweat.mixins.json"
+
 [[mods]] #mandatory
 modId="${mod_id}" #mandatory
 version="${mod_version}" #mandatory

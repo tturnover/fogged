@@ -137,6 +137,20 @@ public class Config {
                     "down to the bottom of the world is worked on. (Was submergeSkip.)")
             .defineInRange("worldChangeSkip", 5, 0, 64);
 
+    public static final ModConfigSpec.DoubleValue MURK_THIRST_SCALE = COMMON
+            .comment("With Thirst Was Taken installed: how fast a player under the boundary loses water,",
+                    "as a share of the usual rate. The murk is a wet place; 0.25 means a quarter of the",
+                    "usual thirst. 1 leaves thirst alone. Nothing happens without that mod.")
+            .defineInRange("murkThirstScale", 0.25, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue MURK_COLDNESS = COMMON
+            .comment("With Cold Sweat installed: how much colder it is for a player under the boundary, as",
+                    "the share of the world's warmth the murk takes away. Warmth here is the world",
+                    "temperature's margin above Cold Sweat's minimum habitable temperature, so 0.1667",
+                    "(a sixth) takes a sixth of that -- always colder, never below the line the world was",
+                    "already at. 0 leaves the temperature alone. Nothing happens without that mod.")
+            .defineInRange("murkColdness", 1.0 / 6.0, 0.0, 1.0);
+
     public static final ModConfigSpec.BooleanValue ENABLE_EXTINGUISH = COMMON
             .comment("The murk puts fire out under the boundary: loose fire and soul fire vanish, lava",
                     "freezes to obsidian or cobble with a fizz, torches are knocked down, and every device",
@@ -147,8 +161,10 @@ public class Config {
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SNUFFED_DEVICES = COMMON
             .comment("Block ids of fire-burning devices the murk snuffs out along with the loose fires: each",
                     "is unlit, its burn timer zeroed and any fuel inside it ejected, so it cannot keep",
-                    "running under the fog. '*' matches any run of characters, and the 'minecraft:'",
-                    "namespace may be omitted. Empty list = leave devices burning. Needs enableWorldChanges.",
+                    "running under the fog. Cold Sweat's hearth and boiler are smothered instead: held",
+                    "still, keeping their fuel for when the murk lifts. '*' matches any run of characters,",
+                    "and the 'minecraft:' namespace may be omitted. Empty list = leave devices burning.",
+                    "Needs enableWorldChanges.",
                     "Example: snuffedDevices = [\"furnace\", \"create:lit_blaze_burner\"]")
             .defineListAllowEmpty("snuffedDevices", Config::defaultSnuffedDevices, () -> "minecraft:furnace",
                     o -> o instanceof String s && !s.isBlank());
@@ -724,6 +740,15 @@ public class Config {
         return (int) Math.ceil(breathHeight(level) + PLANE_SURFACE_OFFSET);
     }
 
+    /**
+     * True when a player whose eyes are at world height {@code eyeY} is breathing the murk: below the
+     * surface, as {@link BreathHandler} judges it. Gameplay's side of the line, without the visual
+     * fogStartRaise that {@link #fogged} folds in for the camera.
+     */
+    public static boolean eyesUnderSurface(Level level, double eyeY) {
+        return eyeY < breathHeight(level) + PLANE_SURFACE_OFFSET;
+    }
+
     // True when a camera at world height y is on the fogged side of the boundary (the thick murk side).
     // Normally that is below the boundary; flipFog moves it to the side above. Shared by the fog
     // override, the separation plane and the weather suppression so they all agree on the murk side.
@@ -873,7 +898,9 @@ public class Config {
                 "minecraft:soul_campfire",
                 "create:lit_blaze_burner",
                 "aeronautics:adjustable_burner",
-                "simulated:*_portable_engine"));
+                "simulated:*_portable_engine",
+                "cold_sweat:hearth_bottom",
+                "cold_sweat:boiler"));
     }
 
     // Coal is what the murk eats: an ore left in the dark under the boundary comes back as the rock it

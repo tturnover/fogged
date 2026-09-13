@@ -139,6 +139,10 @@ dependencies {
     // Sodium, compile-time only. Optional at runtime: the only Sodium class this mod names is the
     // mixin target in fogged.sodium.mixins.json, which never applies without it (SodiumCompatibility).
     compileOnly files("libs/sodium-neoforge-0.8.13+mc1.21.1.jar")
+
+    // Cold Sweat, compile-time only. Optional at runtime: every Cold Sweat type is confined to
+    // ColdSweatCompatibility and MurkTempModifier, neither of which is touched unless the mod is loaded.
+    compileOnly files("libs/ColdSweat-2.4.2.jar")
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

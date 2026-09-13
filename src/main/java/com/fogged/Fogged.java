@@ -13,6 +13,8 @@ import com.fogged.registry.ModStructurePieces;
 import com.fogged.registry.ModStructures;
 
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.ModContainer;
@@ -40,5 +42,11 @@ public class Fogged {
         // Gameplay config only. Everything the client draws lives in a CLIENT spec registered from
         // FoggedClient, so a server never dictates someone's visuals.
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.COMMON_SPEC);
+
+        // Cold Sweat is optional; its classes are named only inside ColdSweatCompatibility, which this
+        // check keeps from ever loading without it.
+        if (ModList.get().isLoaded("cold_sweat")) {
+            ColdSweatCompatibility.register(NeoForge.EVENT_BUS);
+        }
     }
 }

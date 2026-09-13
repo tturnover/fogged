@@ -107,6 +107,16 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.vapor.tooltip", "The cold-vapour layer: stacked mist sheets over the surface, terraced by a noise field so the plane never reads as dead flat.");
         add("fogged.configuration.debug.tooltip", "Ways of seeing what the renderer is doing: raw views of the buffers behind the murk, a readout of its state, and whether compatibility trouble is logged.");
         add("fogged.configuration.group.murkActions.tooltip", "Three switches over everything the murk does to blocks and items, each one governing the list of the same name below.");
+        cfg("murkThirstScale", "Thirst Under the Murk",
+                "With Thirst Was Taken: how fast a player under the boundary loses water, as a share of "
+                        + "the usual rate. The murk is a wet place; 0.25 is a quarter of the usual thirst. "
+                        + "1 leaves thirst alone. Does nothing without that mod.");
+        cfg("murkColdness", "Cold Under the Murk",
+                "With Cold Sweat: how much colder it is for a player under the boundary, as the share of "
+                        + "the world's warmth the murk takes away. Warmth is the world temperature's margin "
+                        + "above Cold Sweat's minimum habitable temperature, so a sixth takes a sixth of "
+                        + "that -- always colder, never below where the world already was. 0 leaves the "
+                        + "temperature alone. Does nothing without that mod.");
         cfg("enableExtinguish", "Extinguish Fire",
                 "The murk puts fire out under the boundary: fires vanish, lava freezes, torches fall, "
                         + "and the devices below are unlit and emptied of fuel.");
@@ -117,7 +127,8 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "be left off. An entry for a mod you do not have is simply ignored.\n"
                         + "furnace\n"
                         + "create:lit_blaze_burner\n"
-                        + "simulated:*_portable_engine");
+                        + "simulated:*_portable_engine\n"
+                        + "cold_sweat:hearth_bottom");
         cfg("enableScour", "Scour Blocks",
                 "The murk takes things out under the boundary: everything in the list below, broken "
                         + "without drops, and farmland, which reverts and loses what was planted on it.");
