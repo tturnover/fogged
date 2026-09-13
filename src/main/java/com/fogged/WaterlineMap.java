@@ -107,11 +107,19 @@ public final class WaterlineMap {
     private static float[] shown = new float[0];     // eased version of target (R channel)
     private static float[] targetP = new float[0];  // distance to nearest plant
     private static float[] shownP = new float[0];    // eased version of targetP (G channel)
+    // Distance to the nearest thing that sits NEAR the surface without cutting it -- the foam band's
+    // seeds (see bandSeedCells) -- kept apart from the crossings in target/shown on purpose. The foam
+    // rings whichever of the two is closer; the dissolve reads only the crossings. When the band went
+    // into the same field as the crossings, a campfire half a block under the surface opened the
+    // plane above it like something standing through it, and the world showed through the hole.
+    private static float[] targetN = new float[0];
+    private static float[] shownN = new float[0];    // eased version of targetN (B channel)
     private static float[] scratch = new float[0];
     // Distance to the nearest solid BLOCK only, chamfered, kept between rescans. Entities and Sable
     // sub-levels are stamped onto a copy of it every tick (see restampDynamic), so what moves is
     // re-seeded at tick rate while the expensive block scan keeps its own slower cadence.
     private static float[] blockDist = new float[0];
+    private static float[] blockDistN = new float[0]; // the same, for the band field
 
     // Cell boxes stamped by whatever was crossing last time, so only those get relaxed back in. On
     // overflow the whole field is chamfered instead, which is what the map did every rescan anyway.
@@ -143,6 +151,8 @@ public final class WaterlineMap {
     private static int[] seedMax = new int[0];
     private static int[] seedMinP = new int[0];  // plant seeds
     private static int[] seedMaxP = new int[0];
+    private static int[] seedMinN = new int[0];  // band seeds
+    private static int[] seedMaxN = new int[0];
     private static int[] shownMin = new int[0];  // where any foam still shows after the last ease
     private static int[] shownMax = new int[0];
     private static int[] workMin = new int[0];   // this tick's ease and refill range
@@ -289,11 +299,15 @@ public final class WaterlineMap {
             int dz = (cz - originZ) * cellsPerBlock;
             shiftField(shown, dx, dz);
             shiftField(shownP, dx, dz);
+            shiftField(shownN, dx, dz);
             shiftField(target, dx, dz);
             shiftField(targetP, dx, dz);
+            shiftField(targetN, dx, dz);
             shiftField(blockDist, dx, dz);
+            shiftField(blockDistN, dx, dz);
             rowsShift(seedMin, seedMax, dx, dz);
             rowsShift(seedMinP, seedMaxP, dx, dz);
+            rowsShift(seedMinN, seedMaxN, dx, dz);
             rowsShift(shownMin, shownMax, dx, dz);
             workFull = true; // the strip that came in reads "far water" and has to be drawn so
             originX = cx;
@@ -336,6 +350,7 @@ public final class WaterlineMap {
             rowsAddGrown(workMin, workMax, shownMin, shownMax, 0);
             rowsAddGrown(workMin, workMax, seedMin, seedMax, reachCells());
             rowsAddGrown(workMin, workMax, seedMinP, seedMaxP, reachCells());
+            rowsAddGrown(workMin, workMax, seedMinN, seedMaxN, reachCells());
             if (stampOverflow) {
                 rowsAdd(workMin, workMax, 0, 0, cells - 1, cells - 1);
             } else {
@@ -348,6 +363,7 @@ public final class WaterlineMap {
             rowsClear(shownMin, shownMax);
             boolean changed = ease(target, shown, step);
             changed |= ease(targetP, shownP, step);
+            changed |= ease(targetN, shownN, step);
             lastStampMs = (t1 - t0) / 1.0e6;
             lastEaseMs = (System.nanoTime() - t1) / 1.0e6;
             lastTick = tick;
@@ -462,8 +478,10 @@ public final class WaterlineMap {
     private static void reseedAll(Level level, int boundaryY, double surfaceY, double band) {
         java.util.Arrays.fill(target, INF);
         java.util.Arrays.fill(targetP, INF);
+        java.util.Arrays.fill(targetN, INF);
         rowsClear(seedMin, seedMax);
         rowsClear(seedMinP, seedMaxP);
+        rowsClear(seedMinN, seedMaxN);
         flowingColumnCount = 0;
         float foamWidth = (float) (double) Config.FOAM_WIDTH.get();
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
@@ -521,8 +539,8 @@ public final class WaterlineMap {
             BlockState near = level.getBlockState(pos);
             boolean nearPlant = !near.blocksMotion() && near.getFluidState().isEmpty() && !near.isAir();
             if (columnClosed(near) || standingWaterCrossing(level, pos, near)) {
-                fillCellsMin(target, x0, z0, x1, z1, seed);
-                rowsAdd(seedMin, seedMax, x0, z0, x1, z1);
+                fillCellsMin(targetN, x0, z0, x1, z1, seed); // the band field, never the crossings'
+                rowsAdd(seedMinN, seedMaxN, x0, z0, x1, z1);
             } else if (nearPlant) {
                 fillCellsMin(targetP, x0, z0, x1, z1, seed);
                 rowsAdd(seedMinP, seedMaxP, x0, z0, x1, z1);
@@ -581,6 +599,8 @@ public final class WaterlineMap {
         chamferAround(target, seedMin, seedMax);
         System.arraycopy(target, 0, blockDist, 0, target.length);
         chamferAround(targetP, seedMinP, seedMaxP);
+        chamferAround(targetN, seedMinN, seedMaxN);
+        System.arraycopy(targetN, 0, blockDistN, 0, targetN.length);
     }
 
     // The transform over the band a field's seeds can reach; beyond it every cell is still INF. Exact
@@ -618,6 +638,7 @@ public final class WaterlineMap {
         }
 
         System.arraycopy(blockDist, 0, target, 0, target.length);
+        System.arraycopy(blockDistN, 0, targetN, 0, targetN.length);
         stampBoxCount = 0;
         stampOverflow = false;
 
@@ -636,7 +657,9 @@ public final class WaterlineMap {
             int x1 = Mth.floor((b.maxX - originX) * C);
             int z0 = Mth.floor((b.minZ - originZ) * C);
             int z1 = Mth.floor((b.maxZ - originZ) * C);
-            fillCellsMin(target, x0, z0, x1, z1, seed);
+            // Straddling the surface it is a crossing, and rings and dissolves like one; merely near it,
+            // it goes to the band field, which rings but never dissolves.
+            fillCellsMin(gap <= 0.0 ? target : targetN, x0, z0, x1, z1, seed);
             addStampBox(x0, z0, x1, z1);
         }
 
@@ -647,11 +670,13 @@ public final class WaterlineMap {
             SableCompatibility.stampSubLevels(level, surfaceY, band, originX, originZ, size, C,
                     (cellX, cellZ, weight) -> {
                         // The same seed-at-a-distance the blocks and entities get: a hull meeting the
-                        // surface stamps zero, one that only comes near stamps further along the ramp.
+                        // surface stamps zero into the crossings, one that only comes near stamps
+                        // further along the ramp, into the band field -- which rings but never dissolves.
                         float seed = (1.0F - weight) * ringWidth;
+                        float[] field = weight >= 1.0F ? target : targetN;
                         int i = cellZ * cells + cellX;
-                        if (seed < target[i]) {
-                            target[i] = seed;
+                        if (seed < field[i]) {
+                            field[i] = seed;
                         }
                         u[0] = Math.min(u[0], cellX);
                         u[1] = Math.min(u[1], cellZ);
@@ -668,11 +693,14 @@ public final class WaterlineMap {
         // its effect -- where re-running the transform over the map would cost cells^2 a tick.
         if (stampOverflow) {
             chamferDistance(target);
+            chamferDistance(targetN);
         } else {
             int reach = Mth.ceil(MAX_DIST) * C;
             for (int i = 0; i < stampBoxCount; i++) {
                 int b = i * 4;
                 chamferRegion(target, stampBoxes[b] - reach, stampBoxes[b + 1] - reach,
+                        stampBoxes[b + 2] + reach, stampBoxes[b + 3] + reach);
+                chamferRegion(targetN, stampBoxes[b] - reach, stampBoxes[b + 1] - reach,
                         stampBoxes[b + 2] + reach, stampBoxes[b + 3] + reach);
             }
         }
@@ -983,9 +1011,12 @@ public final class WaterlineMap {
                 int i = z * cells + x;
                 float d = Math.min(shown[i], maxCells);
                 float dp = Math.min(shownP[i], maxCells);
+                float dn = Math.min(shownN[i], maxCells);
                 int v = (int) (d / maxCells * 255.0F + 0.5F) & 0xFF;
                 int g = (int) (dp / maxCells * 255.0F + 0.5F) & 0xFF;
-                img.setPixelRGBA(x, z, 0xFF000000 | (g << 8) | v); // ABGR: R = solid/entity dist, G = plant dist
+                int bl = (int) (dn / maxCells * 255.0F + 0.5F) & 0xFF;
+                // ABGR: R = crossing solid/entity dist, G = plant dist, B = near-surface (band) dist
+                img.setPixelRGBA(x, z, 0xFF000000 | (bl << 16) | (g << 8) | v);
                 if (foamImg != null) {
                     float rx = x - halfCells + 0.5F;
                     float rz = z - halfCells + 0.5F;
@@ -993,8 +1024,8 @@ public final class WaterlineMap {
                             / (fadeTo - fadeFrom), 0.0F, 1.0F);
                     keep = keep * keep * (3.0F - 2.0F * keep); // smoothstep, as the shaders'
                     foamImg.setPixelRGBA(x, z, keep <= 0.0F ? rimPixel
-                            : foamPixel(d / cellsPerBlock, dp / cellsPerBlock, planeCol, foamCol,
-                                    foamWidth, keep));
+                            : foamPixel(Math.min(d, dn) / cellsPerBlock, dp / cellsPerBlock, planeCol,
+                                    foamCol, foamWidth, keep));
                 }
             }
         }
@@ -1202,17 +1233,25 @@ public final class WaterlineMap {
         shown = new float[cells * cells];
         targetP = new float[cells * cells];
         shownP = new float[cells * cells];
+        targetN = new float[cells * cells];
+        shownN = new float[cells * cells];
         scratch = new float[cells * cells];
         blockDist = new float[cells * cells];
+        blockDistN = new float[cells * cells];
         java.util.Arrays.fill(blockDist, maxCells);
+        java.util.Arrays.fill(blockDistN, maxCells);
         java.util.Arrays.fill(target, maxCells);
         java.util.Arrays.fill(targetP, maxCells);
+        java.util.Arrays.fill(targetN, maxCells);
         java.util.Arrays.fill(shown, maxCells); // start with no foam so it eases in
         java.util.Arrays.fill(shownP, maxCells);
+        java.util.Arrays.fill(shownN, maxCells);
         seedMin = new int[cells];
         seedMax = new int[cells];
         seedMinP = new int[cells];
         seedMaxP = new int[cells];
+        seedMinN = new int[cells];
+        seedMaxN = new int[cells];
         shownMin = new int[cells];
         shownMax = new int[cells];
         workMin = new int[cells];
@@ -1221,6 +1260,7 @@ public final class WaterlineMap {
         bandMax = new int[cells];
         rowsClear(seedMin, seedMax);
         rowsClear(seedMinP, seedMaxP);
+        rowsClear(seedMinN, seedMaxN);
         rowsClear(shownMin, shownMax);
         workFull = true;
         if (texture != null) {
@@ -1233,7 +1273,7 @@ public final class WaterlineMap {
         NativeImage img = new NativeImage(NativeImage.Format.RGBA, cells, cells, false);
         for (int z = 0; z < cells; z++) {
             for (int x = 0; x < cells; x++) {
-                img.setPixelRGBA(x, z, 0xFF00FFFF); // start "all far water" (R = G = 255)
+                img.setPixelRGBA(x, z, 0xFFFFFFFF); // start "all far water" (R = G = B = 255)
             }
         }
         texture = new DynamicTexture(img);

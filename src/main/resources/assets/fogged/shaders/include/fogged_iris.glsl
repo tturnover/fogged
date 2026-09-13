@@ -89,6 +89,8 @@ float fogged_nearCrossing(vec3 rel) {
     if (luv.x < 0.0 || luv.x > 1.0 || luv.y < 0.0 || luv.y > 1.0) {
         return 0.0;
     }
+    // R alone: the crossings. B holds what only sits near the surface (the foam band) and rings it in
+    // the baked colour map, but must not open the plane -- see fogged_foam.glsl.
     float d = texture(fogged_Waterline, luv).r * fogged_WaterlineInfo.w;
     float near = 1.0 - smoothstep(0.75, 2.0, d);
     return near * fogged_mapReach(length(rel.xz), fogged_WaterlineInfo.z * 0.5);

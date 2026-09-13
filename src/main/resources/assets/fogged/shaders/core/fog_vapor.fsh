@@ -106,7 +106,7 @@ void main() {
     // buries the foam's shape under a wash of grey exactly where it is most worth seeing -- against
     // the blocks and entities breaking through. Read from the same map through the same helper the
     // surface uses, so the two agree on where the ring is to the pixel.
-    vec2 wl = fogged_waterline(worldXZ);
+    vec3 wl = fogged_waterline(worldXZ);
     a *= 1.0 - fogged_foamEdge(wl) * FOAM_THINNING;
 
     // Soft occlusion edge against terrain (see fogged_softOcclusion), so vapour grazing a block

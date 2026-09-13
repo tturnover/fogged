@@ -37,29 +37,35 @@ vec2 fogged_pixelSnap(vec2 worldXZ) {
     return floor(worldXZ * FoamPixelsPerBlock) / FoamPixelsPerBlock;
 }
 
-// Raw map sample at this world position: R = distance to the nearest solid block or entity, G =
-// distance to the nearest plant. Off the map it reads "nothing near", and it is eased to that answer
-// on the circle fogged_mapReach describes, so the rim is never where it changes.
+// Raw map sample at this world position: R = distance to the nearest solid block or entity CROSSING
+// the surface, G = distance to the nearest plant, B = distance to the nearest solid or entity that
+// only sits near the surface (the foam band). Off the map it reads "nothing near", and it is eased
+// to that answer on the circle fogged_mapReach describes, so the rim is never where it changes.
+//
+// B is kept apart from R for the dissolve's sake: the foam rings whichever is nearer, but the plane
+// only dissolves against things that actually stand through it (fogged_nearCrossing reads R alone).
+// With both in one channel, a block half a block under the surface opened the plane above it.
 //
 // Sampled at the texel centre (+0.5) so NEAREST does not bias the whole ring a cell in -X/-Z.
-vec2 fogged_waterline(vec2 worldXZ) {
+vec3 fogged_waterline(vec2 worldXZ) {
     vec2 pworld = fogged_pixelSnap(worldXZ);
     vec2 luv = (pworld - WaterlineOrigin) / WaterlineSize + 0.5 / (WaterlineSize * FoamPixelsPerBlock);
     if (luv.x < 0.0 || luv.x > 1.0 || luv.y < 0.0 || luv.y > 1.0) {
-        return vec2(1.0);
+        return vec3(1.0);
     }
     float halfSize = WaterlineSize * 0.5;
     float reach = fogged_mapReach(length(pworld - (WaterlineOrigin + halfSize)), halfSize);
-    return mix(vec2(1.0), texture(Sampler0, luv).rg, reach);
+    return mix(vec3(1.0), texture(Sampler0, luv).rgb, reach);
 }
 
 // How strongly foam rings this spot, 0 well clear of anything to 1 hard against it.
-float fogged_foamEdge(vec2 wl) {
+float fogged_foamEdge(vec3 wl) {
     if (FoamWidth <= 0.0) {
         return 0.0;
     }
+    float solid = min(wl.r, wl.b); // a crossing or something merely near it, whichever is closer
     float solidEdge = FOGGED_SOLID_STRENGTH
-            * (1.0 - clamp(wl.r * WaterlineMaxDist / (FoamWidth * FOGGED_SOLID_STRENGTH), 0.0, 1.0));
+            * (1.0 - clamp(solid * WaterlineMaxDist / (FoamWidth * FOGGED_SOLID_STRENGTH), 0.0, 1.0));
     float plantEdge = FOGGED_PLANT_STRENGTH
             * (1.0 - clamp(wl.g * WaterlineMaxDist / (FoamWidth * FOGGED_PLANT_STRENGTH), 0.0, 1.0));
     return max(solidEdge, plantEdge);
@@ -71,7 +77,7 @@ float fogged_foamEdge(vec2 wl) {
 // block or entity without letting everything a few blocks under the surface show through as a ghost.
 // Solids and entities only (R): a plant at the boundary is a blade or two in the surface, and the
 // dissolve around each came out as a sprinkling of dark specks across the whole plane.
-float fogged_nearCrossing(vec2 wl) {
+float fogged_nearCrossing(vec3 wl) {
     float d = wl.r * WaterlineMaxDist;
     return 1.0 - smoothstep(0.75, 2.0, d);
 }

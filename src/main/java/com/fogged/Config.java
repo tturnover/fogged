@@ -61,7 +61,7 @@ public class Config {
         PLANE_OPACITY,
         /** The per-entity dissolve discs (green), as gated by which side the camera is on. */
         DISSOLVE_HOLES,
-        /** The raw waterline map: red = distance to solid/entity, green = distance to plant. */
+        /** The raw waterline map: red = distance to a crossing solid/entity, green = to a plant, blue = to something merely near the surface. */
         WATERLINE_MAP
     }
 

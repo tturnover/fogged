@@ -74,7 +74,7 @@ const float FOAM_STEPS = 4.0;
 #moj_import <fogged:fogged_dither.glsl>
 
 // Raw views of the buffers feeding the plane, selected by DebugView (== Config.DebugView's ordinal).
-vec3 debugColor(vec2 wl, float edge, float lum, float opacity, float entityHole) {
+vec3 debugColor(vec3 wl, float edge, float lum, float opacity, float entityHole) {
     if (DebugView == 1) {                 // FOAM
         return vec3(edge, 0.0, lum);
     }
@@ -95,7 +95,7 @@ vec3 debugColor(vec2 wl, float edge, float lum, float opacity, float entityHole)
         return vec3(0.0, entityHole * HolesActive, 0.0);
     }
     if (DebugView == 5) {                 // WATERLINE_MAP
-        return vec3(1.0 - wl.r, 1.0 - wl.g, 0.0);
+        return vec3(1.0 - wl.r, 1.0 - wl.g, 1.0 - wl.b);
     }
     return vec3(0.0);
 }
@@ -117,7 +117,7 @@ void main() {
     // Foam edge: world-space distance to the nearest surface-crossing block/entity, ringed within
     // FoamWidth. World-space, so it never flickers with view angle (see fogged_foam.glsl for the
     // pixel snap and how the two rings combine).
-    vec2 wl = fogged_waterline(worldXZ); // R = dist to solid/entity, G = dist to plant; also DebugView 5
+    vec3 wl = fogged_waterline(worldXZ); // R = crossing dist, G = plant dist, B = near-surface dist; also DebugView 5
     float edge = fogged_foamEdge(wl);
 
     // Surface spots: low-frequency world-space noise blobs, on the same pixel grid as the foam, that
