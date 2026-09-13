@@ -351,13 +351,12 @@ public class Config {
             .defineInRange("pillarGroupSpacing", 1250, 64, 60000);
 
     public static final ModConfigSpec.BooleanValue PILLAR_SPAWN_GROUP = COMMON
-            .comment("Always put one group within a hundred blocks of the world origin, whatever the",
+            .comment("Always put one group within a hundred blocks of the world spawn, whatever the",
                     "spacing is set to. At the default spacing a new world can easily start thousands of",
                     "blocks from the nearest group, and these are most of what the mod has to show.",
-                    "Measured from x=0 z=0, not from the spawn point the game later picks: worldgen has",
-                    "to give the same answer every time it is asked about a chunk, and the spawn point is",
-                    "not settled until some of the world has already been generated. The two are near",
-                    "enough each other that it makes no practical difference.")
+                    "Measured from where the game's own spawn search starts -- a spot it works out from",
+                    "the seed alone, before any chunk exists, and then walks only a few chunks from to",
+                    "find solid ground -- so every chunk agrees on it.")
             .define("pillarSpawnGroup", true);
 
     public static final ModConfigSpec.DoubleValue PILLAR_RIDGE_CHANCE = COMMON
@@ -409,12 +408,18 @@ public class Config {
                     "the slenderest tower is a sea stack and the boldest is a headland twice the girth.")
             .defineInRange("pillarRadiusMax", 14.0, 1.0, 24.0);
 
-    public static final ModConfigSpec.IntValue PILLAR_TOP_VARIANCE = COMMON
-            .comment("How far a tower's top may fall either side of the murk's high-water mark, in blocks.",
-                    "0 tops every tower off at exactly that height; the default lets them break the",
-                    "surface or stop short of it by up to this much, which is what makes a group read as",
-                    "islands rather than a fence.")
-            .defineInRange("pillarTopVariance", 20, 0, 128);
+    public static final ModConfigSpec.IntValue PILLAR_TOP_MIN = COMMON
+            .comment("Lowest a tower's top may sit, in blocks relative to the murk's high-water mark:",
+                    "negative is below it, positive above. Each tower's top is rolled between this and",
+                    "pillarTopMax; the defaults let a tower stand up to 20 blocks clear of the surface",
+                    "or stop 5 short of it, so most of a group breaks the water and a few lurk just",
+                    "under, which is what makes it read as islands rather than a fence.")
+            .defineInRange("pillarTopMin", -5, -128, 128);
+
+    public static final ModConfigSpec.IntValue PILLAR_TOP_MAX = COMMON
+            .comment("Highest a tower's top may stand above the murk's high-water mark, in blocks. See",
+                    "pillarTopMin. Equal to it tops every tower off at exactly that height.")
+            .defineInRange("pillarTopMax", 20, 0, 128);
 
     public static final ModConfigSpec.DoubleValue PILLAR_TILT = COMMON
             .comment("Greatest lean off vertical, in degrees. Each tower leans a random amount up to this,",

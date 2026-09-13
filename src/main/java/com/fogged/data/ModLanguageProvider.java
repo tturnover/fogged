@@ -187,7 +187,7 @@ public class ModLanguageProvider extends LanguageProvider {
         cfg("pillarGroupSpacing", "Pillar Group Spacing",
                 "Average distance in blocks between one group of towers and the next. Higher means you meet them far less often.");
         cfg("pillarSpawnGroup", "Group At Spawn",
-                "Always place one group within a hundred blocks of the world origin, however rare they are set to be elsewhere.");
+                "Always place one group within a hundred blocks of the world spawn, however rare they are set to be elsewhere.");
         cfg("pillarRidgeChance", "Pillar Ridges",
                 "Share of groups that string their towers along one line, as a ridge, instead of scattering them as a cluster of isles.");
         cfg("pillarRidgeLengthMin", "Shortest Ridge",
@@ -214,8 +214,12 @@ public class ModLanguageProvider extends LanguageProvider {
                 "How far the scree skirt spreads where a tower meets the ground, so it runs into the landscape instead of being stamped through it.");
         cfg("pillarStoneBands", "Pillar Stone Bands",
                 "Band the towers with granite, diorite, andesite, tuff and deepslate. The beds roll, dip and thin out rather than running as stripes.");
-        cfg("pillarTopVariance", "Pillar Top Variance",
-                "How far a tower's top may fall either side of the murk's high-water mark, in blocks.");
+        cfg("pillarTopMin", "Pillar Top, Lowest",
+                "Lowest a tower's top may sit, in blocks relative to the murk's high-water mark: negative "
+                        + "is below it, positive above. Each top is rolled between this and the highest.");
+        cfg("pillarTopMax", "Pillar Top, Highest",
+                "Highest a tower's top may stand above the murk's high-water mark, in blocks. Equal to "
+                        + "the lowest tops every tower off at exactly that height.");
         cfg("pillarTilt", "Pillar Lean",
                 "Greatest lean off vertical, in degrees. Each tower leans a random amount up to this.");
         cfg("allowedMobs", "Mobs Allowed Under The Fog",

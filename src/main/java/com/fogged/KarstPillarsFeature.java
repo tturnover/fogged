@@ -243,11 +243,12 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
         int search = Mth.ceil((maxGroupExtent() + towerReach) / spacing) + 1;
         int centreGx = Math.floorDiv(chunkMinX, spacing);
         int centreGz = Math.floorDiv(chunkMinZ, spacing);
+        BlockPos spawn = spawnAnchor(seed, sampler);
 
         boolean placedAny = false;
         for (int gz = centreGz - search; gz <= centreGz + search; gz++) {
             for (int gx = centreGx - search; gx <= centreGx + search; gx++) {
-                Group group = groupAt(seed, gx, gz, spacing);
+                Group group = groupAt(seed, gx, gz, spacing, spawn);
                 if (group == null || !group.reaches(chunkMinX, chunkMinZ, towerReach)) {
                     continue;
                 }
@@ -307,8 +308,32 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
     // Grid step a cluster scatters its isles on; the count follows from the cluster's area.
     private static final double ISLE_STEP = 22.0;
 
-    // How close to the world origin the guaranteed first group is planted.
+    // How close to the world spawn the guaranteed first group is planted.
     private static final double SPAWN_RADIUS = 100.0;
+
+    // Where vanilla is going to put the world spawn, as far as that can be known before any chunk
+    // exists. MinecraftServer.setInitialSpawn starts from the climate sampler's findSpawnPosition --
+    // a search over the noise alone, a pure function of the seed -- and then only walks a few chunks
+    // out from there for solid ground. So this is the spawn to within a hundred blocks or so, and it
+    // is the same answer from every chunk, which is what worldgen needs. The origin used to stand in
+    // for it on the grounds that the two are close; in the world this was found on, the spawn had
+    // walked 576 blocks from the origin, and the "spawn group" stood 644 blocks from the player.
+    //
+    // Cached on the seed: the climate search is a spiral of samples, far too much to redo per chunk.
+    private record SpawnAnchor(long seed, int x, int z) {}
+
+    private static volatile SpawnAnchor spawnAnchor;
+
+    static BlockPos spawnAnchor(long seed, net.minecraft.world.level.biome.Climate.Sampler sampler) {
+        SpawnAnchor cached = spawnAnchor;
+        if (cached == null || cached.seed() != seed) {
+            BlockPos found = sampler.findSpawnPosition(); // BlockPos.ZERO when the source has no spawn target
+            // Vanilla settles on the middle of that position's chunk before it starts walking.
+            cached = new SpawnAnchor(seed, (found.getX() & ~15) + 8, (found.getZ() & ~15) + 8);
+            spawnAnchor = cached;
+        }
+        return new BlockPos(cached.x(), 0, cached.z());
+    }
 
     // The group whose cell this is. One per cell, its middle jittered well inside so the grid never
     // shows in where groups sit.
@@ -317,24 +342,25 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
     // attention to where the grid divides the world, so at close spacing they cross constantly -- but
     // the answer to that is to make groups RARE rather than to forbid the crossing, because a pair that
     // does meet is worth coming across. Spacing is the setting that governs it.
-    private static Group groupAt(long seed, int gx, int gz, int spacing) {
+    private static Group groupAt(long seed, int gx, int gz, int spacing, BlockPos spawn) {
         RandomSource rnd = RandomSource.create(mix(seed, gx, gz, 0x6C0A9DL));
         double margin = spacing * 0.2;
         double anchorX = gx * (double) spacing + margin + rnd.nextDouble() * (spacing - margin * 2.0);
         double anchorZ = gz * (double) spacing + margin + rnd.nextDouble() * (spacing - margin * 2.0);
 
-        // The cell holding the origin plants its group right next to it, so a new world always starts
+        // The cell holding the spawn plants its group right next to it, so a new world always starts
         // in sight of one instead of possibly thousands of blocks from the nearest.
         //
         // Drawn from a random source of its own rather than from the one above, so switching this off
         // leaves the rest of the cell's group -- which way it runs, how long it is -- exactly as it
         // would otherwise have been, and only moves it back onto the ordinary jitter.
-        if (gx == 0 && gz == 0 && Config.PILLAR_SPAWN_GROUP.get()) {
+        if (Config.PILLAR_SPAWN_GROUP.get()
+                && gx == Math.floorDiv(spawn.getX(), spacing) && gz == Math.floorDiv(spawn.getZ(), spacing)) {
             RandomSource near = RandomSource.create(mix(seed, 0, 0, 0x59A00EL));
             double angle = near.nextDouble() * Math.PI * 2.0;
             double radius = SPAWN_RADIUS * Math.sqrt(near.nextDouble());
-            anchorX = Math.cos(angle) * radius;
-            anchorZ = Math.sin(angle) * radius;
+            anchorX = spawn.getX() + Math.cos(angle) * radius;
+            anchorZ = spawn.getZ() + Math.sin(angle) * radius;
         }
 
         boolean ridge = rnd.nextDouble() < Config.PILLAR_RIDGE_CHANCE.get();
@@ -398,8 +424,13 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
     private static Tower buildTower(RandomSource rnd, double baseX, double baseZ, double waterMark,
             int minBuildHeight, int maxBuildHeight, boolean ridge) {
         int bottomY = minBuildHeight + 1; // +1 leaves the bedrock floor itself alone
-        int variance = Config.PILLAR_TOP_VARIANCE.getAsInt();
-        int topY = Mth.floor(waterMark) + (variance == 0 ? 0 : rnd.nextInt(variance * 2 + 1) - variance);
+        // The top is rolled between two offsets from the high-water mark, the lower of which may be
+        // under it; a pair the wrong way round is read as the range it was meant to be.
+        int a = Config.PILLAR_TOP_MIN.getAsInt();
+        int b = Config.PILLAR_TOP_MAX.getAsInt();
+        int topMin = Math.min(a, b);
+        int topMax = Math.max(a, b);
+        int topY = Mth.floor(waterMark) + topMin + rnd.nextInt(topMax - topMin + 1);
         topY = Math.min(topY, maxBuildHeight - 1);
         if (topY <= bottomY) {
             return null;
@@ -794,7 +825,8 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
         double waterMark = Config.maxBreathHeight();
         int spacing = Config.PILLAR_GROUP_SPACING.getAsInt();
         long seed = level.getSeed();
-        Group group = groupAt(seed, Math.floorDiv(x, spacing), Math.floorDiv(z, spacing), spacing);
+        BlockPos spawn = spawnAnchor(seed, level.getChunkSource().randomState().sampler());
+        Group group = groupAt(seed, Math.floorDiv(x, spacing), Math.floorDiv(z, spacing), spacing, spawn);
         int count = towerCount(group);
         int chance = 0;
         int placed = 0;
@@ -937,7 +969,7 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
     // The furthest any tower could possibly reach from its own base at the current settings -- the
     // tallest one leaning hardest, at the widest radius, with every rib and bench at full stretch.
     private static double worstCaseTowerReach(double waterMark) {
-        double tallest = waterMark + Config.PILLAR_TOP_VARIANCE.getAsInt() + 64.0;
+        double tallest = waterMark + Math.max(Config.PILLAR_TOP_MIN.getAsInt(), Config.PILLAR_TOP_MAX.getAsInt()) + 64.0;
         double radius = Math.max(Config.PILLAR_RADIUS_MIN.get(), Config.PILLAR_RADIUS_MAX.get());
         return Math.tan(Math.toRadians(Config.PILLAR_TILT.get())) * tallest
                 + radius * LUMP_MAX * (1.0 + STRATA_TOTAL_MAX)
@@ -962,7 +994,7 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
      * chunk-by-chunk search -- which is why this can answer instantly at any range, where locating a
      * real structure cannot.
      */
-    public static BlockPos findNearest(long seed, int fromX, int fromZ, int maxBlocks,
+    public static BlockPos findNearest(long seed, BlockPos spawn, int fromX, int fromZ, int maxBlocks,
             double waterMark, int minBuildHeight, int maxBuildHeight, Layout want) {
         int spacing = Config.PILLAR_GROUP_SPACING.getAsInt();
         int centreGx = Math.floorDiv(fromX, spacing);
@@ -988,7 +1020,7 @@ public class KarstPillarsFeature extends Feature<NoneFeatureConfiguration> {
                     if (Math.abs(gx - centreGx) != ring && Math.abs(gz - centreGz) != ring) {
                         continue; // interior cells were covered by an earlier ring
                     }
-                    Group group = groupAt(seed, gx, gz, spacing);
+                    Group group = groupAt(seed, gx, gz, spacing, spawn);
                     if (group == null || !want.matches(group.ridge())) {
                         continue;
                     }

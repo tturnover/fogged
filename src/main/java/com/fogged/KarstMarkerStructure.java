@@ -59,7 +59,8 @@ public class KarstMarkerStructure extends Structure {
         // Only as far as the search box: a hit further out belongs to a chunk nearer to it, and letting
         // this one claim it too would scatter markers over ground with no tower on it.
         int range = (SEARCH_CHUNKS + 1) * 16;
-        BlockPos tower = KarstPillarsFeature.findNearest(context.seed(), centreX, centreZ, range,
+        BlockPos spawn = KarstPillarsFeature.spawnAnchor(context.seed(), context.randomState().sampler());
+        BlockPos tower = KarstPillarsFeature.findNearest(context.seed(), spawn, centreX, centreZ, range,
                 Config.maxBreathHeight(), context.heightAccessor().getMinBuildHeight(),
                 context.heightAccessor().getMaxBuildHeight(), kind);
         if (tower == null) {

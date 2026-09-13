@@ -138,7 +138,9 @@ public final class FoggedCommands {
         int fromX = Mth.floor(from.x);
         int fromZ = Mth.floor(from.z);
         int range = locateRange();
-        BlockPos found = KarstPillarsFeature.findNearest(level.getSeed(), fromX, fromZ, range,
+        BlockPos spawn = KarstPillarsFeature.spawnAnchor(level.getSeed(),
+                level.getChunkSource().randomState().sampler());
+        BlockPos found = KarstPillarsFeature.findNearest(level.getSeed(), spawn, fromX, fromZ, range,
                 Config.maxBreathHeight(), level.getMinBuildHeight(), level.getMaxBuildHeight(), kind);
         if (found == null) {
             src.sendFailure(Component.literal("No " + describe(kind) + " within " + range
