@@ -84,6 +84,14 @@ public final class WaterlineMap {
     private static final int SUBLEVEL_PROBES = 36;
 
     private static DynamicTexture texture;
+    // Ready-to-draw RGB of the foam ring, built only while a shader pack draws the plane (see
+    // FogPlaneRenderer): that path goes through the pack's own program, which can only multiply a
+    // texture by a vertex colour, so the foam ramp fog_plane.fsh normally evaluates per fragment is
+    // baked here instead.
+    private static DynamicTexture foamColorTexture;
+    // Colours/width the baked foam texture was last built with, so a live config edit rebuilds it even
+    // when the distance field itself is unchanged.
+    private static int lastFoamSignature = 0;
     private static int size = 0;          // current block edge length of the map
     private static int cellsPerBlock = 4; // sub-block grid resolution; see Config.WATERLINE_CELLS_PER_BLOCK
     private static int cells = 0;         // texel/cell edge length = size * cellsPerBlock
@@ -106,11 +114,95 @@ public final class WaterlineMap {
     private static int stampBoxCount;
     private static boolean stampOverflow;
     private static boolean lastStamped;
+    // World block X/Z of every column whose boundary-row block is liquid that CROSSES the surface, as
+    // of the last rescan: a fall, a current, or standing water with a side open to the air (a wall of
+    // it, a fountain), as opposed to a pool the surface merely passes through. FogPlaneRenderer draws
+    // these as depth-only boxes into the soft edge's depth snapshot, since water itself is drawn after
+    // the plane and so never reaches it (see FogPlaneRenderer#waterDepthProxies).
+    private static int[] flowingColumns = new int[64];
+    private static int flowingColumnCount;
     private static int originX;           // world block X of the map's corner
     private static int originZ;           // world block Z of the map's corner
     private static int lastBoundaryY = Integer.MIN_VALUE;
     private static long lastRecomputeTick = Long.MIN_VALUE;
     private static long lastTick = Long.MIN_VALUE;
+
+    // Where the work is, as a cell range per row (x0 > x1 for a row with none). A seed's reach is
+    // MAX_DIST, so beyond that band around the seeds the fields are flat "far water" and stay so; the
+    // distance transform, the ease and the texture refill are confined to the band instead of sweeping
+    // every one of the map's cells -- at 768x768 that sweep was most of a tick, and the transform most
+    // of a frame. Per row rather than one box, because seeds sit wherever the shore is and one box
+    // around all of them is most of the map again.
+    private static int[] seedMin = new int[0];   // solid/entity seeds of the last rescan, per row
+    private static int[] seedMax = new int[0];
+    private static int[] seedMinP = new int[0];  // plant seeds
+    private static int[] seedMaxP = new int[0];
+    private static int[] shownMin = new int[0];  // where any foam still shows after the last ease
+    private static int[] shownMax = new int[0];
+    private static int[] workMin = new int[0];   // this tick's ease and refill range
+    private static int[] workMax = new int[0];
+    private static int[] bandMin = new int[0];   // scratch: a seed range grown by the reach
+    private static int[] bandMax = new int[0];
+    private static boolean workFull = true;      // refill the whole texture this tick
+
+    private static void rowsClear(int[] min, int[] max) {
+        java.util.Arrays.fill(min, Integer.MAX_VALUE);
+        java.util.Arrays.fill(max, Integer.MIN_VALUE);
+    }
+
+    private static void rowsAdd(int[] min, int[] max, int x0, int z0, int x1, int z1) {
+        for (int z = Math.max(0, z0); z <= Math.min(cells - 1, z1); z++) {
+            min[z] = Math.min(min[z], x0);
+            max[z] = Math.max(max[z], x1);
+        }
+    }
+
+    // Widen dst by src grown r cells on every side: each row takes the widest range of the src rows
+    // within r of it. A sliding window, so the cost is rows times reach, not cells.
+    private static void rowsAddGrown(int[] dstMin, int[] dstMax, int[] srcMin, int[] srcMax, int r) {
+        for (int z = 0; z < cells; z++) {
+            int lo = Integer.MAX_VALUE;
+            int hi = Integer.MIN_VALUE;
+            for (int zz = Math.max(0, z - r); zz <= Math.min(cells - 1, z + r); zz++) {
+                lo = Math.min(lo, srcMin[zz]);
+                hi = Math.max(hi, srcMax[zz]);
+            }
+            if (lo <= hi) {
+                dstMin[z] = Math.min(dstMin[z], Math.max(0, lo - r));
+                dstMax[z] = Math.max(dstMax[z], Math.min(cells - 1, hi + r));
+            }
+        }
+    }
+
+    // Move the ranges with the field contents they describe (see shiftField: new[x] = old[x + dx]).
+    private static void rowsShift(int[] min, int[] max, int dx, int dz) {
+        System.arraycopy(min, 0, bandMin, 0, cells);
+        System.arraycopy(max, 0, bandMax, 0, cells);
+        rowsClear(min, max);
+        for (int z = 0; z < cells; z++) {
+            int sz = z + dz;
+            if (sz < 0 || sz >= cells || bandMin[sz] > bandMax[sz]) {
+                continue;
+            }
+            int lo = Math.max(0, bandMin[sz] - dx);
+            int hi = Math.min(cells - 1, bandMax[sz] - dx);
+            if (lo <= hi) {
+                min[z] = lo;
+                max[z] = hi;
+            }
+        }
+    }
+
+    private static int reachCells() {
+        return Mth.ceil(MAX_DIST) * cellsPerBlock;
+    }
+
+    // Wall times of the last rescan's parts and the last tick's parts, for the debug HUD.
+    static double lastReseedMs;
+    static double lastChamferMs;
+    static double lastStampMs;
+    static double lastEaseMs;
+    static double lastUploadMs;
 
     private WaterlineMap() {
     }
@@ -119,8 +211,26 @@ public final class WaterlineMap {
         return texture == null ? 0 : texture.getId();
     }
 
+    /** Baked foam-ring colour map; 0 until a frame has asked for it (see {@link #update}). */
+    public static int foamColorTextureId() {
+        return foamColorTexture == null ? 0 : foamColorTexture.getId();
+    }
+
     public static int size() {
         return size;
+    }
+
+    /** Columns of flowing liquid crossing the boundary as of the last rescan; see {@link #flowingColumnX}. */
+    public static int flowingColumnCount() {
+        return flowingColumnCount;
+    }
+
+    public static int flowingColumnX(int i) {
+        return flowingColumns[i * 2];
+    }
+
+    public static int flowingColumnZ(int i) {
+        return flowingColumns[i * 2 + 1];
     }
 
     // Current sub-block grid resolution (cells per block); read by the plane/vapour shaders' pixel-snap
@@ -138,13 +248,15 @@ public final class WaterlineMap {
     }
 
     // Driven from the renderer every frame. Recomputes the target field on move / every few ticks,
-    // eases the shown field toward it once per tick, and sprinkles foam particles.
-    public static void update(Level level, Vec3 camPos, int boundaryY, int mapBlocks) {
+    // eases the shown field toward it once per tick, and sprinkles foam particles. wantFoamColor asks
+    // for the baked colour map alongside (see foamColorTexture).
+    public static void update(Level level, Vec3 camPos, int boundaryY, int mapBlocks, boolean wantFoamColor) {
         int want = Mth.clamp(mapBlocks, MIN_SIZE, MAX_SIZE);
         int wantC = Mth.clamp(Config.WATERLINE_CELLS_PER_BLOCK.getAsInt(), 1, 4);
         if (texture == null || want != size || wantC != cellsPerBlock) {
             rebuild(want, wantC);
         }
+        boolean foamColorDirty = syncFoamColorTexture(wantFoamColor);
 
         int cx = Mth.floor(camPos.x) - size / 2;
         int cz = Mth.floor(camPos.z) - size / 2;
@@ -164,6 +276,10 @@ public final class WaterlineMap {
             shiftField(target, dx, dz);
             shiftField(targetP, dx, dz);
             shiftField(blockDist, dx, dz);
+            rowsShift(seedMin, seedMax, dx, dz);
+            rowsShift(seedMinP, seedMaxP, dx, dz);
+            rowsShift(shownMin, shownMax, dx, dz);
+            workFull = true; // the strip that came in reads "far water" and has to be drawn so
             originX = cx;
             originZ = cz;
         }
@@ -179,8 +295,12 @@ public final class WaterlineMap {
         if (boundaryY != lastBoundaryY || tick - lastRecomputeTick >= RECOMPUTE_INTERVAL) {
             lastBoundaryY = boundaryY;
             lastRecomputeTick = tick;
+            long t0 = System.nanoTime();
             reseedAll(level, boundaryY);
+            long t1 = System.nanoTime();
             finishRecompute();
+            lastReseedMs = (t1 - t0) / 1.0e6;
+            lastChamferMs = (System.nanoTime() - t1) / 1.0e6;
             recomputed = true;
         }
 
@@ -188,19 +308,92 @@ public final class WaterlineMap {
         if (newTick || originMoved) {
             // Whatever moves is re-stamped every tick, so a boat's ring keeps up with it rather than
             // waiting on the block rescan's cadence above.
+            long t0 = System.nanoTime();
             boolean restamped = restampDynamic(level, boundaryY);
+            long t1 = System.nanoTime();
             long elapsed = lastTick == Long.MIN_VALUE ? 1 : Math.max(1, tick - lastTick);
             float step = EASE_CELLS_PER_TICK * elapsed;
+            // This tick's region: everything a seed can reach, plus wherever foam still shows (it may
+            // be retreating from a seed that is gone). Rebuilt from the boxes, then narrowed by the
+            // ease to where foam actually is for the next tick.
+            rowsClear(workMin, workMax);
+            rowsAddGrown(workMin, workMax, shownMin, shownMax, 0);
+            rowsAddGrown(workMin, workMax, seedMin, seedMax, reachCells());
+            rowsAddGrown(workMin, workMax, seedMinP, seedMaxP, reachCells());
+            if (stampOverflow) {
+                rowsAdd(workMin, workMax, 0, 0, cells - 1, cells - 1);
+            } else {
+                int r = reachCells();
+                for (int i = 0; i < stampBoxCount; i++) {
+                    rowsAdd(workMin, workMax, Math.max(0, stampBoxes[i * 4] - r), stampBoxes[i * 4 + 1] - r,
+                            Math.min(cells - 1, stampBoxes[i * 4 + 2] + r), stampBoxes[i * 4 + 3] + r);
+                }
+            }
+            rowsClear(shownMin, shownMax);
             boolean changed = ease(target, shown, step);
             changed |= ease(targetP, shownP, step);
+            lastStampMs = (t1 - t0) / 1.0e6;
+            lastEaseMs = (System.nanoTime() - t1) / 1.0e6;
             lastTick = tick;
-            if (changed || originMoved || recomputed || restamped) {
-                upload();
+            if (changed || originMoved || recomputed || restamped || foamColorDirty) {
+                long t2 = System.nanoTime();
+                upload(!(workFull || foamColorDirty));
+                workFull = false;
+                lastUploadMs = (System.nanoTime() - t2) / 1.0e6;
+                foamColorDirty = false;
             }
             if (newTick) {
                 emitFoamParticles(level, camPos, boundaryY);
             }
         }
+        if (foamColorDirty) {
+            upload(false); // config edit, or the map just asked for, on a frame that wasn't going to re-upload
+        }
+    }
+
+    // Create / drop / invalidate the baked foam colour map. Returns true when it needs (re)filling this
+    // frame: it was just created, or the colours and width it was baked with have since changed.
+    private static boolean syncFoamColorTexture(boolean wanted) {
+        if (!wanted) {
+            if (foamColorTexture != null) {
+                foamColorTexture.close();
+                foamColorTexture = null;
+            }
+            return false;
+        }
+        int signature = foamSignature();
+        if (foamColorTexture == null) {
+            foamColorTexture = newFoamColorTexture();
+            lastFoamSignature = signature;
+            return true;
+        }
+        if (signature != lastFoamSignature) {
+            lastFoamSignature = signature;
+            return true;
+        }
+        return false;
+    }
+
+    private static int foamSignature() {
+        float[] plane = Config.planeColor();
+        float[] foam = Config.foamColor();
+        int h = Float.floatToIntBits((float) (double) Config.FOAM_WIDTH.get());
+        for (int i = 0; i < 3; i++) {
+            h = h * 31 + Float.floatToIntBits(plane[i]);
+        }
+        for (int i = 0; i < 4; i++) {
+            h = h * 31 + Float.floatToIntBits(foam[i]);
+        }
+        return h;
+    }
+
+    private static DynamicTexture newFoamColorTexture() {
+        DynamicTexture tex = new DynamicTexture(new NativeImage(NativeImage.Format.RGBA, cells, cells, false));
+        tex.setFilter(true, false); // LINEAR between cells, matching how the shader samples the map
+        GlStateManager._bindTexture(tex.getId());
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+        return tex;
     }
 
     // Reseed the whole block-state field. Solids and flowing water (currents, falls) seed the full
@@ -209,6 +402,9 @@ public final class WaterlineMap {
     private static void reseedAll(Level level, int boundaryY) {
         java.util.Arrays.fill(target, INF);
         java.util.Arrays.fill(targetP, INF);
+        rowsClear(seedMin, seedMax);
+        rowsClear(seedMinP, seedMaxP);
+        flowingColumnCount = 0;
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int bz = 0; bz < size; bz++) {
             for (int bx = 0; bx < size; bx++) {
@@ -231,11 +427,43 @@ public final class WaterlineMap {
         var fluid = state.getFluidState();
         boolean solid = state.blocksMotion();
         boolean plant = !solid && fluid.isEmpty() && !state.isAir();
-        if (columnClosed(state)) {
+        if (columnClosed(state) || standingWaterCrossing(level, pos, state)) {
             fillCells(target, x0, z0, x1, z1, 0.0F);
+            rowsAdd(seedMin, seedMax, x0, z0, x1, z1);
+            if (!solid) {
+                if (flowingColumnCount * 2 + 2 > flowingColumns.length) {
+                    flowingColumns = java.util.Arrays.copyOf(flowingColumns, flowingColumns.length * 2);
+                }
+                flowingColumns[flowingColumnCount * 2] = originX + bx;
+                flowingColumns[flowingColumnCount * 2 + 1] = originZ + bz;
+                flowingColumnCount++;
+            }
         } else if (plant) {
             fillCells(targetP, x0, z0, x1, z1, 0.0F);
+            rowsAdd(seedMinP, seedMaxP, x0, z0, x1, z1);
         }
+    }
+
+    // Standing (source) water with a side open to the air: a wall or column of it standing in the
+    // open crosses the surface like a block does, where a pool's water only meets more water or the
+    // shore that already rings it. Checked against the four horizontal neighbours at the boundary row.
+    private static boolean standingWaterCrossing(Level level, BlockPos.MutableBlockPos pos, BlockState state) {
+        var fluid = state.getFluidState();
+        if (fluid.isEmpty() || !fluid.isSource()) {
+            return false;
+        }
+        int x = pos.getX();
+        int y = pos.getY();
+        int z = pos.getZ();
+        boolean open = sideOpen(level, pos.set(x + 1, y, z)) || sideOpen(level, pos.set(x - 1, y, z))
+                || sideOpen(level, pos.set(x, y, z + 1)) || sideOpen(level, pos.set(x, y, z - 1));
+        pos.set(x, y, z);
+        return open;
+    }
+
+    private static boolean sideOpen(Level level, BlockPos pos) {
+        BlockState side = level.getBlockState(pos);
+        return !side.blocksMotion() && side.getFluidState().isEmpty();
     }
 
     /**
@@ -255,9 +483,18 @@ public final class WaterlineMap {
     // immediately after reseedAll, in the same call (see update()), on fully fresh block-state data.
     // Everything that moves is stamped on top of that copy every tick instead (see restampDynamic).
     private static void finishRecompute() {
-        chamferDistance(target);
+        chamferAround(target, seedMin, seedMax);
         System.arraycopy(target, 0, blockDist, 0, target.length);
-        chamferDistance(targetP);
+        chamferAround(targetP, seedMinP, seedMaxP);
+    }
+
+    // The transform over the band a field's seeds can reach; beyond it every cell is still INF. Exact
+    // for every distance under the reach: a cell within it of some seed lies in the seed's grown row
+    // range, and so does every cell on the transform's path to it, all nearer the seed still.
+    private static void chamferAround(float[] field, int[] seedMinX, int[] seedMaxX) {
+        rowsClear(bandMin, bandMax);
+        rowsAddGrown(bandMin, bandMax, seedMinX, seedMaxX, reachCells());
+        chamferRows(field, bandMin, bandMax);
     }
 
     /**
@@ -416,25 +653,67 @@ public final class WaterlineMap {
         chamferRegion(field, 0, 0, cells - 1, cells - 1);
     }
 
+    // chamferRegion over a range per row (see chamferAround). The same two passes and the same mask.
+    private static void chamferRows(float[] field, int[] minX, int[] maxX) {
+        final float d1 = 1.0F;
+        final float d2 = DIAGONAL_STEP;
+        final float d3 = KNIGHT_STEP;
+        for (int z = 0; z < cells; z++) {
+            for (int x = minX[z]; x <= maxX[z]; x++) {
+                int i = z * cells + x;
+                float d = field[i];
+                if (x > 0) d = Math.min(d, field[i - 1] + d1);
+                if (z > 0) d = Math.min(d, field[i - cells] + d1);
+                if (x > 0 && z > 0) d = Math.min(d, field[i - cells - 1] + d2);
+                if (x < cells - 1 && z > 0) d = Math.min(d, field[i - cells + 1] + d2);
+                if (z > 0 && x > 1) d = Math.min(d, field[i - cells - 2] + d3);
+                if (z > 0 && x < cells - 2) d = Math.min(d, field[i - cells + 2] + d3);
+                if (z > 1 && x > 0) d = Math.min(d, field[i - 2 * cells - 1] + d3);
+                if (z > 1 && x < cells - 1) d = Math.min(d, field[i - 2 * cells + 1] + d3);
+                field[i] = d;
+            }
+        }
+        for (int z = cells - 1; z >= 0; z--) {
+            for (int x = maxX[z]; x >= minX[z]; x--) {
+                int i = z * cells + x;
+                float d = field[i];
+                if (x < cells - 1) d = Math.min(d, field[i + 1] + d1);
+                if (z < cells - 1) d = Math.min(d, field[i + cells] + d1);
+                if (x < cells - 1 && z < cells - 1) d = Math.min(d, field[i + cells + 1] + d2);
+                if (x > 0 && z < cells - 1) d = Math.min(d, field[i + cells - 1] + d2);
+                if (z < cells - 1 && x < cells - 2) d = Math.min(d, field[i + cells + 2] + d3);
+                if (z < cells - 1 && x > 1) d = Math.min(d, field[i + cells - 2] + d3);
+                if (z < cells - 2 && x < cells - 1) d = Math.min(d, field[i + 2 * cells + 1] + d3);
+                if (z < cells - 2 && x > 0) d = Math.min(d, field[i + 2 * cells - 1] + d3);
+                field[i] = d;
+            }
+        }
+    }
+
     // Ease shown[] toward target[] so foam grows / fades gradually. Growth is a wavefront: land cells
     // seed foam at once, then foam may only advance stepCells past an already-foamed neighbour each
     // tick -- so it always sweeps outward from the contact edge instead of appearing everywhere.
+    // Over the work rows only (workMin/workMax); every cell outside them is flat far water in both
+    // fields and stays so. Widens the shown rows to wherever foam remains afterwards.
     private static boolean ease(float[] field, float[] show, float stepCells) {
         final float maxCells = MAX_DIST * cellsPerBlock;
         boolean changed = false;
 
         // Seed the contact and fade retreating foam back toward "far water".
-        for (int i = 0; i < show.length; i++) {
-            float t = Math.min(field[i], maxCells);
-            float s = show[i];
-            if (t <= 0.001F) {
-                if (s != 0.0F) { // land cell: foam source, snap in immediately
-                    show[i] = 0.0F;
+        for (int z = 0; z < cells; z++) {
+            for (int x = workMin[z]; x <= workMax[z]; x++) {
+                int i = z * cells + x;
+                float t = Math.min(field[i], maxCells);
+                float s = show[i];
+                if (t <= 0.001F) {
+                    if (s != 0.0F) { // land cell: foam source, snap in immediately
+                        show[i] = 0.0F;
+                        changed = true;
+                    }
+                } else if (s < t) { // foam should retreat: rise toward target at the base rate
+                    show[i] = Math.min(t, s + stepCells);
                     changed = true;
                 }
-            } else if (s < t) { // foam should retreat: rise toward target at the base rate
-                show[i] = Math.min(t, s + stepCells);
-                changed = true;
             }
         }
 
@@ -449,12 +728,30 @@ public final class WaterlineMap {
         // shape it is going to settle into.
         final float diagonalStep = stepCells * DIAGONAL_STEP;
         final float knightStep = stepCells * KNIGHT_STEP;
-        System.arraycopy(show, 0, scratch, 0, show.length);
+        // The wavefront reads up to two cells past a row's range, in rows up to two away, so copy the
+        // rows' ranges with that margin.
         for (int z = 0; z < cells; z++) {
-            for (int x = 0; x < cells; x++) {
+            int lo = Integer.MAX_VALUE;
+            int hi = Integer.MIN_VALUE;
+            for (int zz = Math.max(0, z - 2); zz <= Math.min(cells - 1, z + 2); zz++) {
+                lo = Math.min(lo, workMin[zz]);
+                hi = Math.max(hi, workMax[zz]);
+            }
+            if (lo <= hi) {
+                lo = Math.max(0, lo - 2);
+                hi = Math.min(cells - 1, hi + 2);
+                System.arraycopy(show, z * cells + lo, scratch, z * cells + lo, hi - lo + 1);
+            }
+        }
+        for (int z = 0; z < cells; z++) {
+            for (int x = workMin[z]; x <= workMax[z]; x++) {
                 int i = z * cells + x;
                 float t = Math.min(field[i], maxCells);
                 if (show[i] <= t) {
+                    if (show[i] < maxCells) {
+                        shownMin[z] = Math.min(shownMin[z], x);
+                        shownMax[z] = Math.max(shownMax[z], x);
+                    }
                     continue; // already grown to target
                 }
                 boolean west = x > 0;
@@ -487,6 +784,10 @@ public final class WaterlineMap {
                     show[i] = s;
                     changed = true;
                 }
+                if (s < maxCells) {
+                    shownMin[z] = Math.min(shownMin[z], x);
+                    shownMax[z] = Math.max(shownMax[z], x);
+                }
             }
         }
         return changed;
@@ -507,20 +808,78 @@ public final class WaterlineMap {
         System.arraycopy(scratch, 0, show, 0, show.length);
     }
 
-    private static void upload() {
+    // Refill the texture's pixels from the fields -- the work rows only when `partial`, the rest being
+    // unchanged since the last refill, else all of them -- and upload.
+    private static void upload(boolean partial) {
         final float maxCells = MAX_DIST * cellsPerBlock;
         NativeImage img = texture.getPixels();
+        NativeImage foamImg = foamColorTexture == null ? null : foamColorTexture.getPixels();
+        // Hoisted out of the per-cell loop below: each of these is a config lookup, and the loop runs
+        // once per texel of a grid that reaches 768x768.
+        float[] planeCol = foamImg == null ? null : Config.planeColor();
+        float[] foamCol = foamImg == null ? null : Config.foamColor();
+        float foamWidth = foamImg == null ? 0.0F : (float) (double) Config.FOAM_WIDTH.get();
+        // The pack-drawn plane samples this map with CLAMP_TO_EDGE and no in-bounds test (fog_plane.fsh
+        // has one; a pack's program cannot), so whatever sits in the outermost ring is smeared across
+        // the entire plane beyond the map. Pin that ring to bare plane colour: foam that happens to
+        // touch the map's rim would otherwise streak to the horizon.
+        int rimPixel = foamImg == null ? 0
+                : packAbgr(planeCol[0] * PLANE_BASE, planeCol[1] * PLANE_BASE, planeCol[2] * PLANE_BASE);
         for (int z = 0; z < cells; z++) {
-            for (int x = 0; x < cells; x++) {
+            int x0 = partial ? workMin[z] : 0;
+            int x1 = partial ? workMax[z] : cells - 1;
+            for (int x = x0; x <= x1; x++) {
                 int i = z * cells + x;
                 float d = Math.min(shown[i], maxCells);
                 float dp = Math.min(shownP[i], maxCells);
                 int v = (int) (d / maxCells * 255.0F + 0.5F) & 0xFF;
                 int g = (int) (dp / maxCells * 255.0F + 0.5F) & 0xFF;
                 img.setPixelRGBA(x, z, 0xFF000000 | (g << 8) | v); // ABGR: R = solid/entity dist, G = plant dist
+                if (foamImg != null) {
+                    boolean rim = x == 0 || z == 0 || x == cells - 1 || z == cells - 1;
+                    foamImg.setPixelRGBA(x, z, rim ? rimPixel
+                            : foamPixel(d / cellsPerBlock, dp / cellsPerBlock, planeCol, foamCol, foamWidth));
+                }
             }
         }
         texture.upload();
+        if (foamColorTexture != null) {
+            foamColorTexture.upload();
+        }
+    }
+
+    // The foam ramp fog_plane.fsh computes per fragment (via fogged_foam.glsl), evaluated on the CPU
+    // into a finished colour for the pack-drawn plane. MUST stay in step with those two -- the same
+    // look reached by another route; only the shader path also adds the surface spots.
+    private static final float FOAM_STEPS = 4.0F;     // == fog_plane.fsh FOAM_STEPS
+    private static final float SOLID_STRENGTH = 1.0F; // == fogged_foam.glsl FOGGED_SOLID_STRENGTH
+    private static final float PLANT_STRENGTH = 0.5F; // == fogged_foam.glsl FOGGED_PLANT_STRENGTH
+    private static final float PLANE_BASE = 0.92F;    // == fog_plane.fsh planarFog's plane-colour scale
+
+    private static int foamPixel(float solidBlocks, float plantBlocks,
+                                 float[] plane, float[] foamCol, float width) {
+        float foam = 0.0F;
+        if (width > 0.0F) {
+            float solidEdge = SOLID_STRENGTH
+                    * (1.0F - Mth.clamp(solidBlocks / (width * SOLID_STRENGTH), 0.0F, 1.0F));
+            float plantEdge = PLANT_STRENGTH
+                    * (1.0F - Mth.clamp(plantBlocks / (width * PLANT_STRENGTH), 0.0F, 1.0F));
+            float edge = Math.max(solidEdge, plantEdge);
+            foam = edge * edge * (3.0F - 2.0F * edge);
+            foam = (float) Math.ceil(foam * FOAM_STEPS) / FOAM_STEPS;
+            foam *= foamCol[3];
+        }
+        return packAbgr(Mth.lerp(foam, plane[0] * PLANE_BASE, foamCol[0]),
+                Mth.lerp(foam, plane[1] * PLANE_BASE, foamCol[1]),
+                Mth.lerp(foam, plane[2] * PLANE_BASE, foamCol[2]));
+    }
+
+    private static int packAbgr(float r, float g, float b) {
+        return 0xFF000000 | (channel(b) << 16) | (channel(g) << 8) | channel(r);
+    }
+
+    private static int channel(float v) {
+        return (int) (Mth.clamp(v, 0.0F, 1.0F) * 255.0F + 0.5F) & 0xFF;
     }
 
     // Throw this tick's foam: the standing kind along the waterline, and the spray of anything
@@ -672,8 +1031,26 @@ public final class WaterlineMap {
         java.util.Arrays.fill(targetP, maxCells);
         java.util.Arrays.fill(shown, maxCells); // start with no foam so it eases in
         java.util.Arrays.fill(shownP, maxCells);
+        seedMin = new int[cells];
+        seedMax = new int[cells];
+        seedMinP = new int[cells];
+        seedMaxP = new int[cells];
+        shownMin = new int[cells];
+        shownMax = new int[cells];
+        workMin = new int[cells];
+        workMax = new int[cells];
+        bandMin = new int[cells];
+        bandMax = new int[cells];
+        rowsClear(seedMin, seedMax);
+        rowsClear(seedMinP, seedMaxP);
+        rowsClear(shownMin, shownMax);
+        workFull = true;
         if (texture != null) {
             texture.close();
+        }
+        if (foamColorTexture != null) {
+            foamColorTexture.close();
+            foamColorTexture = null; // re-created at the new size by the next update()
         }
         NativeImage img = new NativeImage(NativeImage.Format.RGBA, cells, cells, false);
         for (int z = 0; z < cells; z++) {

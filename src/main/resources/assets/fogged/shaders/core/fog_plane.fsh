@@ -3,7 +3,14 @@
 #moj_import <fog.glsl>
 
 uniform sampler2D Sampler0; // world-space waterline map (R = solid/entity dist, G = plant dist)
+uniform sampler2D Sampler1; // the baked noise fields (NoiseField); see fogged_field_sample.glsl
 uniform sampler2D Sampler3; // scene depth snapshot (captured just before the plane) for soft edges
+uniform vec2 NoiseOrigin;   // anchor-relative world XZ of the noise texture's corner
+uniform float NoiseCells;   // its edge length in texels
+uniform float NoiseCellsPerBlock;
+uniform float NoiseValid;   // 0 when there is no baked texture this frame
+uniform float NoiseTime;    // the boil clock it was baked at
+uniform float WispScale;    // the vapour field's frequency, for the fallback evaluation only
 
 uniform vec4 ColorModulator;
 uniform vec4 FoamColor;     // foam base colour (rgb) and strength (a)
@@ -11,7 +18,6 @@ uniform float FogStart;
 uniform float FogEnd;
 uniform vec4 FogColor;
 uniform int FogShape;
-uniform float Time; // monotonic wall-clock seconds (FogShaders#animTimeSeconds), drives the spot morph
 uniform float FoamWidth;
 // Config.DebugView ordinal: 0 renders normally, anything else replaces the plane with a raw
 // view of one of the buffers behind it (see debugColor).
@@ -26,10 +32,9 @@ uniform mat4 ProjMat;           // reused to linearise depth for the soft-occlus
 uniform vec2 ScreenSize;        // framebuffer size in pixels, to map gl_FragCoord into the depth sampler
 uniform float DepthValid;       // 0 if the scene-depth snapshot is unavailable/disabled this frame (see SceneDepth)
 uniform float HolesActive;      // 1 on the fogged side (dissolve holes on), 0 on the dry side (solid plane)
-// Which half of the two-pass plane draw this is: 1 = the solid core (drawn with depth writes on),
-// 0 = everything softened by occlusion, holes or the rim fade (blended, no depth writes). Each pass
-// discards the fragments the other owns, so the plane only writes depth where it is solid.
-uniform float DepthPass;
+// Near-camera dither (Config.planeNearDither): near, far, min visibility, enabled (0/1). See below.
+uniform vec4 NearDither;
+uniform float DitherPixelSize;  // screen pixels per dither cell (Config.ditherPixelSize)
 uniform int EntityHoleCount;    // number of active entity dissolve discs (0..MAX_ENTITY_HOLES)
 // Packed 4 floats per entity: camera-relative centre X, Z, horizontal radius (blocks), vertical gap to
 // the plane (blocks; 0 while the hitbox straddles it). Sized MAX_ENTITY_HOLES * 4 (see the renderer).
@@ -49,6 +54,8 @@ out vec4 fragColor;
 // not tile on the world axes, so seamlessness requires dropping it. ---
 const float NOISE_PERIOD_BLOCKS = 4096.0; // MUST equal FogPlaneRenderer.NOISE_ANCHOR for a seamless wrap -- see Config.java's mirrored-constants comment
 #moj_import <fogged:fogged_noise.glsl>
+#moj_import <fogged:fogged_field.glsl>
+#moj_import <fogged:fogged_field_sample.glsl>
 
 // Waterline map sampling, shared with fog_vapor.fsh so the mist thins on exactly the ring drawn here
 // (see fogged_foam.glsl).
@@ -61,6 +68,10 @@ const float FOAM_STEPS = 4.0;
 // Soft occlusion (fogged_softOcclusion, shared with fog_vapor.fsh -- see fogged_occlusion.glsl); needs
 // Sampler3/ScreenSize/ProjMat/DepthValid, all declared above.
 #moj_import <fogged:fogged_occlusion.glsl>
+
+// Bayer dither and the near-camera visibility ramp (fogged_bayer / fogged_nearVisibility -- see
+// fogged_dither.glsl, shared with the shader-pack path).
+#moj_import <fogged:fogged_dither.glsl>
 
 // Raw views of the buffers feeding the plane, selected by DebugView (== Config.DebugView's ordinal).
 vec3 debugColor(vec2 wl, float edge, float lum, float opacity, float entityHole) {
@@ -90,6 +101,17 @@ vec3 debugColor(vec2 wl, float edge, float lum, float opacity, float entityHole)
 }
 
 void main() {
+    // Near-camera dither: the closer a fragment is to the eye, the more of its pixels are dropped, so
+    // the surface opens into a chunky screen-door around the camera instead of snapping in as a hard
+    // sheet at eye level when the head crosses it. A discard, not alpha, so it costs nothing in
+    // sorting and behaves identically in both depth passes below: a dropped pixel is dropped in each.
+    if (NearDither.w > 0.5) {
+        float nearVis = fogged_nearVisibility(length(relPos), NearDither.x, NearDither.y, NearDither.z);
+        if (nearVis < fogged_bayer(gl_FragCoord.xy, DitherPixelSize)) {
+            discard;
+        }
+    }
+
     vec4 color = vertexColor * ColorModulator;
 
     // Foam edge: world-space distance to the nearest surface-crossing block/entity, ringed within
@@ -99,14 +121,9 @@ void main() {
     float edge = fogged_foamEdge(wl);
 
     // Surface spots: low-frequency world-space noise blobs, on the same pixel grid as the foam, that
-    // fade in/out in place (morph blends two offset noise layers over time, no translation).
-    const float SPOT_CELL_BLOCKS = 4.0;    // blob feature size in blocks (divides NOISE_PERIOD for a tile)
-    const float SPOT_TIME_RATE = 0.1;      // noise time-axis advance per second (~one reshuffle per 10 s)
-    vec2 cell = fogged_pixelSnap(worldXZ) / SPOT_CELL_BLOCKS;
-    // Animate by advancing the noise's time axis: morphs in place, always forward (no ping-pong, no
-    // slide). Time is monotonic wall-clock seconds, so the rate below is per real second. The base
-    // period is the world period in cell space, so the noise tiles exactly with the anchor -> no seam.
-    float s = fogged_fbm3(cell, Time * SPOT_TIME_RATE, NOISE_PERIOD_BLOCKS / SPOT_CELL_BLOCKS);
+    // fade in/out in place (fogged_spotField) -- a texel of the baked field (NoiseField) wherever it
+    // reaches, evaluated in place beyond.
+    float s = fogged_fields(fogged_pixelSnap(worldXZ), WispScale).g;
     // Map onto the two lowest foam bands only (0.25/0.50) so a spot reads as foam not next to an edge.
     float t = smoothstep(0.45, 0.70, s);
     float lum = t <= 0.0 ? 0.0 : (t < 0.5 ? 0.25 : 0.5);
@@ -170,38 +187,30 @@ void main() {
     // against whatever is already in the depth snapshot (grazing shores, block silhouettes, and --
     // since the snapshot is taken after them -- mobs and machines crossing the boundary), the
     // entity holes, and the far rim + camera-height falloff.
-    float opacity = fogged_softOcclusion() * (1.0 - hole) * fade;
+    // The occlusion fade is confined to where the map says something crosses (fogged_nearCrossing):
+    // the depth gap alone cannot tell a block's face just under the surface next to its silhouette
+    // from a block lying wholly beneath it, and the second used to show through as a ghost.
+    float occlusion = mix(1.0, fogged_softOcclusion(), fogged_nearCrossing(wl));
+    float opacity = occlusion * (1.0 - hole) * fade;
 
-    // Debug views replace the plane wholesale. They draw only in the depth-writing pass so the split
-    // below can't paint them twice, and they are always fully opaque so nothing shows through.
+    // Debug views replace the plane wholesale, always fully opaque so nothing shows through.
     if (DebugView != 0) {
-        if (DepthPass < 0.5) {
-            discard;
-        }
         fragColor = vec4(debugColor(wl, edge, lum, opacity, entityHole), 1.0);
         return;
     }
 
-    // Split the draw in two on that opacity, so the plane can only ever write depth where it is
-    // fully solid. It is drawn twice: DepthPass 1 takes the solid core with depth writes on, then
-    // DepthPass 0 takes everything softer with them off. A depth-writing fragment the player can
-    // see through hides everything drawn later behind it -- that culled the translucent water pass
-    // (a hard cut where water falls past the boundary next to a block) and, while the plane still
-    // drew before entities, sliced every mob and machine at the boundary. The vertical part of the
-    // fade makes relPos.y-driven opacity uniform across the whole quad, so this also covers "camera
-    // high above the plane": the entire surface moves to the no-depth pass rather than turning into
-    // a see-through sheet that still occludes.
-    //
-    // Splitting this way is what lets the softness be plain alpha. It used to be a screen-door
-    // dither (a 4x4 Bayer discard) purely because the single draw always wrote depth; over a wide
-    // terrain gradient that reads as a smooth ramp, but over something mob-sized the whole
-    // silhouette sits at partial coverage and shows up as a chewed-looking checkerboard. FogVapor
-    // never writes depth and has always faded with straight alpha -- the plane now matches it.
-    bool solidHere = opacity >= 0.999;
-    if ((DepthPass > 0.5) != solidHere) {
+    // Everything softened is a Bayer discard, never alpha, in this one depth-writing draw -- as the
+    // shader-pack path has it. A surviving pixel is solid and writes depth, so what is behind it
+    // stays hidden; a dropped one shows whatever is behind, and whatever is drawn later there. That
+    // is what makes a dissolve INTO water read right: the water pass comes after the plane, and
+    // against an alpha-softened plane that wrote no depth it simply painted itself over the fade
+    // and the foam, a bright pit where the surface should thin into it. Dithered, the plane's
+    // surviving pixels hide the water behind them and the dropped ones let it through, and the two
+    // interleave into the fade. Alpha was tried for the smoother ramp it gives over a wide terrain
+    // gradient; the pixel size is config (ditherPixelSize) for anyone who finds the grain too fine.
+    if (opacity < fogged_bayer(gl_FragCoord.xy, DitherPixelSize)) {
         discard;
     }
-    outColor.a *= opacity;
     if (outColor.a <= 0.003) {
         discard;
     }

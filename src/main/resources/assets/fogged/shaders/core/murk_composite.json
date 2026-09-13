@@ -1,0 +1,25 @@
+{
+    "vertex": "fogged:murk_composite",
+    "fragment": "fogged:murk_composite",
+    "samplers": [
+        { "name": "Sampler0" },
+        { "name": "Sampler1" }
+    ],
+    "attributes": [
+        "Position"
+    ],
+    "uniforms": [
+        { "name": "InvProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "InvViewMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "MurkColor", "type": "float", "count": 3, "values": [ 0.25, 0.39, 0.25 ] },
+        { "name": "MurkRange", "type": "float", "count": 2, "values": [ 6.0, 24.0 ] },
+        { "name": "PlaneY", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "MurkSide", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "CameraInside", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "PlaneFogEnd", "type": "float", "count": 1, "values": [ 3.6 ] },
+        { "name": "PlaneFade", "type": "float", "count": 2, "values": [ 100000.0, 1000000.0 ] },
+        { "name": "OpaqueValid", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "FogInside", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "Darkness", "type": "float", "count": 1, "values": [ 0.0 ] }
+    ]
+}

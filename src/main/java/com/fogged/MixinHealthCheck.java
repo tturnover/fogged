@@ -40,6 +40,8 @@ public final class MixinHealthCheck {
     public static volatile boolean cloudsFired = false;
     /** The terrain-pass fog re-assert; without it another mod's fog override wins (see FogModifier). */
     public static volatile boolean terrainFogFired = false;
+    /** The same re-assert on Sodium's own terrain draw (see SodiumCompatibility). */
+    public static volatile boolean sodiumFogFired = false;
 
     private static int ticks = 0;
     private static boolean checked = false;
@@ -67,6 +69,13 @@ public final class MixinHealthCheck {
         warnIfNotFired("renderSectionLayer", terrainFogFired,
                 "the murk fog re-assert, which is what keeps the fog from being overwritten by another "
                         + "mod injecting at the return of FogRenderer.setupFog");
+        if (SodiumCompatibility.loaded()) {
+            // Sodium overwrites renderSectionLayer, so the vanilla flag above says nothing about
+            // whether the terrain it actually draws is being fogged.
+            warnIfNotFired("SodiumWorldRenderer.drawChunkLayer", sodiumFogFired,
+                    "the murk fog re-assert on Sodium's terrain draw, without which the world under the "
+                            + "plane can stay clear out to the render distance");
+        }
     }
 
     private static void warnIfNotFired(String method, boolean fired, String feature) {

@@ -3,6 +3,7 @@
     "fragment": "fogged:fog_vapor",
     "samplers": [
         { "name": "Sampler0" },
+        { "name": "Sampler1" },
         { "name": "Sampler3" }
     ],
     "attributes": [
@@ -17,7 +18,6 @@
         { "name": "FogStart", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "FogEnd", "type": "float", "count": 1, "values": [ 1.0 ] },
         { "name": "FogShape", "type": "int", "count": 1, "values": [ 0 ] },
-        { "name": "Time", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "WorldOffset", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
         { "name": "WispScale", "type": "float", "count": 1, "values": [ 0.08 ] },
         { "name": "PixelsPerBlock", "type": "float", "count": 1, "values": [ 4.0 ] },
@@ -29,6 +29,11 @@
         { "name": "PlaneFadeStart", "type": "float", "count": 1, "values": [ 100000.0 ] },
         { "name": "PlaneFadeEnd", "type": "float", "count": 1, "values": [ 1000000.0 ] },
         { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1920.0, 1080.0 ] },
-        { "name": "DepthValid", "type": "float", "count": 1, "values": [ 1.0 ] }
+        { "name": "DepthValid", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "NoiseOrigin", "type": "float", "count": 2, "values": [ 0.0, 0.0 ] },
+        { "name": "NoiseCells", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "NoiseCellsPerBlock", "type": "float", "count": 1, "values": [ 4.0 ] },
+        { "name": "NoiseValid", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "NoiseTime", "type": "float", "count": 1, "values": [ 0.0 ] }
     ]
 }

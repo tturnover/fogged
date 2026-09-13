@@ -20,6 +20,10 @@ public class FogShaders {
     // Copies the main render target's depth by sampling it (see SceneDepth) instead of glBlitFramebuffer,
     // so it never depends on the source/destination depth formats matching.
     public static ShaderInstance DEPTH_COPY;
+    // Lays the murk fog over the finished frame under an Iris shader pack (see MurkComposite).
+    public static ShaderInstance MURK_COMPOSITE;
+    // Bakes the surface's noise fields into a texture (see NoiseField).
+    public static ShaderInstance NOISE_FIELD;
 
     // Monotonic wall clock for the surface boil. The game's per-frame partial tick can slip backward
     // between frames (esp. at uncapped FPS), which made the time-driven noise morph run forward then
@@ -48,5 +52,15 @@ public class FogShaders {
                         ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "depth_copy"),
                         DefaultVertexFormat.POSITION),
                 shader -> DEPTH_COPY = shader);
+        event.registerShader(
+                new ShaderInstance(event.getResourceProvider(),
+                        ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "murk_composite"),
+                        DefaultVertexFormat.POSITION),
+                shader -> MURK_COMPOSITE = shader);
+        event.registerShader(
+                new ShaderInstance(event.getResourceProvider(),
+                        ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "noise_field"),
+                        DefaultVertexFormat.POSITION),
+                shader -> NOISE_FIELD = shader);
     }
 }

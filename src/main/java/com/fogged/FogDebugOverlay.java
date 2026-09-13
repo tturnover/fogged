@@ -50,12 +50,24 @@ public final class FogDebugOverlay {
                 ? new Line(String.format("plane on  %s  fade end %.0f",
                         FogPlaneRenderer.lastBelow ? "below" : "above", FogPlaneRenderer.lastFadeEnd), OK)
                 : new Line("plane off (renderPlane)", BAD));
+        if (FogPlaneRenderer.lastThroughPack) {
+            lines.add(new Line("drawn through the Iris shader pack", PLAIN));
+        }
         lines.add(Config.PLANE_SOFT_OCCLUSION.getAsBoolean()
                 ? new Line(FogPlaneRenderer.lastDepthValid
                         ? "scene depth: captured" : "scene depth: UNAVAILABLE",
                         FogPlaneRenderer.lastDepthValid ? OK : BAD)
                 : new Line("scene depth: off (planeSoftOcclusion)", PLAIN));
-        lines.add(new Line("entity holes " + FogPlaneRenderer.lastHoles + "/32", PLAIN));
+        lines.add(new Line("entity holes " + FogPlaneRenderer.lastHoles + "/32  water boxes "
+                + FogPlaneRenderer.lastWaterBoxes + " of " + WaterlineMap.flowingColumnCount() + " columns", PLAIN));
+        lines.add(new Line(String.format("cpu plane stage %.2f ms = map %.2f + depth copy %.2f + water boxes %.2f + rest",
+                FogPlaneRenderer.lastStageMs, FogPlaneRenderer.lastMapMs, FogPlaneRenderer.lastCaptureMs,
+                FogPlaneRenderer.lastProxyMs), PLAIN));
+        lines.add(new Line(String.format("gpu plane stage %.2f ms  vapor (over) %.2f ms  murk composite %.2f ms (cpu %.2f)",
+                FogPlaneRenderer.gpu.lastMs, FogVapor.gpu.lastMs, MurkComposite.gpu.lastMs, MurkComposite.lastMs), PLAIN));
+        lines.add(new Line(String.format("map cpu: rescan reseed %.2f + chamfer %.2f ms; tick stamp %.2f + ease %.2f + upload %.2f ms",
+                WaterlineMap.lastReseedMs, WaterlineMap.lastChamferMs, WaterlineMap.lastStampMs,
+                WaterlineMap.lastEaseMs, WaterlineMap.lastUploadMs), PLAIN));
         lines.add(new Line(String.format("waterline %d blk @ %d cells/blk  tex %d",
                 WaterlineMap.size(), WaterlineMap.cellsPerBlock(), WaterlineMap.textureId()), PLAIN));
         lines.add(new Line("foam sites in " + FoamSites.cachedChunks() + " chunks", PLAIN));
@@ -64,6 +76,7 @@ public final class FogDebugOverlay {
                         + (Config.VAPOR_UNDERSIDE.getAsBoolean() ? " both sides" : "")
                         + (Config.VAPOR_UNDERWATER.getAsBoolean() ? " x2 (under water)" : "")
                 : "off (vaporSheets 0)"), PLAIN));
+        lines.add(fogLine());
         lines.add(mixinLine());
 
         int y = MARGIN;
@@ -74,6 +87,30 @@ public final class FogDebugOverlay {
         }
     }
 
+    // What the terrain shaders were actually handed at the last terrain draw, against what the config
+    // asks for. This is the line that separates "the murk reaches too far because nothing fogged the
+    // terrain" from "the murk reaches too far even though the terrain was fogged correctly" -- the
+    // first is a hook that lost (see FogModifier, SodiumCompatibility), the second is the screen-space
+    // pass. Shape matters as much as distance: a cylinder reaches 1.41x further looking down than a
+    // sphere of the same radius (see FogModifier.onRenderFog).
+    private static Line fogLine() {
+        String path = FogModifier.lastPath;
+        if (path == null) {
+            return new Line("terrain fog: no terrain hook has run"
+                    + (SodiumCompatibility.loaded() ? " (Sodium loaded)" : ""), BAD);
+        }
+        float want = Config.FOG_DISTANCE.getAsInt();
+        boolean fogged = Config.fogged(Minecraft.getInstance().level,
+                Minecraft.getInstance().gameRenderer.getMainCamera().getPosition().y);
+        // Off the murk side the fog is somebody else's and a mismatch means nothing.
+        boolean matches = !fogged
+                || (Math.abs(FogModifier.lastEnd - want) < 0.01F && FogModifier.lastShape == 0);
+        return new Line(String.format("terrain fog (%s): %.1f..%.1f %s  want %.1f..%.1f sphere",
+                path, FogModifier.lastStart, FogModifier.lastEnd,
+                FogModifier.lastShape == 0 ? "sphere" : FogModifier.lastShape == 1 ? "cylinder" : "?",
+                want * 0.25F, want), matches ? OK : BAD);
+    }
+
     // Which of the sky/weather/cloud suppression injectors have actually run this session. A hook that
     // never fires means another mod restructured LevelRenderer past it (see LevelRendererMixin), which
     // shows up in game as sky or rain bleeding through the murk.
@@ -82,9 +119,11 @@ public final class FogDebugOverlay {
                 + flag(" sky", MixinHealthCheck.skyFired)
                 + flag(" weather", MixinHealthCheck.weatherFired)
                 + flag(" rain", MixinHealthCheck.rainTickFired)
-                + flag(" clouds", MixinHealthCheck.cloudsFired);
+                + flag(" clouds", MixinHealthCheck.cloudsFired)
+                + (SodiumCompatibility.loaded() ? flag(" sodium", MixinHealthCheck.sodiumFogFired) : "");
         boolean all = MixinHealthCheck.skyFired && MixinHealthCheck.weatherFired
-                && MixinHealthCheck.rainTickFired && MixinHealthCheck.cloudsFired;
+                && MixinHealthCheck.rainTickFired && MixinHealthCheck.cloudsFired
+                && !SodiumCompatibility.hookMissing();
         return new Line(text, all ? OK : BAD);
     }
 

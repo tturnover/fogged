@@ -151,5 +151,6 @@ public class LevelRendererMixin {
                                        Matrix4f projectionMatrix, CallbackInfo ci) {
         MixinHealthCheck.terrainFogFired = true;
         FogModifier.enforceMurkFog();
+        FogModifier.sampleTerrainFog("vanilla");
     }
 }

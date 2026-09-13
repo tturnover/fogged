@@ -11,6 +11,14 @@ config="fogged.mixins.json"
 [[mixins]]
 config="fogged.particlerain.mixins.json"
 
+# Likewise optional: it targets Iris' shader compiler.
+[[mixins]]
+config="fogged.iris.mixins.json"
+
+# Likewise optional: it targets Sodium's terrain renderer.
+[[mixins]]
+config="fogged.sodium.mixins.json"
+
 [[mods]] #mandatory
 modId="${mod_id}" #mandatory
 version="${mod_version}" #mandatory

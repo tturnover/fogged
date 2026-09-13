@@ -16,11 +16,21 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 
-// Per-frame snapshot of the scene depth buffer, taken BEFORE the fog plane draws so it holds the
-// whole scene as it stands at that point -- terrain, entities, block entities and Flywheel's
-// instanced visuals -- but not the plane or its vapour. The plane and vapour shaders sample it to
-// soft-fade their alpha as they approach occluding geometry, so a block, shore, mob or machine
-// silhouette reads as a gradient instead of a hard depth cut.
+// Per-frame snapshot of the scene depth buffer in a texture of its own, taken just before the fog
+// plane draws so it holds the whole scene as it stands at that point -- terrain, entities, block
+// entities and Flywheel's instanced visuals -- but not the plane or its vapour. Water is drawn only
+// after the plane, so the plane adds the streams crossing the boundary to the snapshot itself, as
+// depth-only boxes drawn straight into this target (FogPlaneRenderer#waterDepthProxies, via
+// beginOverlay/endOverlay). The plane and vapour shaders sample it to soft-fade as they approach
+// occluding geometry, so a block, shore, mob, machine or falling stream silhouette reads as a
+// gradient instead of a hard depth cut. Retaken at the end of the frame by MurkComposite, which
+// needs the finished frame's depth in a texture it can safely sample.
+//
+// OPAQUE is a second snapshot from the same moment, kept as taken -- no streams -- for MurkComposite
+// under a shader pack: from inside the murk it says what lies behind a pixel of water, so the murk of
+// the world behind the water shows through it the way it does without a pack.
+
+
 //
 // The depth comes from whatever framebuffer is CURRENTLY BOUND FOR DRAWING, asked of GL directly,
 // not from Minecraft.getMainRenderTarget(). Those are not always the same buffer: vanilla itself
@@ -41,26 +51,29 @@ import net.minecraft.client.renderer.ShaderInstance;
 // working around one instance of it.
 public final class SceneDepth {
 
-    private static TextureTarget copy;
-    private static int w;
-    private static int h;
+    public static final SceneDepth SCENE = new SceneDepth();
+    public static final SceneDepth OPAQUE = new SceneDepth();
+
+    private TextureTarget copy;
+    private int w;
+    private int h;
 
     // Whether the last capture actually produced usable depth data. FogPlaneRenderer/FogVapor mirror
     // this into a shader uniform so soft occlusion degrades to "never occlude" instead of sampling
     // garbage when it's false, rather than the mod rendering incorrectly or spamming GL errors forever.
-    private static boolean depthAvailable = true;
+    private boolean depthAvailable = true;
     private static boolean loggedFailure = false;
 
     // Framebuffer the last capture read from (0 = the default framebuffer), so the capture can rebind
     // what it found rather than forcing main back into place.
-    private static int sourceFbo;
+    private int sourceFbo;
 
     private SceneDepth() {
     }
 
     // Depth texture of the framebuffer currently bound for drawing, or 0 if it has none we can sample
     // (no depth attachment at all, or a renderbuffer -- renderbuffers cannot be bound as a texture).
-    private static int boundDepthTexture() {
+    private int boundDepthTexture() {
         sourceFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         if (sourceFbo == 0) {
             return 0; // the default framebuffer's depth is never a texture we can sample
@@ -74,13 +87,12 @@ public final class SceneDepth {
                 GL30.GL_DEPTH_ATTACHMENT, GL30.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
     }
 
-    public static boolean depthAvailable() {
+    public boolean depthAvailable() {
         return depthAvailable;
     }
 
-    // Copy the current main depth buffer into our own target. Must be called on the render thread, after
-    // everything that can cross the boundary has drawn and BEFORE the plane itself does.
-    public static void capture() {
+    // Copy the current depth buffer into this snapshot's own target. Must be called on the render thread.
+    public void capture() {
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
         int mw = main.width;
         int mh = main.height;
@@ -104,6 +116,17 @@ public final class SceneDepth {
         if (depthTex == 0) {
             depthAvailable = false;
             logFailureOnce("no framebuffer in the pipeline exposes a sampleable depth texture");
+            return;
+        }
+
+        // Under an Iris shader pack the depth_copy draw below is a no-op: Iris turns off colour and
+        // depth writes for every shader that is not its own while it renders the world. The depth is
+        // still right there -- the pack's gbuffer framebuffer, bound at this point, carries the main
+        // target's depth texture as its depth attachment -- so copy it with the fixed-function path
+        // instead. glCopyTexSubImage2D reads the bound read framebuffer's depth into the bound texture
+        // and, unlike a blit, converts between depth formats rather than demanding they match.
+        if (IrisCompatibility.shaderPackActive()) {
+            copyFixedFunction(depthTex, mw, mh, resized);
             return;
         }
 
@@ -154,7 +177,63 @@ public final class SceneDepth {
         }
     }
 
-    public static int depthTextureId() {
+    private void copyFixedFunction(int depthTex, int mw, int mh, boolean resized) {
+        // A pack rendering at a scaled resolution has a smaller depth than main; the shaders map
+        // gl_FragCoord against the main size, so a copy of that would be read at the wrong scale.
+        GlStateManager._bindTexture(depthTex);
+        int sw = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
+        int sh = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+        if (sw != mw || sh != mh) {
+            depthAvailable = false;
+            logFailureOnce("the shader pack renders the world at a different resolution than the screen");
+            return;
+        }
+        int readFbo = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, sourceFbo);
+        GlStateManager._bindTexture(copy.getDepthTextureId());
+        GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, mw, mh);
+        GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFbo);
+        if (resized) {
+            int err = GL11.glGetError();
+            if (err != GL11.GL_NO_ERROR) {
+                depthAvailable = false;
+                logFailureOnce("GL error " + err + " while copying the shader pack's scene depth");
+            }
+        }
+    }
+
+    // Bind this snapshot's target for drawing, so more depth can be laid into it after the capture
+    // (FogPlaneRenderer#waterDepthProxies): depth-tested against what the capture holds, colour
+    // writes off. endOverlay puts back the framebuffer that was bound. False when there is no
+    // usable snapshot to draw into.
+    public boolean beginOverlay() {
+        if (!depthAvailable || copy == null) {
+            return false;
+        }
+        overlayFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, copy.frameBufferId);
+        GlStateManager._viewport(0, 0, w, h);
+        RenderSystem.colorMask(false, false, false, false);
+        RenderSystem.depthMask(true);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        return true;
+    }
+
+    private int overlayFbo;
+
+    public void endOverlay() {
+        RenderSystem.colorMask(true, true, true, true);
+        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, overlayFbo);
+        GlStateManager._viewport(0, 0, w, h);
+    }
+
+    /** The snapshot's own framebuffer, for a draw that must be rebound to it after a shader's apply(). */
+    public int frameBufferId() {
+        return copy == null ? 0 : copy.frameBufferId;
+    }
+
+    public int depthTextureId() {
         return copy == null ? 0 : copy.getDepthTextureId();
     }
 

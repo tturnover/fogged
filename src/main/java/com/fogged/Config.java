@@ -36,9 +36,12 @@ public class Config {
     //   FogPlaneRenderer.NOISE_ANCHOR (4096.0)
     //     == fog_plane.fsh  NOISE_PERIOD_BLOCKS
     //     == fog_vapor.fsh  NOISE_PERIOD_BLOCKS
+    //     == noise_field.fsh  NOISE_PERIOD_BLOCKS
+    //     == IrisShaderPatcher's NOISE_PERIOD_BLOCKS header line
     //   FogPlaneRenderer.MAX_ENTITY_HOLES (32)
     //     == fog_plane.fsh  entity-hole loop bound (`for (int i = 0; i < 32; i++)`)
     //     == fog_plane.json / fog_plane.fsh  EntityHoles[128] (== MAX_ENTITY_HOLES * 4)
+    //     == fogged_iris.glsl  fogged_Holes[32] / its loop bound
     //   Config.DebugView ordinals
     //     == fog_plane.fsh  DebugView uniform (0 = off, then one branch per constant, in order)
     // WaterlineMap's cellsPerBlock resolution is NOT in this list: it's threaded to the shaders as the
@@ -495,9 +498,10 @@ public class Config {
     public static final ModConfigSpec.BooleanValue PLANE_SOFT_OCCLUSION = CLIENT
             .comment("EXPERIMENTAL. Soft-fade the plane and vapour against the silhouettes of blocks, mobs",
                     "and machines instead of a hard depth cut (uses a per-frame scene-depth snapshot -- see",
-                    "SceneDepth), and open a soft disc around every entity crossing the boundary so it is",
-                    "not sliced by the surface. Off skips the snapshot and the per-frame entity scan both",
-                    "(a small perf win) and cuts every edge hard.",
+                    "SceneDepth), open a soft disc around every entity crossing the boundary so it is",
+                    "not sliced by the surface. Water counts like a block here: a fall or a current",
+                    "crossing the boundary dissolves the surface around it too. Off skips the snapshot",
+                    "and the per-frame entity scan both (a small perf win) and cuts every edge hard.",
                     "Experimental because it depends on reading the depth buffer of whatever",
                     "framebuffer the pipeline is drawing into, which other rendering mods and shader packs",
                     "are free to move or replace: where that fails the fade is wrong, or the whole plane is.",
@@ -505,11 +509,53 @@ public class Config {
                     "off first when the murk looks wrong under another rendering mod.")
             .define("planeSoftOcclusion", false);
 
+    public static final ModConfigSpec.DoubleValue MURK_DARKNESS = CLIENT
+            .comment("The surface's shadow, 0 to 1: how much darker the world under the boundary is drawn,",
+                    "by how deep under it each thing lies (full a few blocks down), seen from either side,",
+                    "so sunlit ground and a shader pack's sunlight do not stay bright under the murk.",
+                    "0 leaves the lighting alone.")
+            .defineInRange("murkDarkness", 0.35, 0.0, 1.0);
+
     public static final ModConfigSpec.IntValue WATERLINE_CELLS_PER_BLOCK = CLIENT
             .comment("Sub-block resolution of the foam distance-field grid (see WaterlineMap), in cells",
                     "per block. Lower trades a coarser foam ring for a smaller grid: halving this quarters",
                     "the cost of every per-tick foam pass (recompute / chamfer / ease / upload).")
             .defineInRange("waterlineCellsPerBlock", 4, 1, 4);
+
+    // ---- client [plane.dither] : the screen-door dither ----
+    static {
+        CLIENT.comment("The pixel dither: how the plane thins out around the camera, and the grain of every",
+                "dithered edge. Under an Iris shader pack this is also how the whole murk is drawn.");
+        CLIENT.push("dither");
+    }
+
+    public static final ModConfigSpec.BooleanValue PLANE_NEAR_DITHER = CLIENT
+            .comment("Dissolve the plane into a pixel dither as the camera comes close to it, so the",
+                    "surface opens up around the eye instead of snapping in as a hard sheet the moment",
+                    "the head crosses it. The same near-camera dither Block Dithering gives blocks.")
+            .define("planeNearDither", true);
+
+    public static final ModConfigSpec.DoubleValue NEAR_DITHER_START = CLIENT
+            .comment("Distance from the camera (in blocks) inside which the plane is thinned all the way",
+                    "down to nearDitherMinVisibility.")
+            .defineInRange("nearDitherStart", 0.5, 0.0, 32.0);
+
+    public static final ModConfigSpec.DoubleValue NEAR_DITHER_END = CLIENT
+            .comment("Distance from the camera (in blocks) beyond which the plane is solid again. Clamped",
+                    "up to nearDitherStart if set below it.")
+            .defineInRange("nearDitherEnd", 4.0, 0.0, 64.0);
+
+    public static final ModConfigSpec.DoubleValue NEAR_DITHER_MIN_VISIBILITY = CLIENT
+            .comment("How much of the plane is left right at the camera, 0 to 1: 0 opens it fully, 1",
+                    "never thins it at all.")
+            .defineInRange("nearDitherMinVisibility", 0.25, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue DITHER_PIXEL_SIZE = CLIENT
+            .comment("Screen pixels per dither cell. 1 is a fine screen-door; larger is chunkier and",
+                    "closer to the blocky look of the foam.")
+            .defineInRange("ditherPixelSize", 2, 1, 8);
+
+    static { CLIENT.pop(); }   // [plane.dither]
 
     // ---- client [plane.vapor] : cold-vapour ("liquid nitrogen") layer ----
     static {

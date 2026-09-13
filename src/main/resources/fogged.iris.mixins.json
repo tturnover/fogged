@@ -1,0 +1,13 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.fogged.mixin.compat",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "IrisTransformPatcherMixin",
+    "IrisPipelineMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

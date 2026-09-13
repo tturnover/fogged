@@ -72,6 +72,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.shape", "How They Are Built");
         add("fogged.configuration.surface", "What Covers Them");
         add("fogged.configuration.plane", "Separation Plane");
+        add("fogged.configuration.dither", "Pixel Dither");
         add("fogged.configuration.vapor", "Cold Vapour");
         add("fogged.configuration.debug", "Debug");
         cfg("planeHeightSchedule", "Boundary Height Schedule",
@@ -102,6 +103,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.shape.tooltip", "What one tower is built out of, and the range of builds a group draws from.");
         add("fogged.configuration.surface.tooltip", "Everything laid over the bare rock: its bedding, the scree at its foot, and what grows or freezes on it.");
         add("fogged.configuration.plane.tooltip", "The murk's visible surface: its colour, the foam along its waterline, and how it meets the blocks that cross it. Yours alone; a server cannot dictate it.");
+        add("fogged.configuration.dither.tooltip", "The pixel dither: how the plane thins out around the camera, and the grain of every dithered edge. Under an Iris shader pack this is also how the whole murk is drawn.");
         add("fogged.configuration.vapor.tooltip", "The cold-vapour layer: stacked mist sheets over the surface, terraced by a noise field so the plane never reads as dead flat.");
         add("fogged.configuration.debug.tooltip", "Ways of seeing what the renderer is doing: raw views of the buffers behind the murk, a readout of its state, and whether compatibility trouble is logged.");
         add("fogged.configuration.group.murkActions.tooltip", "Three switches over everything the murk does to blocks and items, each one governing the list of the same name below.");
@@ -222,12 +224,26 @@ public class ModLanguageProvider extends LanguageProvider {
         cfg("sableFoam", "Sable Sub-Level Foam",
                 "Also ring Sable ships and contraptions with foam. No effect without Sable installed.");
         cfg("planeSoftOcclusion", "Soft Occlusion Edge (experimental)",
-                "Dissolve the plane against blocks, mobs and machines instead of cutting them hard at the "
-                        + "boundary, and open a soft disc around each entity crossing it. Experimental, and "
+                "Dissolve the plane against blocks, mobs, machines and flowing water instead of cutting them "
+                        + "hard at the boundary, and open a soft disc around each entity crossing it. Experimental, and "
                         + "off by default: it reads the scene's depth buffer, which other rendering mods "
                         + "can move or replace. Turn it back off first if the murk looks wrong.");
+        cfg("murkDarkness", "Murk Darkness",
+                "The surface's shadow: how much darker the world under the boundary is drawn, by how deep under "
+                        + "it each thing lies, from either side. 0 leaves the lighting alone.");
         cfg("waterlineCellsPerBlock", "Foam Grid Resolution",
                 "Cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper.");
+        cfg("planeNearDither", "Near-Camera Dither",
+                "Dissolve the plane into a pixel dither as the camera comes close, so the surface opens "
+                        + "up around the eye instead of snapping in as a hard sheet when the head crosses it.");
+        cfg("nearDitherStart", "Dither Start Distance",
+                "Inside this many blocks of the camera the plane is thinned all the way to its minimum visibility.");
+        cfg("nearDitherEnd", "Dither End Distance",
+                "Beyond this many blocks the plane is solid again.");
+        cfg("nearDitherMinVisibility", "Dither Minimum Visibility",
+                "How much of the plane is left right at the camera: 0 opens it fully, 1 never thins it.");
+        cfg("ditherPixelSize", "Dither Pixel Size",
+                "Screen pixels per dither cell. 1 is a fine screen-door; larger is chunkier, closer to the foam's look.");
         cfg("vaporColorOffsetRed", "Vapour Red Offset",
                 "Red added to the plane colour to get the vapour colour.");
         cfg("vaporColorOffsetGreen", "Vapour Green Offset",

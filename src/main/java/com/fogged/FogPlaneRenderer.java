@@ -13,13 +13,17 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.FogType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -30,16 +34,23 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 //
 // Drawn after terrain, entities, block entities and Flywheel's instanced visuals, but BEFORE the
 // translucent water pass. It writes depth, so the passes that follow are depth-tested against it:
-// far-side water below is culled by it, while near-side water still sorts over it. Everything
-// already drawn is simply painted over where the plane is nearer -- terrain, mobs and machines on
-// the far side all disappear behind the murk the same way.
+// far-side water below is culled by it, while near-side water still blends over it -- which is what
+// keeps the plane visible through a lake. Everything already drawn is simply painted over where the
+// plane is nearer -- terrain, mobs and machines on the far side all disappear behind the murk the
+// same way. Water still reaches the depth snapshot the soft edge reads, as depth-only boxes for the
+// streams crossing the boundary (waterDepthProxies), so a fall or a current dissolves the surface
+// exactly like a block does.
 //
-// The plane may only write depth where it is fully SOLID, so it is drawn twice (see drawQuad / the
-// DepthPass uniform): the solid core with depth writes on, then everything the shader softens --
-// the occlusion dissolve, the dissolve holes, the far rim and camera-height falloff -- with them
-// off. A single depth-writing draw made the plane see-through while it still culled the translucent
-// water pass and everything else drawn after it, and the vertical part of the fade did that to the
-// entire plane at once as soon as the camera climbed above PlaneFadeStart.
+// One depth-writing draw, in which everything the shader softens -- the occlusion dissolve, the
+// dissolve holes, the near-camera dither, the far rim and camera-height falloff -- is a Bayer
+// discard rather than alpha (see the shader for why): a pixel either survives, solid, and writes
+// depth, or is dropped and writes nothing, so the plane never occludes what the player can see
+// through it.
+//
+// Under an Iris shader pack none of this mod's shaders may draw (see IrisCompatibility), so the plane
+// goes through the pack's own program instead (drawThroughPack): the same one depth-writing draw,
+// its colour a baked foam map and its softening the same Bayer discard, by code spliced into that
+// program.
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public class FogPlaneRenderer {
 
@@ -66,6 +77,14 @@ public class FogPlaneRenderer {
     static int lastHoles;
     static boolean lastDepthValid;
     static boolean lastDrawn;
+    static boolean lastThroughPack;
+    static int lastWaterBoxes;
+    // Wall times of this stage's handler last frame, for the debug HUD: whole, and its parts.
+    static double lastStageMs;
+    static double lastMapMs;
+    static double lastCaptureMs;
+    static double lastProxyMs;
+    static final GpuTimer gpu = new GpuTimer();
 
     @SubscribeEvent
     static void onRenderLevelStage(RenderLevelStageEvent event) {
@@ -73,24 +92,23 @@ public class FogPlaneRenderer {
         if (mc.level == null) {
             return;
         }
-        if (!Config.RENDER_PLANE.getAsBoolean()) {
-            lastDrawn = false;
+        // Iris drives its shadow pass through the level renderer's own methods, not renderLevel, so
+        // these stages should never fire inside it -- but a render-distance-wide opaque sheet in a
+        // pack's shadow map blacks out the whole world under it, so make sure.
+        if (IrisCompatibility.renderingShadowPass()) {
             return;
         }
-        lastDrawn = true;
 
         // Draw the plane before the translucent water pass and let it write depth, so it reads as a
         // solid murk barrier: real water on the far side of the plane (deep water below it when looking
         // down, the surface above it when submerged) is depth-culled and hidden, while near-side water
-        // still sorts over it. Terrain, drawn earlier, occludes the plane normally.
+        // still blends over it. Terrain, drawn earlier, occludes the plane normally.
         //
-        // AFTER_BLOCK_ENTITIES is the LAST stage before that water pass, and everything that can cross
-        // the boundary is already in the depth buffer by then: the entity solid/cutout batches, the
+        // AFTER_BLOCK_ENTITIES is the LAST stage before that water pass, and everything opaque that
+        // can cross the boundary is already in the depth buffer by then: the entity batches, the
         // block-entity pass, and Flywheel's instanced visuals (it dispatches at the "blockentities"
-        // profiler push, just ahead of vanilla's own block entities). That is what the soft-occlusion
-        // edge needs -- SceneDepth is captured right here, so a mob or a Create machine crossing the
-        // plane dissolves into the murk exactly like a terrain block does. Captured any earlier the
-        // snapshot holds terrain only, and everything else gets razor-cut at the boundary instead.
+        // profiler push, just ahead of vanilla's own block entities). Water is not; the streams that
+        // matter are added to the snapshot below.
         //
         // The plane sat at AFTER_CUTOUT_BLOCKS for this reason: a Sable sub-level above the boundary
         // has to still render over the fog rather than be painted over by it. It is drawn well before
@@ -99,6 +117,27 @@ public class FogPlaneRenderer {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
             return;
         }
+        if (!Config.RENDER_PLANE.getAsBoolean()) {
+            lastDrawn = false;
+            return;
+        }
+        lastDrawn = true;
+        boolean hud = Config.DEBUG_HUD.getAsBoolean();
+        long stageStart = System.nanoTime();
+        if (hud) {
+            gpu.begin();
+        }
+        boolean softEdges = Config.PLANE_SOFT_OCCLUSION.getAsBoolean();
+        boolean pack = IrisCompatibility.shaderPackActive();
+        lastThroughPack = pack;
+
+        // Flush what the block-entity pass has only buffered so far. NeoForge fires this stage after
+        // the solid and sheet batches are drawn but before the rest -- RenderType.cutout() among them,
+        // which is what Create's kinetic renderers put their moving parts in -- and vanilla only
+        // draws those just before the translucent terrain. Until they are drawn they are in neither
+        // the depth buffer nor the snapshot taken below, so they were painted after the plane, over
+        // it, crisp through every dithered hole. (Iris flushes these itself.)
+        mc.renderBuffers().bufferSource().endBatch();
 
         Vec3 cam = event.getCamera().getPosition();
         double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
@@ -113,21 +152,48 @@ public class FogPlaneRenderer {
         // Keep the world-space waterline foam map up to date around the camera. Its radius follows the
         // render distance so the foam covers the part of the plane that is actually visible.
         int mapBlocks = mc.options.getEffectiveRenderDistance() * 16;
-        WaterlineMap.update(mc.level, cam, Mth.floor(surfaceY), mapBlocks);
+        // The pack path draws the foam as a texture, so it asks the map for its baked colour copy too.
+        long t0 = System.nanoTime();
+        WaterlineMap.update(mc.level, cam, Mth.floor(surfaceY), mapBlocks, pack);
+        lastMapMs = (System.nanoTime() - t0) / 1.0e6;
 
-        // Snapshot the scene depth BEFORE drawing the plane, so the plane and the later vapour pass can
-        // soft-fade against occluding geometry (the plane writes depth, so sampling the live depth buffer
-        // would be a read/write feedback loop). At this stage that snapshot covers mobs and machines as
-        // well as terrain, which is what softens their cut at the boundary. Reused by FogVapor. Skipped entirely when soft occlusion
-        // is disabled by config -- the only case where capturing it buys nothing this frame.
-        boolean wantSoftOcclusion = Config.PLANE_SOFT_OCCLUSION.getAsBoolean();
-        if (wantSoftOcclusion) {
-            SceneDepth.capture();
+        // Snapshot the scene depth BEFORE drawing the plane, so the plane and the vapour can soft-fade
+        // against occluding geometry (the plane writes depth, so sampling the live depth buffer would
+        // be a read/write feedback loop). Water is drawn only after the plane, so on its own the
+        // snapshot would never hold it and a fall or a current would be cut hard at the surface: the
+        // streams crossing the boundary are drawn into the snapshot afterwards, depth only, as boxes.
+        // Skipped when soft occlusion is disabled by config, where capturing it buys nothing this frame.
+        //
+        // Under a shader pack the snapshot is taken by a fixed-function copy (SceneDepth) and read by
+        // the code spliced into the pack's program, where it comes out as a dither around every edge.
+        lastCaptureMs = 0.0;
+        lastProxyMs = 0.0;
+        if (pack) {
+            SceneDepth.OPAQUE.capture(); // for MurkComposite (see SceneDepth.OPAQUE)
+        }
+        if (softEdges) {
+            t0 = System.nanoTime();
+            SceneDepth.SCENE.capture();
+            long t1 = System.nanoTime();
+            waterDepthProxies(mc, event.getModelViewMatrix(), cam, Mth.floor(surfaceY));
+            lastCaptureMs = (t1 - t0) / 1.0e6;
+            lastProxyMs = (System.nanoTime() - t1) / 1.0e6;
         }
         // Degrades to "never occlude" in the shader (see fogged_softOcclusion) rather than sampling
         // stale/garbage depth when occlusion is off or the capture above failed (see SceneDepth).
-        float depthValid = wantSoftOcclusion && SceneDepth.depthAvailable() ? 1.0F : 0.0F;
+        float depthValid = softEdges && SceneDepth.SCENE.depthAvailable() ? 1.0F : 0.0F;
         lastDepthValid = depthValid > 0.0F;
+
+        // Per-entity dissolve discs so crossing mobs and machines poke through instead of being
+        // hard-cut. They ride the same switch as the depth-buffer fade (planeSoftOcclusion): both are
+        // the same idea -- soften what the boundary cuts -- and off means a hard cut for everything,
+        // with the per-frame entity scan here skipped as well.
+        int holes = softEdges ? gatherEntityHoles(mc.level, cam, surfaceY) : 0;
+        lastHoles = holes;
+
+        // Fade the rim out so the plane never shows past where the world fades away (visibleReach).
+        float fadeEnd = visibleReach(mc, event.getCamera(), below);
+        lastFadeEnd = fadeEnd;
 
         float[] plane = Config.planeColor();
         float r = plane[0];
@@ -137,6 +203,15 @@ public class FogPlaneRenderer {
         // as murk (a low config alpha made it look like clear glass up close).
 
         float s = mc.options.getEffectiveRenderDistance() * 16.0F + 32.0F;
+
+        if (pack) {
+            drawThroughPack(mc, event.getModelViewMatrix(), cam, relY, below, s, fadeEnd, holes, depthValid, r, g, b);
+            lastStageMs = (System.nanoTime() - stageStart) / 1.0e6;
+            if (hud) {
+                gpu.end();
+            }
+            return;
+        }
 
         // The shader anchors foam in world space via worldXZ = Position.xz + WorldOffset, so the
         // Position attribute must stay raw camera-relative coords with the camera rotation living in
@@ -149,12 +224,11 @@ public class FogPlaneRenderer {
         RenderSystem.defaultBlendFunc();
         RenderSystem.enableDepthTest(); // terrain occludes the plane
         RenderSystem.depthMask(true);   // opaque murk: write depth so far-side water is culled by it
-                                        // (the soft pass below turns this back off -- see drawQuad)
         RenderSystem.disableCull();     // visible from both sides
 
         // Sampler0 = waterline map (foam rings). Sampler3 = scene depth snapshot for soft edges.
         RenderSystem.setShaderTexture(0, WaterlineMap.textureId());
-        RenderSystem.setShaderTexture(3, SceneDepth.depthTextureId());
+        RenderSystem.setShaderTexture(3, SceneDepth.SCENE.depthTextureId());
 
         // Our shader once loaded; fall back to the plain one otherwise.
         ShaderInstance shader = FogShaders.FOG_PLANE;
@@ -171,9 +245,11 @@ public class FogPlaneRenderer {
             double ax = Math.rint(cam.x / NOISE_ANCHOR) * NOISE_ANCHOR;
             double az = Math.rint(cam.z / NOISE_ANCHOR) * NOISE_ANCHOR;
             shader.safeGetUniform("WorldOffset").set((float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
-            shader.safeGetUniform("Time").set(FogShaders.animTimeSeconds()); // monotonic boil clock
             shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
             shader.safeGetUniform("DebugView").set(Config.DEBUG_VIEW.get().ordinal());
+            // The baked noise fields, for the surface spots (see NoiseField).
+            RenderSystem.setShaderTexture(1, NoiseField.textureId());
+            setNoiseUniforms(shader, ax, az);
             float[] foam = Config.foamColor();
             shader.safeGetUniform("FoamColor").set(foam[0], foam[1], foam[2], foam[3]);
             // Where the waterline map sits in the world, and how its stored distance is scaled.
@@ -182,9 +258,6 @@ public class FogPlaneRenderer {
             shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
             // Foam/spot pixel-snap grid must match the map's actual resolution (Config.waterlineCellsPerBlock).
             shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
-            // Fade the rim out so the plane never shows past where the world fades away (visibleReach).
-            float fadeEnd = visibleReach(mc, event.getCamera(), below);
-            lastFadeEnd = fadeEnd;
             shader.safeGetUniform("PlaneFadeStart").set(fadeEnd * 0.8F);
             shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
             // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
@@ -193,14 +266,12 @@ public class FogPlaneRenderer {
             // Dissolve holes only on the fogged side: from the dry side they'd be a clear window down
             // through the murk. On the fogged side the revealed content is hidden by the murk fog.
             shader.safeGetUniform("HolesActive").set(below ? 1.0F : 0.0F);
-            // Per-entity dissolve discs so crossing mobs and machines poke through instead of being
-            // hard-cut. They ride the same switch as the depth-buffer fade (planeSoftOcclusion): both
-            // are the same idea -- soften what the boundary cuts -- and off means a hard cut for
-            // everything, with the per-frame entity scan below skipped as well.
-            int holes = wantSoftOcclusion ? gatherEntityHoles(mc.level, cam, surfaceY) : 0;
-            lastHoles = holes;
             shader.safeGetUniform("EntityHoleCount").set(holes);
             shader.safeGetUniform("EntityHoles").set(entityHoleBuf);
+            // Near-camera dither (see the shader), as the pack path gets it too.
+            float[] nd = nearDither();
+            shader.safeGetUniform("NearDither").set(nd[0], nd[1], nd[2], nd[3]);
+            shader.safeGetUniform("DitherPixelSize").set((float) Config.DITHER_PIXEL_SIZE.getAsInt());
         } else {
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
         }
@@ -227,22 +298,7 @@ public class FogPlaneRenderer {
         mvStack.set(view);
         RenderSystem.applyModelViewMatrix();
 
-        // Two passes over the same quad, split in the shader by the plane's own opacity (DepthPass): the
-        // solid core keeps the depth write that makes the plane a murk barrier, then every softened
-        // fragment -- occlusion dissolve, dissolve holes, the far rim -- is blended with depth writes
-        // off, so nothing the player can see through goes on hiding what is behind it. That split is
-        // also what lets the softness be plain alpha instead of a screen-door dither (see the shader).
-        // Without the shader the fallback has no DepthPass uniform, so it stays one opaque draw.
-        if (shader != null) {
-            shader.safeGetUniform("DepthPass").set(1.0F);
-            drawQuad(s, relY, r, g, b);
-
-            RenderSystem.depthMask(false);
-            shader.safeGetUniform("DepthPass").set(0.0F);
-            drawQuad(s, relY, r, g, b);
-        } else {
-            drawQuad(s, relY, r, g, b);
-        }
+        drawQuad(s, relY, r, g, b);
 
         mvStack.popMatrix();
         RenderSystem.applyModelViewMatrix();
@@ -258,10 +314,13 @@ public class FogPlaneRenderer {
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();
         RenderSystem.disableBlend();
+        lastStageMs = (System.nanoTime() - stageStart) / 1.0e6;
+        if (hud) {
+            gpu.end();
+        }
     }
 
-    // One camera-centred quad at the boundary height, opaque (see the note on config alpha above):
-    // both plane passes emit exactly this, differing only in the DepthPass uniform and the depth mask.
+    // One camera-centred quad at the boundary height, opaque (see the note on config alpha above).
     private static void drawQuad(float s, float relY, float r, float g, float b) {
         float va = 1.0F;
         Tesselator tess = Tesselator.getInstance();
@@ -271,6 +330,278 @@ public class FogPlaneRenderer {
         bb.addVertex(s, relY, s).setColor(r, g, b, va);
         bb.addVertex(s, relY, -s).setColor(r, g, b, va);
         BufferUploader.drawWithShader(bb.buildOrThrow());
+    }
+
+    // Add the water crossing the boundary to the depth snapshot: every column the waterline map found
+    // crossing liquid in at the boundary row (a stream, or standing water open to the air -- see
+    // WaterlineMap), within reach of the camera, as one depth-only box per liquid block a few rows
+    // either side of the surface -- the rows the soft edge can see. Drawn
+    // straight into the snapshot's target, depth-tested against what it already holds, so the live
+    // depth buffer is never touched and the plane and the real water pass sort exactly as before.
+    //
+    // Re-rendering the whole translucent layer for this was tried and was far too dear at a large
+    // render distance; a few dozen boxes cost nothing. Each box's top is the fluid surface as the
+    // liquid renderer draws it -- the four corner heights averaged from the neighbours, so a spreading
+    // current is a ramp and not a stair -- and a fall is the full block. Anything else the soft edge
+    // reads as a step the water does not have, and lets the murk show at the mismatch.
+    private static final int WATER_PROXY_RANGE = 48;  // blocks from the camera, horizontally
+    private static final int WATER_PROXY_ROWS = 4;    // rows either side of the boundary row
+
+    private static void waterDepthProxies(Minecraft mc, Matrix4f view, Vec3 cam, int boundaryY) {
+        int count = WaterlineMap.flowingColumnCount();
+        if (count == 0 || !SceneDepth.SCENE.beginOverlay()) {
+            return;
+        }
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        int boxes = 0;
+        for (int i = 0; i < count; i++) {
+            int bx = WaterlineMap.flowingColumnX(i);
+            int bz = WaterlineMap.flowingColumnZ(i);
+            if (Math.abs(bx + 0.5 - cam.x) > WATER_PROXY_RANGE || Math.abs(bz + 0.5 - cam.z) > WATER_PROXY_RANGE) {
+                continue;
+            }
+            for (int by = boundaryY - WATER_PROXY_ROWS; by <= boundaryY + WATER_PROXY_ROWS; by++) {
+                pos.set(bx, by, bz);
+                FluidState fluid = mc.level.getFluidState(pos);
+                if (fluid.isEmpty()) {
+                    continue;
+                }
+                float x0 = (float) (bx - cam.x);
+                float y0 = (float) (by - cam.y);
+                float z0 = (float) (bz - cam.z);
+                fluidCorners(mc.level, pos, fluid.getType(), corners);
+                box(bb, x0, y0, z0, x0 + 1.0F, z0 + 1.0F, corners);
+                boxes++;
+            }
+        }
+        lastWaterBoxes = boxes;
+        if (boxes > 0) {
+            Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+            mvStack.pushMatrix();
+            mvStack.set(view);
+            RenderSystem.applyModelViewMatrix();
+            RenderSystem.disableCull();
+            RenderSystem.setShader(GameRenderer::getPositionShader);
+            // Vanilla's position shader; under a pack Iris hands out its own replacement, whose apply()
+            // binds the pack's framebuffer, so the draw is rebound to the snapshot in between.
+            IrisCompatibility.drawInto(bb.buildOrThrow(), RenderSystem.getShader(), SceneDepth.SCENE.frameBufferId());
+            RenderSystem.enableCull();
+            mvStack.popMatrix();
+            RenderSystem.applyModelViewMatrix();
+        } else {
+            bb.build(); // nothing emitted: release the builder
+        }
+        SceneDepth.SCENE.endOverlay();
+    }
+
+    // Scratch for fluidCorners: the surface height at the block's NW, SW, SE and NE corners.
+    private static final float[] corners = new float[4];
+
+    // A fluid block's four corner heights as LiquidBlockRenderer computes them (its getHeight /
+    // calculateAverageHeight, corner order as its top-face vertices): a block with the same fluid
+    // above is full; otherwise each corner averages the own height with the two edge neighbours and
+    // the diagonal, weighting anything at 0.8 or above ten times, so a current ramps down smoothly.
+    private static void fluidCorners(ClientLevel level, BlockPos pos, Fluid fluid, float[] out) {
+        float own = fluidHeight(level, pos, fluid);
+        if (own >= 1.0F) {
+            java.util.Arrays.fill(out, 1.0F);
+            return;
+        }
+        float n = fluidHeight(level, pos.north(), fluid);
+        float s = fluidHeight(level, pos.south(), fluid);
+        float e = fluidHeight(level, pos.east(), fluid);
+        float w = fluidHeight(level, pos.west(), fluid);
+        out[0] = cornerHeight(level, fluid, own, n, w, pos.north().west()); // NW (x0, z0)
+        out[1] = cornerHeight(level, fluid, own, s, w, pos.south().west()); // SW (x0, z1)
+        out[2] = cornerHeight(level, fluid, own, s, e, pos.south().east()); // SE (x1, z1)
+        out[3] = cornerHeight(level, fluid, own, n, e, pos.north().east()); // NE (x1, z0)
+    }
+
+    // LiquidBlockRenderer#getHeight: 1 under more of the same fluid, the fluid's own height in it,
+    // 0 in air and anything else non-solid, -1 (ignored) in a solid.
+    private static float fluidHeight(ClientLevel level, BlockPos pos, Fluid fluid) {
+        var state = level.getBlockState(pos);
+        var fluidState = state.getFluidState();
+        if (fluid.isSame(fluidState.getType())) {
+            return fluid.isSame(level.getBlockState(pos.above()).getFluidState().getType()) ? 1.0F : fluidState.getOwnHeight();
+        }
+        return state.isSolid() ? -1.0F : 0.0F;
+    }
+
+    // LiquidBlockRenderer#calculateAverageHeight with addWeightedHeight inlined.
+    private static float cornerHeight(ClientLevel level, Fluid fluid, float own, float edge1, float edge2, BlockPos diagonal) {
+        if (edge1 >= 1.0F || edge2 >= 1.0F) {
+            return 1.0F;
+        }
+        cornerSum = 0.0F;
+        cornerWeight = 0.0F;
+        if (edge1 > 0.0F || edge2 > 0.0F) {
+            float d = fluidHeight(level, diagonal, fluid);
+            if (d >= 1.0F) {
+                return 1.0F;
+            }
+            weigh(d);
+        }
+        weigh(own);
+        weigh(edge2);
+        weigh(edge1);
+        return cornerSum / cornerWeight;
+    }
+
+    private static float cornerSum;
+    private static float cornerWeight;
+
+    private static void weigh(float h) {
+        if (h >= 0.8F) {
+            cornerSum += h * 10.0F;
+            cornerWeight += 10.0F;
+        } else if (h >= 0.0F) {
+            cornerSum += h;
+            cornerWeight += 1.0F;
+        }
+    }
+
+    // A fluid block as depth-only geometry: flat bottom, the top through the four corner heights (a
+    // bilinear quad, as the liquid renderer draws it), sides up to the corners. Culling is off, so
+    // winding is free.
+    private static void box(BufferBuilder bb, float x0, float y0, float z0, float x1, float z1, float[] c) {
+        float nw = y0 + c[0];
+        float sw = y0 + c[1];
+        float se = y0 + c[2];
+        float ne = y0 + c[3];
+        bb.addVertex(x0, y0, z0); bb.addVertex(x1, y0, z0); bb.addVertex(x1, y0, z1); bb.addVertex(x0, y0, z1); // bottom
+        bb.addVertex(x0, nw, z0); bb.addVertex(x0, sw, z1); bb.addVertex(x1, se, z1); bb.addVertex(x1, ne, z0); // top
+        bb.addVertex(x0, y0, z0); bb.addVertex(x0, nw, z0); bb.addVertex(x1, ne, z0); bb.addVertex(x1, y0, z0); // north
+        bb.addVertex(x0, y0, z1); bb.addVertex(x1, y0, z1); bb.addVertex(x1, se, z1); bb.addVertex(x0, sw, z1); // south
+        bb.addVertex(x0, y0, z0); bb.addVertex(x0, y0, z1); bb.addVertex(x0, sw, z1); bb.addVertex(x0, nw, z0); // west
+        bb.addVertex(x1, y0, z0); bb.addVertex(x1, ne, z0); bb.addVertex(x1, se, z1); bb.addVertex(x1, y0, z1); // east
+    }
+
+    // Hand a core shader the baked noise fields (see NoiseField): where the texture sits, anchored as
+    // the shader's worldXZ is, and the clock it was baked at for the shader's fallback to match.
+    static void setNoiseUniforms(ShaderInstance shader, double ax, double az) {
+        boolean valid = NoiseField.valid();
+        shader.safeGetUniform("NoiseValid").set(valid ? 1.0F : 0.0F);
+        shader.safeGetUniform("NoiseOrigin").set((float) (NoiseField.originX() - ax), (float) (NoiseField.originZ() - az));
+        shader.safeGetUniform("NoiseCells").set((float) NoiseField.cells());
+        shader.safeGetUniform("NoiseCellsPerBlock").set((float) NoiseField.cellsPerBlock());
+        shader.safeGetUniform("NoiseTime").set(valid ? NoiseField.time() : FogShaders.animTimeSeconds());
+        shader.safeGetUniform("WispScale").set(FogVapor.WISP_SCALE);
+    }
+
+    // The near-camera dither's shader parameters: start, end, min visibility, enabled. The end is kept
+    // past the start so the smoothstep between them is well defined.
+    static float[] nearDither() {
+        float start = (float) (double) Config.NEAR_DITHER_START.get();
+        float end = Math.max((float) (double) Config.NEAR_DITHER_END.get(), start + 0.01F);
+        return new float[] { start, end, (float) (double) Config.NEAR_DITHER_MIN_VISIBILITY.get(),
+                Config.PLANE_NEAR_DITHER.getAsBoolean() ? 1.0F : 0.0F };
+    }
+
+    // The plane under an Iris shader pack. Vanilla's position_tex_color shader is Iris' replacement
+    // for it, the pack's gbuffers_textured program, so the draw is lit, shadowed and fogged by the
+    // pack like any block -- and that program carries this mod's shaping code (IrisShaderPatcher),
+    // switched on for this draw alone and fed here (IrisCompatibility#draw). All the shading the pack's
+    // program can be handed is texture times vertex colour, so the foam arrives baked into the
+    // texture (WaterlineMap's foam colour map); the rim fade, the entity discs and the near dither
+    // arrive as uniforms and come out as one Bayer discard. One pass, depth writes on: a discard is
+    // all-or-nothing per pixel, so nothing see-through ever writes depth and the two-pass split the
+    // core shader needs does not arise. The soft occlusion reads this mod's depth snapshot from a
+    // texture unit of its own. Only the surface spots stay out: they are colour, which the pack owns.
+    private static void drawThroughPack(Minecraft mc, Matrix4f view, Vec3 cam, float relY, boolean below,
+            float s, float fadeEnd, int holes, float depthValid, float r, float g, float b) {
+        // Bail before any render state is touched: the plane IS its colour map, and painting a
+        // render-distance-wide quad with texture 0 would black out the world.
+        int foamColorTex = WaterlineMap.foamColorTextureId();
+        if (foamColorTex == 0) {
+            return;
+        }
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
+        RenderSystem.disableCull();
+        RenderSystem.setShaderTexture(0, foamColorTex);
+        RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+
+        // The murk fog on the fogged side, as the core path sets it; whether the pack's fog uniforms
+        // follow is the pack's business, but a pack that reads vanilla's fog gets the same answer.
+        float far = Config.FOG_DISTANCE.getAsInt();
+        float savedFogStart = RenderSystem.getShaderFogStart();
+        float savedFogEnd = RenderSystem.getShaderFogEnd();
+        float[] savedFogColor = RenderSystem.getShaderFogColor();
+        if (below) {
+            RenderSystem.setShaderFogStart(0.0F);
+            RenderSystem.setShaderFogEnd(far * 0.15F);
+            RenderSystem.setShaderFogColor(r, g, b, 1.0F);
+        }
+
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.pushMatrix();
+        mvStack.set(view);
+        RenderSystem.applyModelViewMatrix();
+
+        // The foam map only covers a patch around the camera, while the plane spans the whole render
+        // distance. Stretching one quad's UVs over that span would put |u| in the tens of thousands,
+        // where the interpolator's float32 precision near the map lands the foam a block or two off
+        // the blocks it rings. Emit a 3x3 patch instead: the centre quad maps the map's footprint
+        // exactly and the eight around it pin to its border texels ("far water", i.e. bare plane
+        // colour), so no UV ever leaves [0,1]. Vertex colour stays white -- all colour is in the map.
+        float mapSize = Math.max(1.0F, (float) WaterlineMap.size());
+        float mx0 = (float) (WaterlineMap.originX() - cam.x);
+        float mz0 = (float) (WaterlineMap.originZ() - cam.z);
+        float[] xs = {-s, Mth.clamp(mx0, -s, s), Mth.clamp(mx0 + mapSize, -s, s), s};
+        float[] zs = {-s, Mth.clamp(mz0, -s, s), Mth.clamp(mz0 + mapSize, -s, s), s};
+        float[] us = new float[4];
+        float[] vs = new float[4];
+        for (int k = 0; k < 4; k++) {
+            us[k] = Mth.clamp((xs[k] - mx0) / mapSize, 0.0F, 1.0F);
+            vs[k] = Mth.clamp((zs[k] - mz0) / mapSize, 0.0F, 1.0F);
+        }
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                if (xs[i] >= xs[i + 1] || zs[j] >= zs[j + 1]) {
+                    continue; // span collapsed by the clamp above
+                }
+                bb.addVertex(xs[i], relY, zs[j]).setUv(us[i], vs[j]).setColor(1.0F, 1.0F, 1.0F, 1.0F);
+                bb.addVertex(xs[i], relY, zs[j + 1]).setUv(us[i], vs[j + 1]).setColor(1.0F, 1.0F, 1.0F, 1.0F);
+                bb.addVertex(xs[i + 1], relY, zs[j + 1]).setUv(us[i + 1], vs[j + 1]).setColor(1.0F, 1.0F, 1.0F, 1.0F);
+                bb.addVertex(xs[i + 1], relY, zs[j]).setUv(us[i + 1], vs[j]).setColor(1.0F, 1.0F, 1.0F, 1.0F);
+            }
+        }
+
+        float[] nd = nearDither();
+        float pixelSize = Config.DITHER_PIXEL_SIZE.getAsInt();
+        // World anchoring as the core path does it (see NOISE_ANCHOR there), for the waterline lookup.
+        double ax = Math.rint(cam.x / NOISE_ANCHOR) * NOISE_ANCHOR;
+        double az = Math.rint(cam.z / NOISE_ANCHOR) * NOISE_ANCHOR;
+        IrisCompatibility.draw(bb.buildOrThrow(), RenderSystem.getShader(), true, program -> {
+            IrisCompatibility.uniform1f(program, "fogged_PixelSize", pixelSize);
+            IrisCompatibility.uniform3f(program, "fogged_WorldOffset", (float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
+            IrisCompatibility.sampler(program, "fogged_Waterline", WaterlineMap.textureId(), 1);
+            IrisCompatibility.uniform4f(program, "fogged_WaterlineInfo", (float) (WaterlineMap.originX() - ax),
+                    (float) (WaterlineMap.originZ() - az), (float) WaterlineMap.size(), WaterlineMap.MAX_DIST);
+            IrisCompatibility.uniform2f(program, "fogged_Fade", fadeEnd * 0.8F, fadeEnd);
+            IrisCompatibility.uniform4f(program, "fogged_NearDither", nd[0], nd[1], nd[2], nd[3]);
+            IrisCompatibility.uniform1f(program, "fogged_HolesActive", below ? 1.0F : 0.0F);
+            IrisCompatibility.uniform1i(program, "fogged_HoleCount", holes);
+            IrisCompatibility.uniform4fv(program, "fogged_Holes", entityHoleBuf);
+            IrisCompatibility.uniform1f(program, "fogged_DepthValid", depthValid);
+            IrisCompatibility.sampler(program, "fogged_SceneDepth", SceneDepth.SCENE.depthTextureId(), 0);
+        });
+
+        mvStack.popMatrix();
+        RenderSystem.applyModelViewMatrix();
+
+        RenderSystem.setShaderFogStart(savedFogStart);
+        RenderSystem.setShaderFogEnd(savedFogEnd);
+        RenderSystem.setShaderFogColor(savedFogColor[0], savedFogColor[1], savedFogColor[2], savedFogColor[3]);
+
+        RenderSystem.enableCull();
+        RenderSystem.disableBlend();
     }
 
     // Distance at which the world fades away on the camera's side, i.e. how far the plane (and the

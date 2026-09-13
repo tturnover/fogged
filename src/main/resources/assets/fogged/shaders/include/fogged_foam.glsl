@@ -43,3 +43,14 @@ float fogged_foamEdge(vec2 wl) {
             * (1.0 - clamp(wl.g * WaterlineMaxDist / (FoamWidth * FOGGED_PLANT_STRENGTH), 0.0, 1.0));
     return max(solidEdge, plantEdge);
 }
+
+// How close this point is to something that actually CROSSES the surface (1 at it, 0 beyond reach),
+// from the same map: only the row at the boundary is seeded, so what merely lies beneath the surface
+// does not register. The soft occlusion is gated by this so it softens the silhouette of a crossing
+// block or entity without letting everything a few blocks under the surface show through as a ghost.
+// Solids and entities only (R): a plant at the boundary is a blade or two in the surface, and the
+// dissolve around each came out as a sprinkling of dark specks across the whole plane.
+float fogged_nearCrossing(vec2 wl) {
+    float d = wl.r * WaterlineMaxDist;
+    return 1.0 - smoothstep(0.75, 2.0, d);
+}

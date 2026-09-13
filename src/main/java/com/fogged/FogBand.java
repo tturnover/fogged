@@ -25,8 +25,4 @@ public final class FogBand {
         return bandTopY(level) - Config.WORLD_CHANGE_SKIP.getAsInt();
     }
 
-    /** True when the block at {@code y} is in the active scour range: below the dead zone, down to the floor. */
-    public static boolean inActiveZone(Level level, int y) {
-        return y <= activeTopY(level) && y >= level.getMinBuildHeight();
-    }
 }

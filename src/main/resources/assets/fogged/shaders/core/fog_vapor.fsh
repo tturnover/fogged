@@ -8,14 +8,19 @@
 // matches the blocky look of the plane and never shows a hard rim.
 
 uniform sampler2D Sampler0;     // waterline map, for thinning the mist where the foam is strong
+uniform sampler2D Sampler1;     // the baked noise fields (NoiseField); see fogged_field_sample.glsl
 uniform sampler2D Sampler3;     // scene depth snapshot (taken just before the plane) for the soft edge
+uniform vec2 NoiseOrigin;       // anchor-relative world XZ of the noise texture's corner
+uniform float NoiseCells;       // its edge length in texels
+uniform float NoiseCellsPerBlock;
+uniform float NoiseValid;       // 0 when there is no baked texture this frame
+uniform float NoiseTime;        // the boil clock it was baked at
 
 uniform vec4 ColorModulator;
 uniform vec3 VaporColor;        // overall vapour tint, shared by every sheet (see the note on vertexColor below)
 uniform float FogStart;
 uniform float FogEnd;
 uniform int FogShape;
-uniform float Time;             // smooth game time in seconds (drives the drift)
 uniform float WispScale;        // world-space frequency of the wisp/terrace noise
 uniform float PixelsPerBlock;   // snap the noise to this grid (matches the plane's foam pixels)
 uniform vec2 WaterlineOrigin;   // world XZ of the waterline map's corner
@@ -36,7 +41,6 @@ in vec3 relPos;
 out vec4 fragColor;
 
 const float WISP_STEPS = 4.0; // alpha quantised into this many chunky bands
-const float VAPOR_TIME_RATE = 0.1; // noise time-axis advance per second (~one reshuffle per 10 s)
 
 // Soft occlusion (fogged_softOcclusion, shared with fog_plane.fsh -- see fogged_occlusion.glsl); needs
 // Sampler3/ScreenSize/ProjMat/DepthValid, all declared above. The snapshot omits the plane, so the
@@ -49,6 +53,8 @@ const float VAPOR_TIME_RATE = 0.1; // noise time-axis advance per second (~one r
 // distance. z is time (unwrapped); no octave rotation (a rotated lattice would not tile). ---
 const float NOISE_PERIOD_BLOCKS = 4096.0; // MUST equal FogPlaneRenderer.NOISE_ANCHOR for a seamless wrap -- see Config.java's mirrored-constants comment
 #moj_import <fogged:fogged_noise.glsl>
+#moj_import <fogged:fogged_field.glsl>
+#moj_import <fogged:fogged_field_sample.glsl>
 
 // Waterline map sampling, shared with fog_plane.fsh (see fogged_foam.glsl).
 #moj_import <fogged:fogged_foam.glsl>
@@ -68,19 +74,11 @@ void main() {
     vec3 tint = VaporColor * ColorModulator.rgb;
 
     // Pixel-snap the world position (== the plane's foam resolution); the pattern does NOT translate.
-    // It only reshapes in place by crossfading between two fixed noise fields, so it boils without
-    // sliding. This single field drives both the terrace coverage and the surface texture.
+    // It only reshapes in place (see fogged_vaporField), so it boils without sliding. This single
+    // field drives both the terrace coverage and the surface texture -- one texel fetch from the baked
+    // field (NoiseField) wherever it reaches, evaluated in place beyond.
     vec2 q = floor(worldXZ * PixelsPerBlock) / PixelsPerBlock;
-    vec2 p = q * WispScale;
-    // Animate by advancing the noise's time axis (forward only, morphs in place) instead of crossfading
-    // two fixed fields with a sin() -- that ran the boil forward then backward.
-    float t = Time * VAPOR_TIME_RATE;
-    // Base spatial period of the noise in p-space: the world period times the wisp scale. WispScale is
-    // chosen so this is an integer, so the lattice wraps exactly and the field tiles with the anchor.
-    // The second layer uses 2x frequency (a whole-number multiple, so it also tiles); a fractional
-    // multiple like 1.7 would break the wrap and reintroduce a seam.
-    float per = NOISE_PERIOD_BLOCKS * WispScale;
-    float nval = fogged_fbm3(p, t, per) * 0.6 + fogged_fbm3(p * 2.0 + 19.0, t * 1.3 + 7.0, per) * 0.4;
+    float nval = fogged_fields(q, WispScale).r;
 
     // Terrace: this plane is present where the noise reaches its step threshold, with a soft per-pixel
     // edge band (rather than a hard cut) so the steps read but don't look like solid blocks. Stacking
@@ -108,10 +106,12 @@ void main() {
     // buries the foam's shape under a wash of grey exactly where it is most worth seeing -- against
     // the blocks and entities breaking through. Read from the same map through the same helper the
     // surface uses, so the two agree on where the ring is to the pixel.
-    a *= 1.0 - fogged_foamEdge(fogged_waterline(worldXZ)) * FOAM_THINNING;
+    vec2 wl = fogged_waterline(worldXZ);
+    a *= 1.0 - fogged_foamEdge(wl) * FOAM_THINNING;
 
-    // Soft occlusion edge against terrain (see fogged_softOcclusion), so vapour grazing a block dissolves.
-    a *= fogged_softOcclusion();
+    // Soft occlusion edge against terrain (see fogged_softOcclusion), so vapour grazing a block
+    // dissolves -- only near something crossing the surface (see fogged_nearCrossing), as the plane does.
+    a *= mix(1.0, fogged_softOcclusion(), fogged_nearCrossing(wl));
 
     if (a <= 0.003) {
         discard;

@@ -1,5 +1,6 @@
 package com.fogged;
 
+import com.mojang.blaze3d.shaders.FogShape;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import net.minecraft.client.Camera;
@@ -37,6 +38,14 @@ public class FogModifier {
         float far = Config.FOG_DISTANCE.getAsInt();
         event.setNearPlaneDistance(far * 0.25F);
         event.setFarPlaneDistance(far);
+        // The shape too, and SPHERE on purpose. Vanilla hands the terrain fog CYLINDER
+        // (FogRenderer.setupFog), whose distance is max(length(xz), abs(y)) -- so a line of sight
+        // running down at 45 degrees only reaches fogDistance after 1.41 * fogDistance of actual
+        // travel, and the murk ends up further away looking down than looking level. The screen-space
+        // pass measures plain length() (murk_composite.fsh), so with a cylinder here the two halves of
+        // the murk disagree on its shape: a sphere under a shader pack, a cylinder without one.
+        // A sphere is also what "fogDistance blocks of murk in every direction" means.
+        event.setFogShape(FogShape.SPHERE);
         // Cancelling is what makes NeoForge apply these at all -- see ClientHooks.onFogRender, which
         // only writes the event's values back when the event was cancelled.
         event.setCanceled(true);
@@ -76,7 +85,29 @@ public class FogModifier {
         float[] c = Config.planeColor();
         RenderSystem.setShaderFogStart(murkEnd * 0.25F);
         RenderSystem.setShaderFogEnd(murkEnd);
+        RenderSystem.setShaderFogShape(FogShape.SPHERE); // as the event sets it; see there for why
         RenderSystem.setShaderFogColor(c[0], c[1], c[2], 1.0F);
+    }
+
+    // The fog state as it stood at the last terrain draw, for the debug HUD -- read back off
+    // RenderSystem rather than recomputed, so what shows is what the terrain shaders were actually
+    // handed. A murk that reaches further than fogDistance has to be one of two things: this saying
+    // something other than fogDistance (someone overwrote the fog, or the hook that re-asserts it
+    // never ran), or this saying fogDistance and the murk still reaching further, which puts it in the
+    // screen-space pass instead. Sampled at the draw because there is no later point where the value
+    // is still the terrain's.
+    static volatile float lastStart = -1.0F;
+    static volatile float lastEnd = -1.0F;
+    static volatile int lastShape = -1;
+    /** Which terrain path sampled it: "vanilla", "sodium", or null when neither hook has run. */
+    static volatile String lastPath;
+
+    /** Record what the terrain shaders are about to fog with. Called from the terrain-pass hooks. */
+    public static void sampleTerrainFog(String path) {
+        lastStart = RenderSystem.getShaderFogStart();
+        lastEnd = RenderSystem.getShaderFogEnd();
+        lastShape = RenderSystem.getShaderFogShape().getIndex();
+        lastPath = path;
     }
 
     // True when the camera should get our thick fog: the fogged side of the boundary. Normally that is

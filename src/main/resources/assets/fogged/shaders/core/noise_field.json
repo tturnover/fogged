@@ -1,0 +1,14 @@
+{
+    "vertex": "fogged:noise_field",
+    "fragment": "fogged:noise_field",
+    "samplers": [],
+    "attributes": [
+        "Position"
+    ],
+    "uniforms": [
+        { "name": "NoiseOrigin", "type": "float", "count": 2, "values": [ 0.0, 0.0 ] },
+        { "name": "NoiseCellsPerBlock", "type": "float", "count": 1, "values": [ 4.0 ] },
+        { "name": "Time", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "WispScale", "type": "float", "count": 1, "values": [ 0.09375 ] }
+    ]
+}

@@ -11,6 +11,7 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
@@ -37,7 +38,7 @@ public final class FogVapor {
     // World-space frequency of the terrace/wisp noise. Chosen so NOISE_ANCHOR * WISP_SCALE (4096 *
     // 0.09375 = 384) is a whole number: the tileable noise wraps at that integer lattice period, so the
     // wisps repeat exactly with the anchor -> no seam.
-    private static final float WISP_SCALE = 0.09375F;
+    static final float WISP_SCALE = 0.09375F;
 
     // The two faces of the surface, in the order they are drawn: the clear side first (see the sheet
     // loop), then the murk's own, which vaporUnderside decides whether to draw at all.
@@ -64,7 +65,7 @@ public final class FogVapor {
         // over the mist instead and it reads as lying beneath the surface. Drawing BOTH is what makes
         // the layer continuous across a shoreline: over land the first copy shows, under a lake the
         // second, and neither has to know where the water ends.
-        boolean over = event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS;
+        over = event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS;
         boolean under = event.getStage() == RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES
                 && Config.VAPOR_UNDERWATER.getAsBoolean();
         if (!over && !under) {
@@ -73,6 +74,9 @@ public final class FogVapor {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) {
             return;
+        }
+        if (IrisCompatibility.renderingShadowPass()) {
+            return; // see FogPlaneRenderer: nothing of this mod's belongs in a pack's shadow map
         }
 
         Vec3 cam = event.getCamera().getPosition();
@@ -85,11 +89,16 @@ public final class FogVapor {
         // Monotonic clock so the boil never runs backward (see FogShaders#animTimeSeconds).
         double timeSeconds = FogShaders.animTimeSeconds();
 
+        // The depth snapshot the plane took this frame (see SceneDepth): the streams crossing the
+        // boundary in it, the plane not, so the mist fades against a fall the way the surface does
+        // and never against the surface it rides on.
+        SceneDepth depth = SceneDepth.SCENE;
+
         // Use the camera view matrix (reliable at every stage) and emit raw camera-relative vertices,
         // so the shader can world-anchor the noise via Position + WorldOffset. Baking the pose into the
         // vertices instead would leave Position in view space, making the noise swim/flicker with the
         // camera. Mirrors FogPlaneRenderer.
-        render(event.getModelViewMatrix(), cam, surfaceY, relY, fogFar, timeSeconds);
+        render(event.getModelViewMatrix(), cam, surfaceY, relY, fogFar, timeSeconds, depth);
     }
 
     // view       : camera view matrix (raw camera-relative vertices are anchored to world in the shader)
@@ -98,8 +107,32 @@ public final class FogVapor {
     // relY       : surfaceY - cam.y (camera-relative plane height)
     // fogFar     : distance at which the world fades out on the visible side (== plane PlaneFadeEnd)
     // timeSeconds: smooth game time in seconds for the drift animation
+    // depth      : the scene-depth snapshot for this copy's soft occlusion edge
+    static final GpuTimer gpu = new GpuTimer(); // the over-water copy only, for the debug HUD
+
     private static void render(Matrix4f view, Vec3 cam, double surfaceY, float relY, float fogFar,
-            double timeSeconds) {
+            double timeSeconds, SceneDepth depth) {
+        boolean time = Config.DEBUG_HUD.getAsBoolean() && depth == SceneDepth.SCENE && over;
+        if (time) {
+            gpu.begin();
+        }
+        try {
+            if (IrisCompatibility.shaderPackActive()) {
+                renderThroughPack(view, cam, relY, fogFar, timeSeconds, depth);
+                return;
+            }
+            renderCore(view, cam, surfaceY, relY, fogFar, timeSeconds, depth);
+        } finally {
+            if (time) {
+                gpu.end();
+            }
+        }
+    }
+
+    private static boolean over; // which copy render() is drawing this call, for the timer above
+
+    private static void renderCore(Matrix4f view, Vec3 cam, double surfaceY, float relY, float fogFar,
+            double timeSeconds, SceneDepth depth) {
         ShaderInstance shader = FogShaders.FOG_VAPOR;
         if (shader == null) {
             return;
@@ -128,11 +161,11 @@ public final class FogVapor {
 
         // Sampler0 = waterline map, so the mist can thin on the same foam ring the surface draws.
         RenderSystem.setShaderTexture(0, WaterlineMap.textureId());
-        // Sampler3 = scene depth snapshot (shared with the plane) for the soft occlusion edge.
-        RenderSystem.setShaderTexture(3, SceneDepth.depthTextureId());
-        // Degrades to "never occlude" in the shader when occlusion is off or FogPlaneRenderer's capture
-        // this frame failed (see SceneDepth) -- mirrors FogPlaneRenderer's own DepthValid gating.
-        float depthValid = Config.PLANE_SOFT_OCCLUSION.getAsBoolean() && SceneDepth.depthAvailable() ? 1.0F : 0.0F;
+        // Sampler3 = scene depth snapshot for the soft occlusion edge.
+        RenderSystem.setShaderTexture(3, depth.depthTextureId());
+        // Degrades to "never occlude" in the shader when occlusion is off or the capture this frame
+        // failed (see SceneDepth) -- mirrors FogPlaneRenderer's own DepthValid gating.
+        float depthValid = Config.PLANE_SOFT_OCCLUSION.getAsBoolean() && depth.depthAvailable() ? 1.0F : 0.0F;
 
         RenderSystem.setShader(() -> shader);
         // Anchor world coords to a tile near the camera so the floor()-snapped wisp noise stays precise
@@ -142,8 +175,10 @@ public final class FogVapor {
         double ax = Math.rint(cam.x / FogPlaneRenderer.NOISE_ANCHOR) * FogPlaneRenderer.NOISE_ANCHOR;
         double az = Math.rint(cam.z / FogPlaneRenderer.NOISE_ANCHOR) * FogPlaneRenderer.NOISE_ANCHOR;
         shader.safeGetUniform("WorldOffset").set((float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
-        shader.safeGetUniform("Time").set((float) timeSeconds);
         shader.safeGetUniform("WispScale").set(WISP_SCALE);
+        // The baked terrace field (see NoiseField): one texel per pixel instead of the noise itself.
+        RenderSystem.setShaderTexture(1, NoiseField.textureId());
+        FogPlaneRenderer.setNoiseUniforms(shader, ax, az);
         // Must match the waterline map's actual resolution (Config.waterlineCellsPerBlock) so the vapour's
         // pixel-snap grid lines up with the plane's foam grid.
         shader.safeGetUniform("PixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
@@ -221,6 +256,93 @@ public final class FogVapor {
 
         RenderSystem.setShaderFogStart(savedFogStart);
         RenderSystem.setShaderFogEnd(savedFogEnd);
+
+        RenderSystem.depthMask(true);
+        RenderSystem.enableCull();
+        RenderSystem.disableBlend();
+    }
+
+    // The mist under an Iris shader pack, through the pack's replacement for vanilla's position_color
+    // shader -- lit and fogged by the pack, and carrying this mod's spliced-in code (IrisShaderPatcher;
+    // IrisCompatibility for the draw). The pack's program owns the colour, so the vertex colour is the
+    // plain vapour tint; the noise terraces, the chunky texture, the two fades and the sheet's alpha
+    // are folded into one coverage in the spliced code and come out as a Bayer discard, since a pack's
+    // program cannot be handed an alpha. That also means the sheets cannot be batched: the per-sheet
+    // threshold and alpha that ride in Color for fog_vapor.fsh would tint the mist here, so they go as
+    // uniforms, one draw per sheet. Never writes depth, like the core path. The foam thinning is left
+    // out: it reads the waterline map, which this program does not have.
+    private static void renderThroughPack(Matrix4f view, Vec3 cam, float relY, float fogFar, double timeSeconds,
+            SceneDepth depth) {
+        float[] vapor = Config.vaporColor();
+        float va = vapor[3];
+        int sheets = Config.VAPOR_SHEETS.getAsInt();
+        double undulation = Config.VAPOR_UNDULATION.get();
+        if (sheets <= 0) {
+            return;
+        }
+
+        Minecraft mc = Minecraft.getInstance();
+        float reach = Math.min(mc.options.getEffectiveRenderDistance() * 16.0F, fogFar);
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.disableCull();
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.pushMatrix();
+        mvStack.set(view);
+        RenderSystem.applyModelViewMatrix();
+
+        double ax = Math.rint(cam.x / FogPlaneRenderer.NOISE_ANCHOR) * FogPlaneRenderer.NOISE_ANCHOR;
+        double az = Math.rint(cam.z / FogPlaneRenderer.NOISE_ANCHOR) * FogPlaneRenderer.NOISE_ANCHOR;
+        float worldX = (float) (cam.x - ax);
+        float worldZ = (float) (cam.z - az);
+        float pixelSize = Config.DITHER_PIXEL_SIZE.getAsInt();
+        float pixelsPerBlock = WaterlineMap.cellsPerBlock();
+        // The clock the fallback evaluation runs at: the texture's own, so the seam is invisible.
+        float time = NoiseField.valid() ? NoiseField.time() : (float) timeSeconds;
+        float depthValid = Config.PLANE_SOFT_OCCLUSION.getAsBoolean() && depth.depthAvailable() ? 1.0F : 0.0F;
+        int depthTex = depth.depthTextureId();
+
+        double spacing = undulation / sheets;
+        float clearSide = Config.FLIP_FOG.getAsBoolean() ? -1.0F : 1.0F;
+        for (float face : Config.VAPOR_UNDERSIDE.getAsBoolean() ? BOTH_SIDES : CLEAR_ONLY) {
+            float side = face * clearSide;
+            for (int i = 0; i < sheets; i++) {
+                float baseA = va * 0.5F * (float) Math.pow(0.55, i);
+                float threshold = (i + 1.0F) / (sheets + 1.0F);
+                float y = relY + side * (float) (0.3 + (i + 1) * spacing);
+                BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+                bb.addVertex(-reach, y, -reach).setColor(vapor[0], vapor[1], vapor[2], 1.0F);
+                bb.addVertex(-reach, y, reach).setColor(vapor[0], vapor[1], vapor[2], 1.0F);
+                bb.addVertex(reach, y, reach).setColor(vapor[0], vapor[1], vapor[2], 1.0F);
+                bb.addVertex(reach, y, -reach).setColor(vapor[0], vapor[1], vapor[2], 1.0F);
+                IrisCompatibility.draw(bb.buildOrThrow(), RenderSystem.getShader(), false, program -> {
+                    IrisCompatibility.uniform1f(program, "fogged_PixelSize", pixelSize);
+                    IrisCompatibility.uniform3f(program, "fogged_WorldOffset", worldX, (float) cam.y, worldZ);
+                    IrisCompatibility.uniform1f(program, "fogged_Time", time);
+                    IrisCompatibility.uniform2f(program, "fogged_Fade", fogFar * 0.8F, fogFar);
+                    IrisCompatibility.uniform4f(program, "fogged_Vapor", threshold, baseA, WISP_SCALE, pixelsPerBlock);
+                    IrisCompatibility.sampler(program, "fogged_Noise", NoiseField.textureId(), 2);
+                    IrisCompatibility.uniform4f(program, "fogged_NoiseInfo", (float) (NoiseField.originX() - ax),
+                            (float) (NoiseField.originZ() - az), NoiseField.valid() ? NoiseField.cells() : 0.0F,
+                            NoiseField.cellsPerBlock());
+                    // The same dissolve range the core path sets as the shader fog.
+                    IrisCompatibility.uniform2f(program, "fogged_VaporFog", fogFar * 0.25F, fogFar);
+                    IrisCompatibility.uniform1f(program, "fogged_DepthValid", depthValid);
+                    IrisCompatibility.sampler(program, "fogged_SceneDepth", depthTex, 0);
+                    IrisCompatibility.sampler(program, "fogged_Waterline", WaterlineMap.textureId(), 1);
+                    IrisCompatibility.uniform4f(program, "fogged_WaterlineInfo", (float) (WaterlineMap.originX() - ax),
+                            (float) (WaterlineMap.originZ() - az), (float) WaterlineMap.size(), WaterlineMap.MAX_DIST);
+                });
+            }
+        }
+
+        mvStack.popMatrix();
+        RenderSystem.applyModelViewMatrix();
 
         RenderSystem.depthMask(true);
         RenderSystem.enableCull();

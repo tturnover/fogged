@@ -1,0 +1,12 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.fogged.mixin.compat",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "SodiumChunkLayerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
