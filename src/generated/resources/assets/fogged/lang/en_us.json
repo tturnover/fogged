@@ -177,6 +177,8 @@
   "fogged.configuration.vaporUndulation.tooltip": "How high (in blocks) the mist sheets rise off the plane. 0 = flat.",
   "fogged.configuration.waterlineCellsPerBlock": "Foam Grid Resolution",
   "fogged.configuration.waterlineCellsPerBlock.tooltip": "Cells per block in the foam distance field. Lower is coarser foam and noticeably cheaper.",
+  "fogged.configuration.worldChangeDelaySeconds": "Working Time",
+  "fogged.configuration.worldChangeDelaySeconds.tooltip": "Seconds a block or dropped stack steams under the murk before it changes. 0 changes it at once. Fires and devices go out immediately either way.",
   "fogged.configuration.worldChangeSkip": "Untouched Layer",
   "fogged.configuration.worldChangeSkip.tooltip": "How many blocks directly under the boundary the murk leaves alone.",
   "fogged.jei.murk_transform": "Murk Conversion",

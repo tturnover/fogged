@@ -1,5 +1,8 @@
 package com.fogged;
 
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -29,21 +32,62 @@ public final class ItemScour {
     // floor changes in between, and the boundary itself moves in whole blocks over minutes.
     private static final int CHECK_INTERVAL = 20;
 
+    // Ticks left before a stack the murk has taken hold of turns, kept on the entity (see FogScour for
+    // the same wait on placed blocks). Lifted back out of the murk, the stack is let go.
+    private static final String PENDING = "fogged:scour";
+
     @SubscribeEvent
     static void onEntityTick(EntityTickEvent.Post event) {
         if (!(event.getEntity() instanceof ItemEntity item)) {
             return;
         }
         Level level = item.level();
-        if (level.isClientSide || item.tickCount % CHECK_INTERVAL != 0) {
+        if (level.isClientSide || !Config.ENABLE_WORLD_CHANGES.get()) {
             return;
         }
-        if (!Config.ENABLE_WORLD_CHANGES.get()) {
+        CompoundTag data = item.getPersistentData();
+        if (data.contains(PENDING)) {
+            if (!Config.fogged(level, item.getY())) {
+                data.remove(PENDING);
+                return;
+            }
+            int left = data.getInt(PENDING) - 1;
+            if (left > 0) {
+                data.putInt(PENDING, left);
+                steam((ServerLevel) level, item);
+                return;
+            }
+            data.remove(PENDING);
+            convert(level, item);
             return;
         }
-        if (!Config.fogged(level, item.getY())) {
+        if (item.tickCount % CHECK_INTERVAL != 0 || !Config.fogged(level, item.getY())) {
             return;
         }
+        if (ScourRules.convert(level, item.getItem(), item.getY()) == null) {
+            return;
+        }
+        int delay = Config.WORLD_CHANGE_DELAY.getAsInt() * 20;
+        if (delay <= 0) {
+            convert(level, item);
+        } else {
+            data.putInt(PENDING, delay);
+        }
+    }
+
+    // A wisp up from the stack itself.
+    private static void steam(ServerLevel level, ItemEntity item) {
+        RandomSource rand = level.random;
+        if (rand.nextInt(2) != 0) {
+            return;
+        }
+        level.sendParticles(FogScour.steam(),
+                item.getX() + (rand.nextDouble() - 0.5) * 0.3, item.getY() + 0.2,
+                item.getZ() + (rand.nextDouble() - 0.5) * 0.3,
+                0, 0.0, 0.04 + rand.nextDouble() * 0.03, 0.0, 1.0);
+    }
+
+    private static void convert(Level level, ItemEntity item) {
         ItemStack stack = item.getItem();
         ScourRules.Conversion conversion = ScourRules.convert(level, stack, item.getY());
         if (conversion == null) {

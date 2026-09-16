@@ -137,6 +137,13 @@ public class Config {
                     "down to the bottom of the world is worked on. (Was submergeSkip.)")
             .defineInRange("worldChangeSkip", 5, 0, 64);
 
+    public static final ModConfigSpec.IntValue WORLD_CHANGE_DELAY = COMMON
+            .comment("Seconds the murk works on a block or a dropped stack before it changes: something",
+                    "placed, grown or dropped under the boundary steams from its sides for this long, then",
+                    "turns. 0 changes it the moment it is found. Fire, lava, torches and devices go out at",
+                    "once regardless, and terrain arriving from outside the loaded area is already worked.")
+            .defineInRange("worldChangeDelaySeconds", 3, 0, 60);
+
     public static final ModConfigSpec.DoubleValue MURK_THIRST_SCALE = COMMON
             .comment("With Thirst Was Taken installed: how fast a player under the boundary loses water,",
                     "as a share of the usual rate. The murk is a wet place; 0.25 means a quarter of the",

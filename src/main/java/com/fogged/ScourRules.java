@@ -117,6 +117,26 @@ public final class ScourRules {
     }
 
     /**
+     * Whether {@link #apply} would change this block where it stands: a transform whose target it is
+     * not already, or a scoured block. The sweep asks this before it commits to a block, so nothing is
+     * announced (see FogScour's steaming) that then turns out to be a no-op.
+     */
+    public static boolean wants(Level level, BlockState state, int y) {
+        ensureRules();
+        Rule rule = Config.ENABLE_TRANSFORMS.get() ? ruleFor(state) : null;
+        if (rule != null) {
+            return deepEnough(level, rule, y) && (rule.toBlock() == null || !state.is(rule.toBlock()));
+        }
+        return Config.ENABLE_SCOUR.get() && isScoured(state);
+    }
+
+    /** Whether any rule names this block at all, at any depth -- the palette-level test of a section. */
+    public static boolean mayTouch(BlockState state) {
+        ensureRules();
+        return ruleFor(state) != null || isScoured(state);
+    }
+
+    /**
      * What a dropped {@code stack} becomes at world height {@code y}: the stack it turns into and how
      * many of the original that took, or null when no rule applies. The caller does the arithmetic, so
      * it can decide what to do with a remainder.

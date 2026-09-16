@@ -95,6 +95,9 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "the world exactly as it was built.");
         cfg("worldChangeSkip", "Untouched Layer",
                 "How many blocks directly under the boundary the murk leaves alone.");
+        cfg("worldChangeDelaySeconds", "Working Time",
+                "Seconds a block or dropped stack steams under the murk before it changes. 0 changes it "
+                        + "at once. Fires and devices go out immediately either way.");
         add("fogged.configuration.group.murkActions", "What The Murk Does");
         add("fogged.configuration.boundary.tooltip", "Where the boundary sits, how the murk behaves at it, and what it does to the world underneath. Shared by the server and its clients: gameplay, not looks.");
         add("fogged.configuration.suffocation.tooltip", "What the murk does to the things breathing in it -- players and mobs -- and how much worse that gets with depth.");
