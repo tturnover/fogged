@@ -44,7 +44,7 @@ public class BreathHandler {
                 || player.canBreatheUnderwater()
                 || MobEffectUtil.hasWaterBreathing(player)
                 || player.isEyeInFluid(FluidTags.WATER)
-                || player.getEyeY() >= Config.breathHeight(player.level()) + Config.PLANE_SURFACE_OFFSET
+                || !Config.eyesUnderSurface(player.level(), player.getEyeY())
                 || BreatheSpheres.isBreathable(player.level(), player.getEyePosition()); // nozzle-filter sphere
         if (handledElsewhere) {
             return;
@@ -85,8 +85,7 @@ public class BreathHandler {
             return; // not our doing: with player suffocation off we never induce drowning
         }
         Level level = player.level();
-        if (player.isEyeInFluid(FluidTags.WATER)
-                || player.getEyeY() >= Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET) {
+        if (player.isEyeInFluid(FluidTags.WATER) || !Config.eyesUnderSurface(level, player.getEyeY())) {
             return; // real water, or above the boundary -> leave vanilla drowning alone
         }
         event.setCanceled(true);

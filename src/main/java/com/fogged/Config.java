@@ -30,6 +30,10 @@ public class Config {
     // fog starts exactly at the visible surface.
     public static final double PLANE_SURFACE_OFFSET = -0.38;
 
+    // How far under the visible surface a player's eyes go before the murk works on them (breathing,
+    // cold, thirst): the head skims the surface unharmed.
+    public static final double EFFECTS_DIP = 0.2;
+
 
     // ==== Constants mirrored in GLSL shaders (GLSL can't import Java constants -- keep these in sync
     // by hand whenever any one of them changes). Each entry's Java declaration links back to this list.
@@ -759,12 +763,12 @@ public class Config {
     }
 
     /**
-     * True when a player whose eyes are at world height {@code eyeY} is breathing the murk: below the
-     * surface, as {@link BreathHandler} judges it. Gameplay's side of the line, without the visual
-     * fogStartRaise that {@link #fogged} folds in for the camera.
+     * True when a player whose eyes are at world height {@code eyeY} is breathing the murk: EFFECTS_DIP
+     * under the surface, as {@link BreathHandler} judges it. Gameplay's side of the line, without the
+     * visual fogStartRaise that {@link #fogged} folds in for the camera.
      */
     public static boolean eyesUnderSurface(Level level, double eyeY) {
-        return eyeY < breathHeight(level) + PLANE_SURFACE_OFFSET;
+        return eyeY < breathHeight(level) + PLANE_SURFACE_OFFSET - EFFECTS_DIP;
     }
 
     // True when a camera at world height y is on the fogged side of the boundary (the thick murk side).
@@ -948,7 +952,8 @@ public class Config {
     };
 
     // What the murk does to the things growing under it. These were rules in FogScour until they were
-    // moved out here, where a pack can argue with them.
+    // moved out here, where a pack can argue with them. Coal goes the way its ore does (see the
+    // transforms): a block of it under the murk simply breaks.
     private static List<String> defaultScouredBlocks() {
         return new ArrayList<>(List.of(
                 "#minecraft:leaves",
@@ -957,7 +962,8 @@ public class Config {
                 "minecraft:tall_grass",
                 "minecraft:fern",
                 "minecraft:large_fern",
-                "minecraft:sweet_berry_bush"));
+                "minecraft:sweet_berry_bush",
+                "minecraft:coal_block"));
     }
 
     private static List<String> defaultTransforms() {
