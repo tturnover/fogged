@@ -98,7 +98,7 @@ public final class FogVapor {
         // so the shader can world-anchor the noise via Position + WorldOffset. Baking the pose into the
         // vertices instead would leave Position in view space, making the noise swim/flicker with the
         // camera. Mirrors FogPlaneRenderer.
-        render(event.getModelViewMatrix(), cam, surfaceY, relY, fogFar, timeSeconds, depth);
+        render(event.getModelViewMatrix(), cam, surfaceY, relY, fogFar, below, timeSeconds, depth);
     }
 
     // view       : camera view matrix (raw camera-relative vertices are anchored to world in the shader)
@@ -106,12 +106,13 @@ public final class FogVapor {
     // surfaceY   : world Y of the visible plane surface
     // relY       : surfaceY - cam.y (camera-relative plane height)
     // fogFar     : distance at which the world fades out on the visible side (== plane PlaneFadeEnd)
+    // below      : camera on the fogged side of the boundary
     // timeSeconds: smooth game time in seconds for the drift animation
     // depth      : the scene-depth snapshot for this copy's soft occlusion edge
     static final GpuTimer gpu = new GpuTimer(); // the over-water copy only, for the debug HUD
 
     private static void render(Matrix4f view, Vec3 cam, double surfaceY, float relY, float fogFar,
-            double timeSeconds, SceneDepth depth) {
+            boolean below, double timeSeconds, SceneDepth depth) {
         boolean time = Config.DEBUG_HUD.getAsBoolean() && depth == SceneDepth.SCENE && over;
         if (time) {
             gpu.begin();
@@ -121,7 +122,7 @@ public final class FogVapor {
                 renderThroughPack(view, cam, relY, fogFar, timeSeconds, depth);
                 return;
             }
-            renderCore(view, cam, surfaceY, relY, fogFar, timeSeconds, depth);
+            renderCore(view, cam, surfaceY, relY, fogFar, below, timeSeconds, depth);
         } finally {
             if (time) {
                 gpu.end();
@@ -132,7 +133,7 @@ public final class FogVapor {
     private static boolean over; // which copy render() is drawing this call, for the timer above
 
     private static void renderCore(Matrix4f view, Vec3 cam, double surfaceY, float relY, float fogFar,
-            double timeSeconds, SceneDepth depth) {
+            boolean below, double timeSeconds, SceneDepth depth) {
         ShaderInstance shader = FogShaders.FOG_VAPOR;
         if (shader == null) {
             return;
@@ -200,11 +201,14 @@ public final class FogVapor {
         shader.safeGetUniform("VaporColor").set(vr, vg, vb);
 
         // Fade the vapour out across the visible range (the shader dissolves its alpha by FogStart/End;
-        // it keeps its own vertex colour, so no fog colour is needed here).
+        // it keeps its own vertex colour, so no fog colour is needed here). On the dry side that range
+        // is cut to where the scene fog actually ends -- another fog mod may end the terrain well
+        // short of the render distance, and the mist must not hang over sky past it.
         float savedFogStart = RenderSystem.getShaderFogStart();
         float savedFogEnd = RenderSystem.getShaderFogEnd();
-        RenderSystem.setShaderFogStart(fogFar * 0.25F);
-        RenderSystem.setShaderFogEnd(fogFar);
+        float dissolveEnd = !below && savedFogEnd > 0.0F ? Math.min(fogFar, savedFogEnd) : fogFar;
+        RenderSystem.setShaderFogStart(dissolveEnd * 0.25F);
+        RenderSystem.setShaderFogEnd(dissolveEnd);
 
         // Equally-spaced flat planes from just above the boundary up to the configured height. Each is a
         // single big quad; the shader keeps it only where the noise field reaches that plane's rising

@@ -266,6 +266,7 @@ public class FogPlaneRenderer {
             // Dissolve holes only on the fogged side: from the dry side they'd be a clear window down
             // through the murk. On the fogged side the revealed content is hidden by the murk fog.
             shader.safeGetUniform("HolesActive").set(below ? 1.0F : 0.0F);
+            shader.safeGetUniform("FoamFog").set(below ? 0.0F : 1.0F);
             shader.safeGetUniform("EntityHoleCount").set(holes);
             shader.safeGetUniform("EntityHoles").set(entityHoleBuf);
             // Near-camera dither (see the shader), as the pack path gets it too.

@@ -32,6 +32,7 @@ uniform mat4 ProjMat;           // reused to linearise depth for the soft-occlus
 uniform vec2 ScreenSize;        // framebuffer size in pixels, to map gl_FragCoord into the depth sampler
 uniform float DepthValid;       // 0 if the scene-depth snapshot is unavailable/disabled this frame (see SceneDepth)
 uniform float HolesActive;      // 1 on the fogged side (dissolve holes on), 0 on the dry side (solid plane)
+uniform float FoamFog;          // 1 on the dry side: the foam takes the scene fog like the base; 0 in the murk
 // Near-camera dither (Config.planeNearDither): near, far, min visibility, enabled (0/1). See below.
 uniform vec4 NearDither;
 uniform float DitherPixelSize;  // screen pixels per dither cell (Config.ditherPixelSize)
@@ -140,17 +141,19 @@ void main() {
     foam *= FoamColor.a;
     float f = max(foam, lum);
 
-    // Fog the base only, then lay foam on top, so foam is never blended away by the fog.
+    // Fog the base, then lay foam on top. In the murk the foam is left unfogged, or the murk fog would
+    // blend it away a few blocks out; on the dry side it takes the scene fog too, or the far plane
+    // stayed a lighter, foam-flecked band over terrain that had already dissolved into the horizon.
     float fogDist = fog_distance(relPos, FogShape);
     vec4 fogged = linear_fog(vec4(planarFog, color.a), fogDist, FogStart, FogEnd, FogColor);
+    float fogA = clamp((fogDist - FogStart) / max(FogEnd - FogStart, 1e-4), 0.0, 1.0);
 
     vec4 outColor = color;
-    outColor.rgb = mix(fogged.rgb, FoamColor.rgb, f);
+    outColor.rgb = mix(fogged.rgb, mix(FoamColor.rgb, FogColor.rgb, fogA * FoamFog), f);
     outColor.a = max(fogged.a, f);
 
     // Raise alpha by the fog amount so distant geometry behind the plane tints to the plane colour
     // (the fragment is already that colour there) while the near footprint keeps the config alpha.
-    float fogA = clamp((fogDist - FogStart) / max(FogEnd - FogStart, 1e-4), 0.0, 1.0);
     outColor.a = max(outColor.a, fogA);
 
     // Fade the far rim by the larger of the HORIZONTAL radius and the VERTICAL drop to the surface.
