@@ -150,6 +150,8 @@
   "fogged.configuration.shape.tooltip": "З чого збудована окрема вежа і який діапазон постатей має група.",
   "fogged.configuration.snuffedDevices": "Пристрої, які гасить туман",
   "fogged.configuration.snuffedDevices.tooltip": "Пристрої з вогнем, які каламуть гасить: кожен згасає, його таймер горіння обнуляється, а паливо викидається, щоб він не працював під туманом.\nПо одному ідентифікатору блока на запис; '*' відповідає будь-якому набору символів, 'minecraft:' можна не писати. Запис для відсутнього моду просто ігнорується.\nfurnace\ncreate:lit_blaze_burner\nsimulated:*_portable_engine\ncold_sweat:hearth_bottom",
+  "fogged.configuration.stepDither": "Дизеринг смуг піни",
+  "fogged.configuration.stepDither.tooltip": "Змішувати смуги піни одну в одну піксель за пікселем, у власній сітці піни, замість різкої лінії між ними.",
   "fogged.configuration.suffocation": "Задуха",
   "fogged.configuration.suffocation.tooltip": "Що каламуть робить із тими, хто в ній дихає -- гравцями й мобами -- і наскільки гірше це стає з глибиною.",
   "fogged.configuration.surface": "Чим вони вкриті",

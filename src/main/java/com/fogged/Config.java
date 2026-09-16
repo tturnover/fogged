@@ -592,6 +592,12 @@ public class Config {
                     "closer to the blocky look of the foam.")
             .defineInRange("ditherPixelSize", 2, 1, 8);
 
+    public static final ModConfigSpec.BooleanValue STEP_DITHER = CLIENT
+            .comment("Blend the foam's bands into each other: where one of its steps meets the next, the",
+                    "pixels alternate between the two, in the foam's own grid, instead of meeting at a",
+                    "hard line. Off keeps each band flat.")
+            .define("stepDither", true);
+
     static { CLIENT.pop(); }   // [plane.dither]
 
     // ---- client [plane.vapor] : cold-vapour ("liquid nitrogen") layer ----

@@ -21,6 +21,13 @@ float fogged_bayer(vec2 fragCoord, float pixelSize) {
     return FOGGED_BAYER[c.x & 3][c.y & 3];
 }
 
+// Threshold for a cell of a world-space grid (the foam's), so a dither laid on that grid stays put
+// as the camera moves.
+float fogged_bayerCell(vec2 cell) {
+    ivec2 c = ivec2(cell);
+    return FOGGED_BAYER[c.x & 3][c.y & 3];
+}
+
 float fogged_easeInOutCubic(float x) {
     return x < 0.5 ? 4.0 * x * x * x : 1.0 - pow(-2.0 * x + 2.0, 3.0) / 2.0;
 }

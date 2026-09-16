@@ -36,6 +36,7 @@ uniform float FoamFog;          // 1 on the dry side: the foam takes the scene f
 // Near-camera dither (Config.planeNearDither): near, far, min visibility, enabled (0/1). See below.
 uniform vec4 NearDither;
 uniform float DitherPixelSize;  // screen pixels per dither cell (Config.ditherPixelSize)
+uniform float StepDither;       // 1 to dither the foam's bands into each other (Config.stepDither)
 uniform int EntityHoleCount;    // number of active entity dissolve discs (0..MAX_ENTITY_HOLES)
 // Packed 4 floats per entity: camera-relative centre X, Z, horizontal radius (blocks), vertical gap to
 // the plane (blocks; 0 while the hitbox straddles it). Sized MAX_ENTITY_HOLES * 4 (see the renderer).
@@ -73,6 +74,16 @@ const float FOAM_STEPS = 4.0;
 // Bayer dither and the near-camera visibility ramp (fogged_bayer / fogged_nearVisibility -- see
 // fogged_dither.glsl, shared with the shader-pack path).
 #moj_import <fogged:fogged_dither.glsl>
+
+// The stair-step above q (in steps) -- or, with StepDither, either of the two q lies between, chosen
+// by the foam grid's Bayer threshold, so the bands blend into each other pixel by pixel.
+float fogged_foamStep(float q, vec2 cell) {
+    if (StepDither < 0.5) {
+        return ceil(q);
+    }
+    float lo = floor(q);
+    return lo + (q - lo > fogged_bayerCell(cell) ? 1.0 : 0.0);
+}
 
 // Raw views of the buffers feeding the plane, selected by DebugView (== Config.DebugView's ordinal).
 vec3 debugColor(vec3 wl, float edge, float lum, float opacity, float entityHole) {
@@ -124,10 +135,11 @@ void main() {
     // Surface spots: low-frequency world-space noise blobs, on the same pixel grid as the foam, that
     // fade in/out in place (fogged_spotField) -- a texel of the baked field (NoiseField) wherever it
     // reaches, evaluated in place beyond.
+    vec2 cell = floor(worldXZ * FoamPixelsPerBlock);
     float s = fogged_fields(fogged_pixelSnap(worldXZ), WispScale).g;
     // Map onto the two lowest foam bands only (0.25/0.50) so a spot reads as foam not next to an edge.
     float t = smoothstep(0.45, 0.70, s);
-    float lum = t <= 0.0 ? 0.0 : (t < 0.5 ? 0.25 : 0.5);
+    float lum = fogged_foamStep(t * 2.0, cell) / 4.0;
     lum *= FoamColor.a; // same foam strength the edge foam uses
 
     // Base that the foam and spots blend up from. Kept near the full plane colour: the plane is
@@ -137,7 +149,7 @@ void main() {
     // Foam: distance-to-edge gradient, stair-stepped into FOAM_STEPS chunky bands. Follows the
     // contour of every block/entity. f = whichever is stronger, the edge foam or the surface spot.
     float foam = edge * edge * (3.0 - 2.0 * edge);
-    foam = ceil(foam * FOAM_STEPS) / FOAM_STEPS;
+    foam = fogged_foamStep(foam * FOAM_STEPS, cell) / FOAM_STEPS;
     foam *= FoamColor.a;
     float f = max(foam, lum);
 

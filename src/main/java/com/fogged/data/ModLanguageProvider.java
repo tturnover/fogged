@@ -267,6 +267,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "How much of the plane is left right at the camera: 0 opens it fully, 1 never thins it.");
         cfg("ditherPixelSize", "Dither Pixel Size",
                 "Screen pixels per dither cell. 1 is a fine screen-door; larger is chunkier, closer to the foam's look.");
+        cfg("stepDither", "Dither Foam Bands",
+                "Blend the foam's bands into each other pixel by pixel, in the foam's own grid, instead of a hard line between them.");
         cfg("vaporColorOffsetRed", "Vapour Red Offset",
                 "Red added to the plane colour to get the vapour colour.");
         cfg("vaporColorOffsetGreen", "Vapour Green Offset",
