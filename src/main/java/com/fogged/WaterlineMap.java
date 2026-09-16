@@ -1,5 +1,9 @@
 package com.fogged;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
@@ -34,7 +38,8 @@ import net.minecraft.world.phys.Vec3;
 public final class WaterlineMap {
 
     public static final float MAX_DIST = 8.0F;       // distances are clamped/stored up to this many blocks
-    private static final int RECOMPUTE_INTERVAL = 5;  // ticks between full target rebuilds (also on move)
+    private static final int RECOMPUTE_INTERVAL = 5;  // ticks between starting full target rebuilds
+    private static final int RESEED_STRIPES = 4;      // ticks a rebuild's block scan is spread over
     private static final float EASE_CELLS_PER_TICK = 0.25F; // how fast shown[] chases target[] (foam ramp)
     private static final int MIN_SIZE = 48;           // clamp the simulation-distance-driven block edge
     private static final int MAX_SIZE = 192;
@@ -139,6 +144,122 @@ public final class WaterlineMap {
     private static int originZ;           // world block Z of the map's corner
     private static int lastBoundaryY = Integer.MIN_VALUE;
     private static long lastRecomputeTick = Long.MIN_VALUE;
+
+    // The rebuild of the block fields in flight, if any (see Rescan), and the buffers the last one
+    // left behind, kept for the next so a rebuild every few ticks does not allocate the map over.
+    private static Rescan rescan;
+    private static Rescan spare;
+    private static int generation;
+    private static final ExecutorService CHAMFER = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "Fogged waterline chamfer");
+        t.setDaemon(true);
+        return t;
+    });
+
+    /**
+     * One rebuild of the block fields, in buffers of its own so the live fields are never half done.
+     * The block scan runs on the render thread -- block states are read nowhere else -- a stripe of
+     * rows a tick; the distance transform, which touches no world state, runs on the worker; then
+     * the result is swapped in whole, shifted by however far the map moved meanwhile.
+     *
+     * <p>This used to be one synchronous pass every RECOMPUTE_INTERVAL ticks, and at 768x768 that pass
+     * was two frames long: a hitch four times a second. (A tick-staggered scan into the LIVE fields
+     * was tried before this and reverted -- easing against a target that was raw in some stripes and
+     * chamfered in others made foam near real edges recede and snap back as each stripe came
+     * through. Scanning into a copy has none of that: the ease never sees the copy until it is done.)
+     */
+    private static final class Rescan {
+        final int generation;
+        final int originX;
+        final int originZ;
+        final int boundaryY;
+        final double surfaceY;
+        final double band;
+        final float foamWidth;
+        final float[] target;
+        final float[] targetP;
+        final float[] targetN;
+        final int[] seedMin;
+        final int[] seedMax;
+        final int[] seedMinP;
+        final int[] seedMaxP;
+        final int[] seedMinN;
+        final int[] seedMaxN;
+        final int[] bandMin;
+        final int[] bandMax;
+        int[] flowingColumns;
+        int flowingColumnCount;
+        int nextRow;          // next block row of the scan
+        Future<?> chamfer;    // set once the scan is done and the transform is on the worker
+        double chamferMs;
+
+        Rescan(Rescan buffers, int generation, int originX, int originZ, int boundaryY,
+                double surfaceY, double band, float foamWidth) {
+            this.generation = generation;
+            this.originX = originX;
+            this.originZ = originZ;
+            this.boundaryY = boundaryY;
+            this.surfaceY = surfaceY;
+            this.band = band;
+            this.foamWidth = foamWidth;
+            boolean reuse = buffers != null && buffers.target.length == cells * cells;
+            target = reuse ? buffers.target : new float[cells * cells];
+            targetP = reuse ? buffers.targetP : new float[cells * cells];
+            targetN = reuse ? buffers.targetN : new float[cells * cells];
+            seedMin = reuse ? buffers.seedMin : new int[cells];
+            seedMax = reuse ? buffers.seedMax : new int[cells];
+            seedMinP = reuse ? buffers.seedMinP : new int[cells];
+            seedMaxP = reuse ? buffers.seedMaxP : new int[cells];
+            seedMinN = reuse ? buffers.seedMinN : new int[cells];
+            seedMaxN = reuse ? buffers.seedMaxN : new int[cells];
+            bandMin = reuse ? buffers.bandMin : new int[cells];
+            bandMax = reuse ? buffers.bandMax : new int[cells];
+            flowingColumns = reuse ? buffers.flowingColumns : new int[64];
+            java.util.Arrays.fill(target, INF);
+            java.util.Arrays.fill(targetP, INF);
+            java.util.Arrays.fill(targetN, INF);
+            rowsClear(seedMin, seedMax);
+            rowsClear(seedMinP, seedMaxP);
+            rowsClear(seedMinN, seedMaxN);
+        }
+
+        // Buffers only, for the next rebuild: the live fields this one displaced.
+        Rescan(float[] target, float[] targetP, float[] targetN, int[] seedMin, int[] seedMax,
+                int[] seedMinP, int[] seedMaxP, int[] seedMinN, int[] seedMaxN,
+                int[] bandMin, int[] bandMax, int[] flowingColumns) {
+            this.generation = -1;
+            this.originX = 0;
+            this.originZ = 0;
+            this.boundaryY = 0;
+            this.surfaceY = 0.0;
+            this.band = 0.0;
+            this.foamWidth = 0.0F;
+            this.target = target;
+            this.targetP = targetP;
+            this.targetN = targetN;
+            this.seedMin = seedMin;
+            this.seedMax = seedMax;
+            this.seedMinP = seedMinP;
+            this.seedMaxP = seedMaxP;
+            this.seedMinN = seedMinN;
+            this.seedMaxN = seedMaxN;
+            this.bandMin = bandMin;
+            this.bandMax = bandMax;
+            this.flowingColumns = flowingColumns;
+        }
+
+        // The transform over the band each field's seeds can reach (see chamferAround), off the render
+        // thread. Reads nothing that changes under it: its own buffers, and the cell count it was
+        // built at -- a rebuild at another size drops it by generation.
+        void chamferAll() {
+            long t0 = System.nanoTime();
+            int n = seedMin.length;
+            chamferAround(target, seedMin, seedMax, bandMin, bandMax, n);
+            chamferAround(targetP, seedMinP, seedMaxP, bandMin, bandMax, n);
+            chamferAround(targetN, seedMinN, seedMaxN, bandMin, bandMax, n);
+            chamferMs = (System.nanoTime() - t0) / 1.0e6;
+        }
+    }
     private static long lastTick = Long.MIN_VALUE;
 
     // Where the work is, as a cell range per row (x0 > x1 for a row with none). A seed's reach is
@@ -176,16 +297,20 @@ public final class WaterlineMap {
     // Widen dst by src grown r cells on every side: each row takes the widest range of the src rows
     // within r of it. A sliding window, so the cost is rows times reach, not cells.
     private static void rowsAddGrown(int[] dstMin, int[] dstMax, int[] srcMin, int[] srcMax, int r) {
-        for (int z = 0; z < cells; z++) {
+        rowsAddGrown(dstMin, dstMax, srcMin, srcMax, r, cells);
+    }
+
+    private static void rowsAddGrown(int[] dstMin, int[] dstMax, int[] srcMin, int[] srcMax, int r, int n) {
+        for (int z = 0; z < n; z++) {
             int lo = Integer.MAX_VALUE;
             int hi = Integer.MIN_VALUE;
-            for (int zz = Math.max(0, z - r); zz <= Math.min(cells - 1, z + r); zz++) {
+            for (int zz = Math.max(0, z - r); zz <= Math.min(n - 1, z + r); zz++) {
                 lo = Math.min(lo, srcMin[zz]);
                 hi = Math.max(hi, srcMax[zz]);
             }
             if (lo <= hi) {
                 dstMin[z] = Math.min(dstMin[z], Math.max(0, lo - r));
-                dstMax[z] = Math.max(dstMax[z], Math.min(cells - 1, hi + r));
+                dstMax[z] = Math.max(dstMax[z], Math.min(n - 1, hi + r));
             }
         }
     }
@@ -315,23 +440,33 @@ public final class WaterlineMap {
         }
 
         boolean newTick = tick != lastTick;
-        boolean recomputed = false;
 
-        // Reseed + chamfer synchronously on the same call, on the boundary changing or every
-        // RECOMPUTE_INTERVAL ticks: the two must happen back-to-back on fully fresh block-state data.
-        // (A tick-staggered reseed was tried here and reverted -- easing every tick against a target[]
-        // whose stripes hold raw, not-yet-chamfered values for several ticks between chamfer passes
-        // made foam near real edges visibly recede then snap back as each stripe cycled through.)
-        if (boundaryY != lastBoundaryY || tick - lastRecomputeTick >= RECOMPUTE_INTERVAL) {
-            lastBoundaryY = boundaryY;
-            lastRecomputeTick = tick;
-            long t0 = System.nanoTime();
-            reseedAll(level, boundaryY, surfaceY, foamBand());
-            long t1 = System.nanoTime();
-            finishRecompute();
-            lastReseedMs = (t1 - t0) / 1.0e6;
-            lastChamferMs = (System.nanoTime() - t1) / 1.0e6;
-            recomputed = true;
+        // The rebuild pipeline (see Rescan): take a finished one in, start one when it is time, and
+        // scan a stripe of the one in flight -- one step of each per tick.
+        boolean recomputed = newTick && adoptRescan();
+        if (newTick) {
+            // A moved boundary is a new world for the scan: whatever was in flight is seeding the old
+            // row, so it is dropped and a fresh one started at once.
+            if (boundaryY != lastBoundaryY && rescan != null) {
+                rescan = null;
+            }
+            if (rescan == null && (boundaryY != lastBoundaryY || tick - lastRecomputeTick >= RECOMPUTE_INTERVAL)) {
+                lastBoundaryY = boundaryY;
+                lastRecomputeTick = tick;
+                rescan = new Rescan(spare, ++generation, cx, cz, boundaryY, surfaceY, foamBand(),
+                        (float) (double) Config.FOAM_WIDTH.get());
+                spare = null;
+                lastReseedMs = 0.0;
+            }
+            if (rescan != null && rescan.chamfer == null) {
+                long t0 = System.nanoTime();
+                reseedStripe(level, rescan);
+                lastReseedMs += (System.nanoTime() - t0) / 1.0e6;
+                if (rescan.nextRow >= size) {
+                    Rescan job = rescan;
+                    job.chamfer = CHAMFER.submit(job::chamferAll);
+                }
+            }
         }
 
         // Ease + re-upload at most once per tick (bounded cost), or immediately after a re-centre.
@@ -475,52 +610,99 @@ public final class WaterlineMap {
         return surfaceY > y + 1 ? surfaceY - (y + 1) : y - surfaceY;
     }
 
-    private static void reseedAll(Level level, int boundaryY, double surfaceY, double band) {
-        java.util.Arrays.fill(target, INF);
-        java.util.Arrays.fill(targetP, INF);
-        java.util.Arrays.fill(targetN, INF);
-        rowsClear(seedMin, seedMax);
-        rowsClear(seedMinP, seedMaxP);
-        rowsClear(seedMinN, seedMaxN);
-        flowingColumnCount = 0;
-        float foamWidth = (float) (double) Config.FOAM_WIDTH.get();
+    // Scan the next stripe of block rows into the rebuild's buffers.
+    private static void reseedStripe(Level level, Rescan job) {
+        int rows = (size + RESEED_STRIPES - 1) / RESEED_STRIPES;
+        int end = Math.min(size, job.nextRow + rows);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        for (int bz = 0; bz < size; bz++) {
+        for (int bz = job.nextRow; bz < end; bz++) {
             for (int bx = 0; bx < size; bx++) {
-                reseedColumn(level, pos, boundaryY, surfaceY, band, foamWidth, bx, bz);
+                reseedColumn(level, pos, job, bx, bz);
             }
         }
+        job.nextRow = end;
     }
 
-    // Reseed one block column's cells from its current block state. Relies on reseedAll having already
-    // cleared the whole field to INF, so this only needs to stamp the cells that turn out to be solid.
-    private static void reseedColumn(Level level, BlockPos.MutableBlockPos pos, int boundaryY,
-            double surfaceY, double band, float foamWidth, int bx, int bz) {
+    // Take a finished rebuild in: its fields become the live ones, and the live ones its successor's
+    // buffers. The map may have moved since the scan began, so the result is shifted to where the map
+    // is now, as the live fields were when it moved.
+    private static boolean adoptRescan() {
+        Rescan job = rescan;
+        if (job == null || job.chamfer == null || !job.chamfer.isDone()) {
+            return false;
+        }
+        rescan = null;
+        try {
+            job.chamfer.get();
+        } catch (Exception e) {
+            Fogged.LOGGER.warn("Fogged: waterline chamfer failed", e);
+            return false;
+        }
+        if (job.generation != generation) {
+            return false; // built at another size (see rebuild)
+        }
+        lastChamferMs = job.chamferMs;
+        int dx = (originX - job.originX) * cellsPerBlock;
+        int dz = (originZ - job.originZ) * cellsPerBlock;
+        if (dx != 0 || dz != 0) {
+            shiftField(job.target, dx, dz);
+            shiftField(job.targetP, dx, dz);
+            shiftField(job.targetN, dx, dz);
+            rowsShift(job.seedMin, job.seedMax, dx, dz);
+            rowsShift(job.seedMinP, job.seedMaxP, dx, dz);
+            rowsShift(job.seedMinN, job.seedMaxN, dx, dz);
+        }
+        spare = new Rescan(target, targetP, targetN, seedMin, seedMax, seedMinP, seedMaxP,
+                seedMinN, seedMaxN, job.bandMin, job.bandMax, flowingColumns);
+        target = job.target;
+        targetP = job.targetP;
+        targetN = job.targetN;
+        seedMin = job.seedMin;
+        seedMax = job.seedMax;
+        seedMinP = job.seedMinP;
+        seedMaxP = job.seedMaxP;
+        seedMinN = job.seedMinN;
+        seedMaxN = job.seedMaxN;
+        flowingColumns = job.flowingColumns;
+        flowingColumnCount = job.flowingColumnCount;
+        // The block-only copies the per-tick stamp restores from (see restampDynamic).
+        System.arraycopy(target, 0, blockDist, 0, target.length);
+        System.arraycopy(targetN, 0, blockDistN, 0, targetN.length);
+        return true;
+    }
+
+    // Seed one block column's cells from its current block state. The rebuild's fields start at INF,
+    // so this only needs to stamp the cells that turn out to be solid.
+    private static void reseedColumn(Level level, BlockPos.MutableBlockPos pos, Rescan job, int bx, int bz) {
         final int C = cellsPerBlock;
+        final int boundaryY = job.boundaryY;
+        final double surfaceY = job.surfaceY;
+        final double band = job.band;
+        final float foamWidth = job.foamWidth;
         int x0 = bx * C;
         int z0 = bz * C;
         int x1 = x0 + C - 1;
         int z1 = z0 + C - 1;
 
-        pos.set(originX + bx, boundaryY, originZ + bz);
+        pos.set(job.originX + bx, boundaryY, job.originZ + bz);
         BlockState state = level.getBlockState(pos);
         var fluid = state.getFluidState();
         boolean solid = state.blocksMotion();
         boolean plant = !solid && fluid.isEmpty() && !state.isAir();
         if (columnClosed(state) || standingWaterCrossing(level, pos, state)) {
-            fillCells(target, x0, z0, x1, z1, 0.0F);
-            rowsAdd(seedMin, seedMax, x0, z0, x1, z1);
+            fillCells(job.target, x0, z0, x1, z1, 0.0F);
+            rowsAdd(job.seedMin, job.seedMax, x0, z0, x1, z1);
             if (!solid) {
-                if (flowingColumnCount * 2 + 2 > flowingColumns.length) {
-                    flowingColumns = java.util.Arrays.copyOf(flowingColumns, flowingColumns.length * 2);
+                if (job.flowingColumnCount * 2 + 2 > job.flowingColumns.length) {
+                    job.flowingColumns = java.util.Arrays.copyOf(job.flowingColumns, job.flowingColumns.length * 2);
                 }
-                flowingColumns[flowingColumnCount * 2] = originX + bx;
-                flowingColumns[flowingColumnCount * 2 + 1] = originZ + bz;
-                flowingColumnCount++;
+                job.flowingColumns[job.flowingColumnCount * 2] = job.originX + bx;
+                job.flowingColumns[job.flowingColumnCount * 2 + 1] = job.originZ + bz;
+                job.flowingColumnCount++;
             }
         } else if (plant) {
-            fillCells(targetP, x0, z0, x1, z1, 0.0F);
-            rowsAdd(seedMinP, seedMaxP, x0, z0, x1, z1);
+            fillCells(job.targetP, x0, z0, x1, z1, 0.0F);
+            rowsAdd(job.seedMinP, job.seedMaxP, x0, z0, x1, z1);
         }
 
         // Whatever sits just clear of the surface rings it too, the further out the fainter. Every row
@@ -535,15 +717,15 @@ public final class WaterlineMap {
             if (seed < 0.0F) {
                 continue;
             }
-            pos.set(originX + bx, y, originZ + bz);
+            pos.set(job.originX + bx, y, job.originZ + bz);
             BlockState near = level.getBlockState(pos);
             boolean nearPlant = !near.blocksMotion() && near.getFluidState().isEmpty() && !near.isAir();
             if (columnClosed(near) || standingWaterCrossing(level, pos, near)) {
-                fillCellsMin(targetN, x0, z0, x1, z1, seed); // the band field, never the crossings'
-                rowsAdd(seedMinN, seedMaxN, x0, z0, x1, z1);
+                fillCellsMin(job.targetN, x0, z0, x1, z1, seed); // the band field, never the crossings'
+                rowsAdd(job.seedMinN, job.seedMaxN, x0, z0, x1, z1);
             } else if (nearPlant) {
-                fillCellsMin(targetP, x0, z0, x1, z1, seed);
-                rowsAdd(seedMinP, seedMaxP, x0, z0, x1, z1);
+                fillCellsMin(job.targetP, x0, z0, x1, z1, seed);
+                rowsAdd(job.seedMinP, job.seedMaxP, x0, z0, x1, z1);
             }
         }
     }
@@ -592,24 +774,15 @@ public final class WaterlineMap {
         return state.blocksMotion() || (!fluid.isEmpty() && !fluid.isSource());
     }
 
-    // The block half of the field: chamfer what reseedAll seeded and keep a copy. Always runs
-    // immediately after reseedAll, in the same call (see update()), on fully fresh block-state data.
-    // Everything that moves is stamped on top of that copy every tick instead (see restampDynamic).
-    private static void finishRecompute() {
-        chamferAround(target, seedMin, seedMax);
-        System.arraycopy(target, 0, blockDist, 0, target.length);
-        chamferAround(targetP, seedMinP, seedMaxP);
-        chamferAround(targetN, seedMinN, seedMaxN);
-        System.arraycopy(targetN, 0, blockDistN, 0, targetN.length);
-    }
-
     // The transform over the band a field's seeds can reach; beyond it every cell is still INF. Exact
     // for every distance under the reach: a cell within it of some seed lies in the seed's grown row
-    // range, and so does every cell on the transform's path to it, all nearer the seed still.
-    private static void chamferAround(float[] field, int[] seedMinX, int[] seedMaxX) {
-        rowsClear(bandMin, bandMax);
-        rowsAddGrown(bandMin, bandMax, seedMinX, seedMaxX, reachCells());
-        chamferRows(field, bandMin, bandMax);
+    // range, and so does every cell on the transform's path to it, all nearer the seed still. Runs on
+    // the worker (see Rescan), so everything it touches is handed in.
+    private static void chamferAround(float[] field, int[] seedMinX, int[] seedMaxX,
+            int[] rowMin, int[] rowMax, int n) {
+        rowsClear(rowMin, rowMax);
+        rowsAddGrown(rowMin, rowMax, seedMinX, seedMaxX, reachCells(), n);
+        chamferRows(field, rowMin, rowMax, n);
     }
 
     /**
@@ -813,8 +986,9 @@ public final class WaterlineMap {
         chamferRegion(field, 0, 0, cells - 1, cells - 1);
     }
 
-    // chamferRegion over a range per row (see chamferAround). The same two passes and the same mask.
-    private static void chamferRows(float[] field, int[] minX, int[] maxX) {
+    // chamferRegion over a range per row (see chamferAround), a field of n x n cells. The same two
+    // passes and the same mask.
+    private static void chamferRows(float[] field, int[] minX, int[] maxX, int cells) {
         final float d1 = 1.0F;
         final float d2 = DIAGONAL_STEP;
         final float d3 = KNIGHT_STEP;
@@ -1242,6 +1416,9 @@ public final class WaterlineMap {
     private static void rebuild(int newSize, int newCellsPerBlock) {
         size = newSize;
         cellsPerBlock = newCellsPerBlock;
+        rescan = null; // a rebuild in flight is at the old size; the worker's copy is dropped by generation
+        spare = null;
+        generation++;
         final float maxCells = MAX_DIST * cellsPerBlock;
         cells = size * cellsPerBlock;
         target = new float[cells * cells];
