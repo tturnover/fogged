@@ -255,7 +255,7 @@ public final class FogScour {
         return state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE) || state.is(Blocks.LAVA)
                 || state.is(Blocks.TORCH) || state.is(Blocks.WALL_TORCH)
                 || state.is(Blocks.SOUL_TORCH) || state.is(Blocks.SOUL_WALL_TORCH)
-                || FogSnuff.isDevice(state);
+                || FogSnuff.isDevice(state) || BurntCompatibility.isBurning(state);
     }
 
     /** Apply the under-fog scour to one block: the config's rules first, then fire, lava, farmland. */
@@ -305,6 +305,11 @@ public final class FogScour {
         // Fire-burning devices (furnaces, campfires, burners, engines) are drowned rather than broken.
         if (FogSnuff.isDevice(state)) {
             FogSnuff.snuff(level, pos, state);
+            return true;
+        }
+        // Burnt's flames and whatever it has burning, put out its own way (see BurntCompatibility).
+        if (BurntCompatibility.isBurning(state)) {
+            BurntCompatibility.extinguish(level, pos, state);
             return true;
         }
         return false;

@@ -10,6 +10,7 @@ final class GpuTimer {
     private final int[] queries = new int[2];
     private int frame;
     private boolean pending;
+    private boolean active;
     double lastMs;
 
     void begin() {
@@ -20,11 +21,22 @@ final class GpuTimer {
         if (pending && GL15.glGetQueryObjecti(queries[previous], GL15.GL_QUERY_RESULT_AVAILABLE) != 0) {
             lastMs = GL33.glGetQueryObjectui64(queries[previous], GL15.GL_QUERY_RESULT) / 1.0e6;
         }
+        // Time queries cannot nest: with someone else's open (another mod's profiler, a nested level
+        // pass) ours would fail to begin and the end would have nothing to end -- a GL error a frame.
+        if (GL15.glGetQueryi(GL33.GL_TIME_ELAPSED, GL15.GL_CURRENT_QUERY) != 0) {
+            active = false;
+            return;
+        }
         GL15.glBeginQuery(GL33.GL_TIME_ELAPSED, queries[frame]);
+        active = true;
     }
 
     void end() {
+        if (!active) {
+            return;
+        }
         GL15.glEndQuery(GL33.GL_TIME_ELAPSED);
+        active = false;
         pending = true;
         frame = (frame + 1) & 1;
     }

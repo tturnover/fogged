@@ -135,6 +135,10 @@ public class ModLanguageProvider extends LanguageProvider {
         cfg("enableScour", "Scour Blocks",
                 "The murk takes things out under the boundary: everything in the list below, broken "
                         + "without drops, and farmland, which reverts and loses what was planted on it.");
+        cfg("scourAllPlants", "Wilt Every Plant",
+                "Everything that grows goes under the boundary, from any mod, judged by what a block is rather "
+                        + "than by its id: flowers, saplings, grasses, crops, mushrooms, vines, leaves. Off leaves "
+                        + "the list to name each one.");
         cfg("scouredBlocks", "Scoured Blocks",
                 "Extra blocks the murk breaks under the boundary, on top of the built-in scour. Broken "
                         + "without drops.\n"

@@ -140,6 +140,8 @@
   "fogged.configuration.renderPlane.tooltip": "Draw the murk surface at the breathing boundary.",
   "fogged.configuration.sableFoam": "Sable Sub-Level Foam",
   "fogged.configuration.sableFoam.tooltip": "Also ring Sable ships and contraptions with foam. No effect without Sable installed.",
+  "fogged.configuration.scourAllPlants": "Wilt Every Plant",
+  "fogged.configuration.scourAllPlants.tooltip": "Everything that grows goes under the boundary, from any mod, judged by what a block is rather than by its id: flowers, saplings, grasses, crops, mushrooms, vines, leaves. Off leaves the list to name each one.",
   "fogged.configuration.scouredBlocks": "Scoured Blocks",
   "fogged.configuration.scouredBlocks.tooltip": "Extra blocks the murk breaks under the boundary, on top of the built-in scour. Broken without drops.\nOne block id per entry; '*' matches any run of characters and a leading '#' names a block tag. 'minecraft:' may be left off.\ncobweb\n#minecraft:banners\ncreate:*_casing",
   "fogged.configuration.section.fogged.client.toml": "Fogged Rendering",

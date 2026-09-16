@@ -140,6 +140,8 @@
   "fogged.configuration.renderPlane.tooltip": "Малювати поверхню каламуті на межі дихання.",
   "fogged.configuration.sableFoam": "Піна на підрівнях Sable",
   "fogged.configuration.sableFoam.tooltip": "Обводити піною кораблі та контрапції Sable. Без Sable не діє.",
+  "fogged.configuration.scourAllPlants": "В'янути все живе",
+  "fogged.configuration.scourAllPlants.tooltip": "Усе, що росте, зникає під межею, з будь-якого мода, за тим, чим блок є, а не за його id: квіти, саджанці, трави, посіви, гриби, ліани, листя. Вимкнено — кожен треба назвати у списку.",
   "fogged.configuration.scouredBlocks": "Блоки, які знищує туман",
   "fogged.configuration.scouredBlocks.tooltip": "Додаткові блоки, які каламуть ламає під межею, поверх вбудованого очищення. Ламає без випадіння.\nПо одному ідентифікатору блока на запис; '*' відповідає будь-якому набору символів, а '#' на початку означає тег. 'minecraft:' можна не писати.\ncobweb\n#minecraft:banners\ncreate:*_casing",
   "fogged.configuration.section.fogged.client.toml": "Графіка Fogged",

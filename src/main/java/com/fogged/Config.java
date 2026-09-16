@@ -197,6 +197,14 @@ public class Config {
             .defineListAllowEmpty("scouredBlocks", Config::defaultScouredBlocks, () -> "minecraft:cobweb",
                     o -> o instanceof String s && !s.isBlank());
 
+    public static final ModConfigSpec.BooleanValue SCOUR_ALL_PLANTS = COMMON
+            .comment("Everything that grows goes under the boundary, whatever mod it is from and whatever",
+                    "it is called: flowers, saplings, grasses, crops, mushrooms, vines, kelp, cane, bamboo,",
+                    "cactus and leaves, judged by what a block IS rather than by its id -- so a plant from",
+                    "Biomes O' Plenty or Oh The Biomes We've Gone wilts like a vanilla one without being",
+                    "listed. Off leaves the list above to name each one. Needs enableScour.")
+            .define("scourAllPlants", true);
+
     public static final ModConfigSpec.BooleanValue ENABLE_TRANSFORMS = COMMON
             .comment("Master switch for the transforms list below: off and the murk changes nothing into",
                     "anything -- no copper weathering, no coal ore going back to stone, no dropped stack",
@@ -935,6 +943,19 @@ public class Config {
     // pack can edit any line of it.
     //
     // And moss, which cannot hold on fifty blocks down; that depth is what makes it worth showing.
+    // Mossy blocks and what they are without the moss: the base block and the stairs / slab / wall
+    // cut from it, in every mod that has them.
+    private static final String[][] MOSSY = {
+            { "minecraft:mossy_cobblestone", "minecraft:cobblestone" },
+            { "minecraft:mossy_stone_bricks", "minecraft:stone_bricks" },
+            { "regions_unexplored:mossy_stone", "minecraft:stone" },
+            { "biomeswevegone:mossy_stone", "minecraft:stone" },
+            { "biomeswevegone:mossy_dacite_bricks", "biomeswevegone:dacite_bricks" },
+            { "biomeswevegone:mossy_red_rock_bricks", "biomeswevegone:red_rock_bricks" },
+            { "biomeswevegone:mossy_white_dacite_bricks", "biomeswevegone:white_dacite_bricks" },
+            { "biomesoplenty:mossy_black_sand", "biomesoplenty:black_sand" },
+    };
+
     private static final String[][] COPPER_FAMILIES = {
             { "copper_block", "exposed_copper", "weathered_copper", "oxidized_copper" },
             { "cut_copper", "exposed_cut_copper", "weathered_cut_copper", "oxidized_cut_copper" },
@@ -952,8 +973,7 @@ public class Config {
     };
 
     // What the murk does to the things growing under it. These were rules in FogScour until they were
-    // moved out here, where a pack can argue with them. Coal goes the way its ore does (see the
-    // transforms): a block of it under the murk simply breaks.
+    // moved out here, where a pack can argue with them.
     private static List<String> defaultScouredBlocks() {
         return new ArrayList<>(List.of(
                 "#minecraft:leaves",
@@ -963,7 +983,19 @@ public class Config {
                 "minecraft:fern",
                 "minecraft:large_fern",
                 "minecraft:sweet_berry_bush",
-                "minecraft:coal_block"));
+                "#minecraft:saplings",
+                "minecraft:coal_block",
+                "minecraft:moss_carpet",
+                "biomesoplenty:glowing_moss_block",
+                "biomesoplenty:glowing_moss_carpet",
+                "biomesoplenty:spanish_moss",
+                "biomesoplenty:spanish_moss_plant",
+                "biomesoplenty:huge_clover_petal",
+                "biomesoplenty:huge_lily_pad",
+                "biomeswevegone:shelf_fungi",
+                "regions_unexplored:spanish_moss",
+                "regions_unexplored:spanish_moss_plant",
+                "regions_unexplored:*_wisteria_vines"));
     }
 
     private static List<String> defaultTransforms() {
@@ -973,7 +1005,42 @@ public class Config {
         // re-grasses from a lit neighbour the moment the boundary moves off it. Silent: it is the murk
         // killing the grass, not a process anyone looks up.
         out.add("minecraft:grass_block=minecraft:coarse_dirt !silent");
+        out.add("minecraft:moss_block=minecraft:rooted_dirt !silent");
+        out.add("biomesoplenty:origin_grass_block=minecraft:coarse_dirt !silent");
+        out.add("biomeswevegone:lush_grass_block=minecraft:coarse_dirt !silent");
+        out.add("biomeswevegone:overgrown_stone=minecraft:stone !silent");
+        out.add("biomeswevegone:overgrown_dacite=biomeswevegone:dacite !silent");
+        out.add("biomeswevegone:white_overgrown_dacite=biomeswevegone:white_dacite !silent");
+        out.add("regions_unexplored:alpha_grass_block=minecraft:coarse_dirt !silent");
+        out.add("regions_unexplored:stone_grass_block=minecraft:stone !silent");
+        out.add("regions_unexplored:deepslate_grass_block=minecraft:deepslate !silent");
+        out.add("regions_unexplored:chalk_grass_block=regions_unexplored:chalk !silent");
+        out.add("regions_unexplored:argillite_grass_block=regions_unexplored:argillite !silent");
+        out.add("regions_unexplored:peat_grass_block=regions_unexplored:peat_coarse_dirt !silent");
+        out.add("regions_unexplored:silt_grass_block=regions_unexplored:silt_coarse_dirt !silent");
+        out.add("regions_unexplored:prismoss=minecraft:stone !silent");
+        out.add("regions_unexplored:deepslate_prismoss=minecraft:deepslate !silent");
+        for (String[] mossy : MOSSY) {
+            out.add(mossy[0] + "=" + mossy[1] + " !silent");
+            // "mossy_x_bricks" cuts as "mossy_x_brick_stairs"; a plain block keeps its name.
+            String from = mossy[0].endsWith("bricks") ? mossy[0].substring(0, mossy[0].length() - 1) : mossy[0];
+            String to = mossy[1].endsWith("bricks") ? mossy[1].substring(0, mossy[1].length() - 1) : mossy[1];
+            if (mossy[0].endsWith("bricks") || mossy[0].endsWith("cobblestone")) {
+                for (String cut : new String[] { "_stairs", "_slab", "_wall" }) {
+                    out.add(from + cut + "=" + to + cut + " !silent");
+                }
+            }
+        }
+        out.add("biomeswevegone:mossy_stone_stairs=minecraft:stone_stairs !silent");
+        out.add("biomeswevegone:mossy_stone_slab=minecraft:stone_slab !silent");
         out.add("minecraft:deepslate_coal_ore=minecraft:deepslate !silent");
+        out.add("minecraft:infested_stone=minecraft:stone !silent");
+        out.add("minecraft:infested_cobblestone=minecraft:cobblestone !silent");
+        out.add("minecraft:infested_stone_bricks=minecraft:stone_bricks !silent");
+        out.add("minecraft:infested_mossy_stone_bricks=minecraft:stone_bricks !silent");
+        out.add("minecraft:infested_cracked_stone_bricks=minecraft:cracked_stone_bricks !silent");
+        out.add("minecraft:infested_chiseled_stone_bricks=minecraft:chiseled_stone_bricks !silent");
+        out.add("minecraft:infested_deepslate=minecraft:deepslate !silent");
         for (String[] family : COPPER_FAMILIES) {
             // One line a family: the three un-oxidised stages, comma-separated, all ending at the same
             // block. Twenty-seven lines said the same thing.

@@ -16,7 +16,21 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.block.BambooSaplingBlock;
+import net.minecraft.world.level.block.BambooStalkBlock;
+import net.minecraft.world.level.block.BigDripleafBlock;
+import net.minecraft.world.level.block.BigDripleafStemBlock;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BushBlock;
+import net.minecraft.world.level.block.CactusBlock;
+import net.minecraft.world.level.block.CocoaBlock;
+import net.minecraft.world.level.block.GrowingPlantBlock;
+import net.minecraft.world.level.block.HangingRootsBlock;
+import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.SporeBlossomBlock;
+import net.minecraft.world.level.block.SugarCaneBlock;
+import net.minecraft.world.level.block.VineBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 
@@ -226,7 +240,29 @@ public final class ScourRules {
                 return true;
             }
         }
-        return false;
+        return Config.SCOUR_ALL_PLANTS.getAsBoolean() && isPlant(state);
+    }
+
+    // Anything that grows, by what it is: the classes every plant of every mod ends up extending,
+    // and the vanilla tags for the few that do not.
+    private static boolean isPlant(BlockState state) {
+        Block block = state.getBlock();
+        return block instanceof BushBlock            // flowers, saplings, grasses, crops, mushrooms, fungi, lily pads, sea grass
+                || block instanceof LeavesBlock
+                || block instanceof VineBlock
+                || block instanceof GrowingPlantBlock // kelp, weeping and twisting vines, cave vines
+                || block instanceof SugarCaneBlock
+                || block instanceof BambooStalkBlock
+                || block instanceof BambooSaplingBlock
+                || block instanceof CactusBlock
+                || block instanceof CocoaBlock
+                || block instanceof SporeBlossomBlock
+                || block instanceof HangingRootsBlock
+                || block instanceof BigDripleafBlock
+                || block instanceof BigDripleafStemBlock
+                || state.is(BlockTags.SAPLINGS)
+                || state.is(BlockTags.FLOWERS)
+                || state.is(BlockTags.LEAVES);
     }
 
     // Rebuilt only when the config lists themselves change (they are replaced wholesale on a reload).

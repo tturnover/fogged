@@ -89,6 +89,7 @@ final class YaclCompatibility {
                         .description(describe("group.murkActions"))
                         .option(bool("enableExtinguish", Config.ENABLE_EXTINGUISH))
                         .option(bool("enableScour", Config.ENABLE_SCOUR))
+                        .option(bool("scourAllPlants", Config.SCOUR_ALL_PLANTS))
                         .option(bool("enableTransforms", Config.ENABLE_TRANSFORMS))
                         .build())
                 .group(strings("snuffedDevices", Config.SNUFFED_DEVICES))
