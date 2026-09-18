@@ -25,10 +25,14 @@ public class Config {
     private static final ModConfigSpec.Builder COMMON = new ModConfigSpec.Builder();
     private static final ModConfigSpec.Builder CLIENT = new ModConfigSpec.Builder();
 
-    // Vertical offset of the visible surface from the breathing boundary. Lowered 0.4 below the
+    // Vertical offset of the visible surface from the breathing boundary. Lowered about 0.4 below the
     // boundary; the plane, fog, foam and breathing checks all use this so they move together and the
     // fog starts exactly at the visible surface.
-    public static final double PLANE_SURFACE_OFFSET = -0.38;
+    //
+    // -7/16 exactly, which puts the surface half a snow layer off the eighth-block grid the game builds
+    // its thin blocks on: a snow layer's top, a slab's, a carpet's. -0.38 left the plane 0.005 under the
+    // top of five-layer snow, close enough that the two fought for the same pixels.
+    public static final double PLANE_SURFACE_OFFSET = -7.0 / 16.0;
 
     // How far under the visible surface a player's eyes go before the murk works on them (breathing,
     // cold, thirst): the head skims the surface unharmed.
