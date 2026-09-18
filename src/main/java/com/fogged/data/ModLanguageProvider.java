@@ -127,9 +127,11 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "and the devices below are unlit and emptied of fuel.");
         cfg("snuffedDevices", "Snuffed Devices",
                 "Fire-burning devices the murk puts out: each is unlit, its burn timer zeroed and its "
-                        + "fuel ejected, so it cannot keep running under the fog.\n"
+                        + "fuel ejected.\n"
                         + "One block id per entry; '*' matches any run of characters and 'minecraft:' may "
                         + "be left off. An entry for a mod you do not have is simply ignored.\n"
+                        + "A device that needs more than unlighting has its own option under Other Mods "
+                        + "instead, as Cold Sweat's hearth and boiler do.\n"
                         + "furnace\n"
                         + "create:lit_blaze_burner\n"
                         + "simulated:*_portable_engine");

@@ -156,13 +156,11 @@ public class Config {
             .define("enableExtinguish", true);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SNUFFED_DEVICES = COMMON
-            .comment("Block ids of fire-burning devices the murk snuffs out along with the loose fires: each",
-                    "is unlit, its burn timer zeroed and any fuel inside it ejected, so it cannot keep",
-                    "running under the fog. Cold Sweat's hearth and boiler are not listed here -- that mod",
-                    "owns them, and snuffColdSweatDevices in [compat] says whether they are smothered.",
-                    "'*' matches any run of characters,",
-                    "and the 'minecraft:' namespace may be omitted. Empty list = leave devices burning.",
-                    "Needs enableWorldChanges.",
+            .comment("Block ids of fire-burning devices the murk puts out: each is unlit, its burn timer",
+                    "zeroed and its fuel ejected. '*' matches any run of characters, and the 'minecraft:'",
+                    "namespace may be omitted. Empty list = leave devices burning. Needs enableWorldChanges.",
+                    "A device that needs more than unlighting is not listed here: it gets its own option",
+                    "in [compat], as Cold Sweat's hearth and boiler do under snuffColdSweatDevices.",
                     "Example: snuffedDevices = [\"furnace\", \"create:lit_blaze_burner\"]")
             .defineListAllowEmpty("snuffedDevices", Config::defaultSnuffedDevices, () -> "minecraft:furnace",
                     o -> o instanceof String s && !s.isBlank());
