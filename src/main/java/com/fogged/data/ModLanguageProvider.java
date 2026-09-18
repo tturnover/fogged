@@ -67,6 +67,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.section.fogged.client.toml.title", "Fogged Rendering");
         add("fogged.configuration.boundary", "Boundary");
         add("fogged.configuration.suffocation", "Suffocation");
+        add("fogged.configuration.compat", "Other Mods");
         add("fogged.configuration.pillars", "Karst Pillars");
         add("fogged.configuration.layout", "Where They Stand");
         add("fogged.configuration.shape", "How They Are Built");
@@ -101,6 +102,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.group.murkActions", "What The Murk Does");
         add("fogged.configuration.boundary.tooltip", "Where the boundary sits, how the murk behaves at it, and what it does to the world underneath. Shared by the server and its clients: gameplay, not looks.");
         add("fogged.configuration.suffocation.tooltip", "What the murk does to the things breathing in it -- players and mobs -- and how much worse that gets with depth.");
+        add("fogged.configuration.compat.tooltip", "What the murk does to the survival mods that measure a player. Each value is read only when its mod is installed, and does nothing without it.");
         add("fogged.configuration.pillars.tooltip", "Stone towers raised from bedrock to around the murk's high-water mark, in groups. Worldgen: changes here only reach chunks generated afterwards.");
         add("fogged.configuration.layout.tooltip", "Where the groups stand and how often you meet them.");
         add("fogged.configuration.shape.tooltip", "What one tower is built out of, and the range of builds a group draws from.");

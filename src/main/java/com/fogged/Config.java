@@ -148,20 +148,6 @@ public class Config {
                     "once regardless, and terrain arriving from outside the loaded area is already worked.")
             .defineInRange("worldChangeDelaySeconds", 3, 0, 60);
 
-    public static final ModConfigSpec.DoubleValue MURK_THIRST_SCALE = COMMON
-            .comment("With Thirst Was Taken installed: how fast a player under the boundary loses water,",
-                    "as a share of the usual rate. The murk is a wet place; 0.25 means a quarter of the",
-                    "usual thirst. 1 leaves thirst alone. Nothing happens without that mod.")
-            .defineInRange("murkThirstScale", 0.25, 0.0, 1.0);
-
-    public static final ModConfigSpec.DoubleValue MURK_COLDNESS = COMMON
-            .comment("With Cold Sweat installed: how much colder it is for a player under the boundary, as",
-                    "the share of the world's warmth the murk takes away. Warmth here is the world",
-                    "temperature's margin above Cold Sweat's minimum habitable temperature, so 0.1667",
-                    "(a sixth) takes a sixth of that -- always colder, never below the line the world was",
-                    "already at. 0 leaves the temperature alone. Nothing happens without that mod.")
-            .defineInRange("murkColdness", 1.0 / 6.0, 0.0, 1.0);
-
     public static final ModConfigSpec.BooleanValue ENABLE_EXTINGUISH = COMMON
             .comment("The murk puts fire out under the boundary: loose fire and soul fire vanish, lava",
                     "freezes to obsidian or cobble with a fizz, torches are knocked down, and every device",
@@ -261,6 +247,29 @@ public class Config {
                     o -> o instanceof String s && parseTransform(s) != null);
 
     static { COMMON.pop(); }   // [boundary]
+
+    // ==== common [compat] : what the murk does inside other mods ====
+    static {
+        COMMON.comment("What the murk does to the survival mods that measure a player: each value is",
+                "read only when its mod is installed, and does nothing without it.");
+        COMMON.push("compat");
+    }
+
+    public static final ModConfigSpec.DoubleValue MURK_THIRST_SCALE = COMMON
+            .comment("With Thirst Was Taken installed: how fast a player under the boundary loses water,",
+                    "as a share of the usual rate. The murk is a wet place; 0.25 means a quarter of the",
+                    "usual thirst. 1 leaves thirst alone. Nothing happens without that mod.")
+            .defineInRange("murkThirstScale", 0.25, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue MURK_COLDNESS = COMMON
+            .comment("With Cold Sweat installed: how much colder it is for a player under the boundary, as",
+                    "the share of the world's warmth the murk takes away. Warmth here is the world",
+                    "temperature's margin above Cold Sweat's minimum habitable temperature, so 0.1667",
+                    "(a sixth) takes a sixth of that -- always colder, never below the line the world was",
+                    "already at. 0 leaves the temperature alone. Nothing happens without that mod.")
+            .defineInRange("murkColdness", 1.0 / 6.0, 0.0, 1.0);
+
+    static { COMMON.pop(); }   // [compat]
 
     // ==== common [suffocation] : what the murk does to the things breathing in it ====
     static {

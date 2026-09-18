@@ -10,6 +10,8 @@
   "fogged.configuration.allowedMobs.tooltip": "Entity-type ids that may live in the murk. The 'minecraft:' namespace may be omitted.",
   "fogged.configuration.boundary": "Boundary",
   "fogged.configuration.boundary.tooltip": "Where the boundary sits, how the murk behaves at it, and what it does to the world underneath. Shared by the server and its clients: gameplay, not looks.",
+  "fogged.configuration.compat": "Other Mods",
+  "fogged.configuration.compat.tooltip": "What the murk does to the survival mods that measure a player. Each value is read only when its mod is installed, and does nothing without it.",
   "fogged.configuration.debug": "Debug",
   "fogged.configuration.debug.tooltip": "Ways of seeing what the renderer is doing: raw views of the buffers behind the murk, a readout of its state, and whether compatibility trouble is logged.",
   "fogged.configuration.debugHud": "Debug Readout",

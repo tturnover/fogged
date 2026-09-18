@@ -64,6 +64,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.configuration.section.fogged.client.toml.title", "Графіка Fogged");
         add("fogged.configuration.boundary", "Межа");
         add("fogged.configuration.suffocation", "Задуха");
+        add("fogged.configuration.compat", "Інші моди");
         add("fogged.configuration.pillars", "Карстові стовпи");
         add("fogged.configuration.layout", "Де вони стоять");
         add("fogged.configuration.shape", "Як вони збудовані");
@@ -98,6 +99,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.configuration.group.murkActions", "Що робить каламуть");
         add("fogged.configuration.boundary.tooltip", "Де проходить межа, як каламуть поводиться на ній і що вона робить зі світом під нею. Спільне для сервера й клієнтів: це ігролад, а не вигляд.");
         add("fogged.configuration.suffocation.tooltip", "Що каламуть робить із тими, хто в ній дихає -- гравцями й мобами -- і наскільки гірше це стає з глибиною.");
+        add("fogged.configuration.compat.tooltip", "Що каламуть робить із модами виживання, які міряють гравця. Кожне значення читається лише тоді, коли той мод встановлено, і без нього нічого не робить.");
         add("fogged.configuration.pillars.tooltip", "Кам'яні вежі, підняті від корінної породи до найвищого рівня каламуті, групами. Це генерація світу: зміни діють лише на чанки, створені після них.");
         add("fogged.configuration.layout.tooltip", "Де стоять групи і як часто вони трапляються.");
         add("fogged.configuration.shape.tooltip", "З чого збудована окрема вежа і який діапазон постатей має група.");

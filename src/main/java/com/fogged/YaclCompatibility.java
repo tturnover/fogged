@@ -54,6 +54,7 @@ final class YaclCompatibility {
                 .title(Component.translatable("fogged.configuration.title"))
                 .category(boundary())
                 .category(suffocation())
+                .category(compat())
                 .category(pillars())
                 .category(plane())
                 .category(debug())
@@ -79,8 +80,6 @@ final class YaclCompatibility {
                 .option(bool("enableWorldChanges", Config.ENABLE_WORLD_CHANGES))
                 .option(integer("worldChangeSkip", Config.WORLD_CHANGE_SKIP, 0, 64, 1))
                 .option(integer("worldChangeDelaySeconds", Config.WORLD_CHANGE_DELAY, 0, 60, 1))
-                .option(dbl("murkThirstScale", Config.MURK_THIRST_SCALE, 0.0, 1.0, 0.05))
-                .option(dbl("murkColdness", Config.MURK_COLDNESS, 0.0, 1.0, 0.05))
                 // The three switches together, under one heading, and then the three lists they govern
                 // in the same order. They cannot be interleaved with their lists: a category renders
                 // every loose option BEFORE any of its groups, and a list IS a group.
@@ -113,6 +112,15 @@ final class YaclCompatibility {
                 .option(integer("mobSuffocateDelaySeconds", Config.MOB_SUFFOCATE_DELAY, 0, 600, 1))
                 .option(dbl("mobSuffocateDamage", Config.MOB_SUFFOCATE_DAMAGE, 0.0, 40.0, 0.5))
                 .group(strings("allowedMobs", Config.ALLOWED_MOBS))
+                .build();
+    }
+
+    private static ConfigCategory compat() {
+        return ConfigCategory.createBuilder()
+                .name(Component.translatable(KEY + "compat"))
+                .tooltip(Component.translatable(KEY + "compat.tooltip"))
+                .option(dbl("murkThirstScale", Config.MURK_THIRST_SCALE, 0.0, 1.0, 0.05))
+                .option(dbl("murkColdness", Config.MURK_COLDNESS, 0.0, 1.0, 0.05))
                 .build();
     }
 

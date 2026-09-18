@@ -10,6 +10,8 @@
   "fogged.configuration.allowedMobs.tooltip": "Ідентифікатори істот, яким можна жити в каламуті. Простір імен 'minecraft:' можна не писати.",
   "fogged.configuration.boundary": "Межа",
   "fogged.configuration.boundary.tooltip": "Де проходить межа, як каламуть поводиться на ній і що вона робить зі світом під нею. Спільне для сервера й клієнтів: це ігролад, а не вигляд.",
+  "fogged.configuration.compat": "Інші моди",
+  "fogged.configuration.compat.tooltip": "Що каламуть робить із модами виживання, які міряють гравця. Кожне значення читається лише тоді, коли той мод встановлено, і без нього нічого не робить.",
   "fogged.configuration.debug": "Налагодження",
   "fogged.configuration.debug.tooltip": "Способи побачити, що робить рендер: сирі вигляди буферів за каламуттю, показ її стану й запис проблем сумісності в лог.",
   "fogged.configuration.debugHud": "Налагоджувальний надпис",
