@@ -132,8 +132,12 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "be left off. An entry for a mod you do not have is simply ignored.\n"
                         + "furnace\n"
                         + "create:lit_blaze_burner\n"
-                        + "simulated:*_portable_engine\n"
-                        + "cold_sweat:hearth_bottom");
+                        + "simulated:*_portable_engine");
+        cfg("snuffColdSweatDevices", "Smother Cold Sweat's Burners",
+                "With Cold Sweat: the murk smothers its hearth and boiler under the boundary -- both are "
+                        + "held still, so they neither warm nor burn, and what waits in the fuel slot is "
+                        + "thrown out, while the fuel already in the tank keeps. Off leaves them running. "
+                        + "Does nothing without that mod.");
         cfg("enableScour", "Scour Blocks",
                 "The murk takes things out under the boundary: everything in the list below, broken "
                         + "without drops, and farmland, which reverts and loses what was planted on it.");

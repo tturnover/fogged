@@ -158,8 +158,9 @@ public class Config {
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SNUFFED_DEVICES = COMMON
             .comment("Block ids of fire-burning devices the murk snuffs out along with the loose fires: each",
                     "is unlit, its burn timer zeroed and any fuel inside it ejected, so it cannot keep",
-                    "running under the fog. Cold Sweat's hearth and boiler are smothered instead: held",
-                    "still, keeping their fuel for when the murk lifts. '*' matches any run of characters,",
+                    "running under the fog. Cold Sweat's hearth and boiler are not listed here -- that mod",
+                    "owns them, and snuffColdSweatDevices in [compat] says whether they are smothered.",
+                    "'*' matches any run of characters,",
                     "and the 'minecraft:' namespace may be omitted. Empty list = leave devices burning.",
                     "Needs enableWorldChanges.",
                     "Example: snuffedDevices = [\"furnace\", \"create:lit_blaze_burner\"]")
@@ -268,6 +269,14 @@ public class Config {
                     "(a sixth) takes a sixth of that -- always colder, never below the line the world was",
                     "already at. 0 leaves the temperature alone. Nothing happens without that mod.")
             .defineInRange("murkColdness", 1.0 / 6.0, 0.0, 1.0);
+
+    public static final ModConfigSpec.BooleanValue SNUFF_COLD_SWEAT_DEVICES = COMMON
+            .comment("With Cold Sweat installed: the murk smothers its hearth and boiler under the",
+                    "boundary -- their ticks are held, so they neither warm nor burn, and what waits in",
+                    "the fuel slot is thrown out, but the fuel already in the tank keeps. Off leaves both",
+                    "running under the fog. They are not in snuffedDevices: the mod owns them, and that",
+                    "list is for devices a pack names itself. Needs enableExtinguish.")
+            .define("snuffColdSweatDevices", true);
 
     static { COMMON.pop(); }   // [compat]
 
@@ -937,9 +946,7 @@ public class Config {
                 "minecraft:soul_campfire",
                 "create:lit_blaze_burner",
                 "aeronautics:adjustable_burner",
-                "simulated:*_portable_engine",
-                "cold_sweat:hearth_bottom",
-                "cold_sweat:boiler"));
+                "simulated:*_portable_engine"));
     }
 
     // Coal is what the murk eats: an ore left in the dark under the boundary comes back as the rock it

@@ -130,8 +130,12 @@ public class ModLanguageProviderUk extends LanguageProvider {
                         + "ігнорується.\n"
                         + "furnace\n"
                         + "create:lit_blaze_burner\n"
-                        + "simulated:*_portable_engine\n"
-                        + "cold_sweat:hearth_bottom");
+                        + "simulated:*_portable_engine");
+        cfg("snuffColdSweatDevices", "Гасити пічки Cold Sweat",
+                "З Cold Sweat: каламуть душить його вогнище й бойлер під межею -- обидва спиняються, "
+                        + "тож не гріють і не горять, а те, що чекало в слоті палива, викидається, тоді як "
+                        + "паливо вже в баку лишається. Вимкнено — працюють і під туманом. Без того мода "
+                        + "нічого не робить.");
         cfg("enableScour", "Знищення блоків",
                 "Каламуть прибирає речі під межею: усе зі списку нижче, без випадіння, і ріллю, яка "
                         + "стає землею й втрачає посаджене.");

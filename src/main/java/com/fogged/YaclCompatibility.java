@@ -121,6 +121,7 @@ final class YaclCompatibility {
                 .tooltip(Component.translatable(KEY + "compat.tooltip"))
                 .option(dbl("murkThirstScale", Config.MURK_THIRST_SCALE, 0.0, 1.0, 0.05))
                 .option(dbl("murkColdness", Config.MURK_COLDNESS, 0.0, 1.0, 0.05))
+                .option(bool("snuffColdSweatDevices", Config.SNUFF_COLD_SWEAT_DEVICES))
                 .build();
     }
 

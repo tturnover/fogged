@@ -34,6 +34,9 @@ import net.neoforged.neoforge.items.IItemHandler;
  * {@link Config#SNUFFED_DEVICES} lists is unlit, its burn timer zeroed and its fuel ejected. Taking the
  * fuel is the part that makes it stick -- a device left holding any just relights between sweeps.
  *
+ * <p>Cold Sweat's own burners come from {@link ColdSweatCompatibility#snuffedDevices()} rather than from
+ * that list, while {@link Config#SNUFF_COLD_SWEAT_DEVICES} is on and the mod is there.
+ *
  * <p>Only vanilla furnaces are touched through real types; everything else is reached by name through
  * reflection, so the mods owning them stay optional (as in {@link CreateCompatibility}).
  */
@@ -49,16 +52,23 @@ public final class FogSnuff {
     // Resolved once per config change: matching ids per block would run a registry lookup and a regex
     // for every block in the scour band, the hottest loop in the mod.
     private static List<? extends String> cachedRaw;
+    private static boolean cachedColdSweat;
     private static Set<Block> devices = Set.of();
 
     private static void ensureDevices() {
         List<? extends String> raw = Config.SNUFFED_DEVICES.get();
-        if (raw == cachedRaw) {
+        boolean coldSweat = COLD_SWEAT && Config.SNUFF_COLD_SWEAT_DEVICES.get();
+        if (raw == cachedRaw && coldSweat == cachedColdSweat) {
             return;
         }
         cachedRaw = raw;
+        cachedColdSweat = coldSweat;
+        List<String> ids = new ArrayList<>(raw);
+        if (coldSweat) {
+            ids.addAll(ColdSweatCompatibility.snuffedDevices());
+        }
         List<Pattern> patterns = new ArrayList<>();
-        for (String s : raw) {
+        for (String s : ids) {
             patterns.add(Config.idGlob(Config.withNamespace(s.trim())));
         }
         Set<Block> found = new HashSet<>();
