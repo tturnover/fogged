@@ -74,6 +74,8 @@ public class FogPlaneRenderer {
     static double lastSurfaceY;
     static boolean lastBelow;
     static float lastFadeEnd;
+    // Fade range handed to the shaders when the rim is not to fade: further than anything drawn.
+    private static final float NO_FADE = 1.0e9F;
     static int lastHoles;
     static boolean lastDepthValid;
     static boolean lastDrawn;
@@ -191,9 +193,14 @@ public class FogPlaneRenderer {
         int holes = softEdges ? gatherEntityHoles(mc.level, cam, surfaceY) : 0;
         lastHoles = holes;
 
-        // Fade the rim out so the plane never shows past where the world fades away (visibleReach).
-        float fadeEnd = visibleReach(mc, event.getCamera(), below);
-        lastFadeEnd = fadeEnd;
+        // In the murk, fade the rim out so the plane never shows past where the world fades away
+        // (visibleReach). On the dry side there is no fade of its own: the plane takes the scene fog,
+        // which carries it to the horizon colour exactly where the terrain goes there. Any extra ramp
+        // dithered the rim out ahead of the fog and showed bare terrain past it.
+        float reach = visibleReach(mc, event.getCamera(), below);
+        float fadeStart = below ? reach * 0.8F : NO_FADE;
+        float fadeEnd = below ? reach : NO_FADE * 2.0F;
+        lastFadeEnd = reach;
 
         float[] plane = Config.planeColor();
         float r = plane[0];
@@ -205,7 +212,7 @@ public class FogPlaneRenderer {
         float s = mc.options.getEffectiveRenderDistance() * 16.0F + 32.0F;
 
         if (pack) {
-            drawThroughPack(mc, event.getModelViewMatrix(), cam, relY, below, s, fadeEnd, holes, depthValid, r, g, b);
+            drawThroughPack(mc, event.getModelViewMatrix(), cam, relY, below, s, fadeStart, fadeEnd, holes, depthValid, r, g, b);
             lastStageMs = (System.nanoTime() - stageStart) / 1.0e6;
             if (hud) {
                 gpu.end();
@@ -258,7 +265,7 @@ public class FogPlaneRenderer {
             shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
             // Foam/spot pixel-snap grid must match the map's actual resolution (Config.waterlineCellsPerBlock).
             shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
-            shader.safeGetUniform("PlaneFadeStart").set(fadeEnd * 0.8F);
+            shader.safeGetUniform("PlaneFadeStart").set(fadeStart);
             shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
             // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
             shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
@@ -512,7 +519,7 @@ public class FogPlaneRenderer {
     // core shader needs does not arise. The soft occlusion reads this mod's depth snapshot from a
     // texture unit of its own. Only the surface spots stay out: they are colour, which the pack owns.
     private static void drawThroughPack(Minecraft mc, Matrix4f view, Vec3 cam, float relY, boolean below,
-            float s, float fadeEnd, int holes, float depthValid, float r, float g, float b) {
+            float s, float fadeStart, float fadeEnd, int holes, float depthValid, float r, float g, float b) {
         // Bail before any render state is touched: the plane IS its colour map, and painting a
         // render-distance-wide quad with texture 0 would black out the world.
         int foamColorTex = WaterlineMap.foamColorTextureId();
@@ -587,7 +594,7 @@ public class FogPlaneRenderer {
             IrisCompatibility.sampler(program, "fogged_Waterline", WaterlineMap.textureId(), 1);
             IrisCompatibility.uniform4f(program, "fogged_WaterlineInfo", (float) (WaterlineMap.originX() - ax),
                     (float) (WaterlineMap.originZ() - az), (float) WaterlineMap.size(), WaterlineMap.MAX_DIST);
-            IrisCompatibility.uniform2f(program, "fogged_Fade", fadeEnd * 0.8F, fadeEnd);
+            IrisCompatibility.uniform2f(program, "fogged_Fade", fadeStart, fadeEnd);
             IrisCompatibility.uniform4f(program, "fogged_NearDither", nd[0], nd[1], nd[2], nd[3]);
             IrisCompatibility.uniform1f(program, "fogged_HolesActive", below ? 1.0F : 0.0F);
             IrisCompatibility.uniform1i(program, "fogged_HoleCount", holes);

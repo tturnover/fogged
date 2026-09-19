@@ -169,10 +169,10 @@ void main() {
     outColor.a = max(outColor.a, fogA);
 
     // Fade the far rim by the larger of the HORIZONTAL radius and the VERTICAL drop to the surface.
-    // Horizontal keeps the murk disc at full render-distance radius no matter the camera height (a
-    // pure 3D distance shrank it as the player climbed); the vertical term then fades the whole
-    // plane once the camera is farther above the surface than it can see, so it doesn't hang in the
-    // void after the world below has fogged out. The outer rim reveals the real horizon.
+    // Horizontal keeps the murk disc at full radius no matter the camera height (a pure 3D distance
+    // shrank it as the player climbed); the vertical term then fades the whole plane once the camera
+    // is farther above the surface than it can see. Murk only: on the dry side the range is pushed
+    // out of reach and the scene fog alone takes the plane to the horizon colour.
     float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, max(length(relPos.xz), abs(relPos.y)));
 
     // Entity dissolve discs: a soft hole opened around every entity near the plane, sized by its
