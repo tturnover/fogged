@@ -2,6 +2,7 @@ package com.fogged.mixin;
 
 import com.fogged.Config;
 import com.fogged.FogModifier;
+import com.fogged.FogPlaneRenderer;
 import com.fogged.MixinHealthCheck;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -49,6 +50,10 @@ public class LevelRendererMixin {
     private void fogged$skipSkyInMurk(Matrix4f frustumMatrix, Matrix4f projectionMatrix, float partialTick,
                                       Camera camera, boolean isFoggy, Runnable skyFogSetup, CallbackInfo ci) {
         MixinHealthCheck.skyFired = true;
+        // The frame was cleared just before this and nothing has touched the clear value since; the
+        // plane fogs into this colour on the dry side (FogPlaneRenderer.frameClearColor).
+        GL11.glGetFloatv(GL11.GL_COLOR_CLEAR_VALUE, FogPlaneRenderer.frameClearColor);
+        FogPlaneRenderer.frameClearValid = true;
         Level level = Minecraft.getInstance().level;
         if (level != null && Config.fogged(level, camera.getPosition().y)) {
             // Repaint the background to the murk colour before dropping the sky pass. Cancelling alone

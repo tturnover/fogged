@@ -74,8 +74,19 @@ public class FogPlaneRenderer {
     static double lastSurfaceY;
     static boolean lastBelow;
     static float lastFadeEnd;
-    // Fade range handed to the shaders when the rim is not to fade: further than anything drawn.
-    private static final float NO_FADE = 1.0e9F;
+    // Fog state seen at the plane draw, for the debug HUD.
+    static float lastFogStart, lastFogEnd;
+    static int lastFogShape;
+    static final float[] lastFogColor = new float[4];
+    // The colour this frame's framebuffer was cleared to, read back at renderSky (LevelRendererMixin)
+    // while the GL clear value still holds it. Below the true horizon, where the plane's far reaches
+    // are seen, nothing is drawn over the clear, so that is the backdrop the dry-side plane has to fog
+    // into. It is not always the shader fog colour: IMB11's Fog writes the two from different places
+    // (a clearColor wrap and shadowed fogRed/Green/Blue) and they disagree, so a plane fogged with the
+    // scene colour stood against the backdrop as a hard straight cut. Vanilla terrain at full fog has
+    // the same seam; the plane's dead-straight edge just made it read.
+    public static final float[] frameClearColor = new float[4];
+    public static boolean frameClearValid;
     static int lastHoles;
     static boolean lastDepthValid;
     static boolean lastDrawn;
@@ -193,14 +204,33 @@ public class FogPlaneRenderer {
         int holes = softEdges ? gatherEntityHoles(mc.level, cam, surfaceY) : 0;
         lastHoles = holes;
 
-        // In the murk, fade the rim out so the plane never shows past where the world fades away
-        // (visibleReach). On the dry side there is no fade of its own: the plane takes the scene fog,
-        // which carries it to the horizon colour exactly where the terrain goes there. Any extra ramp
-        // dithered the rim out ahead of the fog and showed bare terrain past it.
+        // Quad half-size, and how the rim goes. In the murk the plane spans the render distance and
+        // fades out over the last fifth of what can be seen (visibleReach), so it never shows past
+        // where the world fades away. On the dry side the rim fade begins only once the last terrain
+        // is gone -- past both the render distance and the scene fog's end -- so it never dithers
+        // over terrain that is still crisp; by then the plane is fully fogged into the backdrop
+        // (frameClearColor) and the dither only finishes what the fog began. It ends well inside the
+        // projection's far plane, or the clip there would leave a straight cut instead of a fade, and
+        // the quad runs out to the fade's end (its corners further, already gone).
         float reach = visibleReach(mc, event.getCamera(), below);
-        float fadeStart = below ? reach * 0.8F : NO_FADE;
-        float fadeEnd = below ? reach : NO_FADE * 2.0F;
-        lastFadeEnd = reach;
+        lastFogStart = RenderSystem.getShaderFogStart();
+        lastFogEnd = RenderSystem.getShaderFogEnd();
+        lastFogShape = RenderSystem.getShaderFogShape().getIndex();
+        System.arraycopy(RenderSystem.getShaderFogColor(), 0, lastFogColor, 0, 4);
+        float s;
+        float fadeStart;
+        float fadeEnd;
+        if (below) {
+            s = mc.options.getEffectiveRenderDistance() * 16.0F + 32.0F;
+            fadeStart = reach * 0.8F;
+            fadeEnd = reach;
+        } else {
+            float depthFar = mc.gameRenderer.getDepthFar();
+            fadeStart = Math.min(Math.max(reach, lastFogEnd), depthFar * 0.7F);
+            fadeEnd = Math.min(fadeStart * 1.125F, depthFar);
+            s = fadeEnd;
+        }
+        lastFadeEnd = fadeEnd;
 
         float[] plane = Config.planeColor();
         float r = plane[0];
@@ -208,8 +238,6 @@ public class FogPlaneRenderer {
         float b = plane[2];
         // Config alpha (plane[3]) is ignored: the plane is drawn opaque both sides so it always reads
         // as murk (a low config alpha made it look like clear glass up close).
-
-        float s = mc.options.getEffectiveRenderDistance() * 16.0F + 32.0F;
 
         if (pack) {
             drawThroughPack(mc, event.getModelViewMatrix(), cam, relY, below, s, fadeStart, fadeEnd, holes, depthValid, r, g, b);
@@ -298,6 +326,9 @@ public class FogPlaneRenderer {
             RenderSystem.setShaderFogStart(0.0F);
             RenderSystem.setShaderFogEnd(far * 0.15F);
             RenderSystem.setShaderFogColor(r, g, b, 1.0F); // plane colour, like the fog beneath it
+        } else if (frameClearValid) {
+            // The backdrop's colour, not the scene fog's -- see frameClearColor.
+            RenderSystem.setShaderFogColor(frameClearColor[0], frameClearColor[1], frameClearColor[2], 1.0F);
         }
 
         // Put the camera view into RenderSystem's modelview for the draw (its leftover state varies by

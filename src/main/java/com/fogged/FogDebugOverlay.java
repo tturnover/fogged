@@ -50,6 +50,10 @@ public final class FogDebugOverlay {
                 ? new Line(String.format("plane on  %s  fade end %.0f",
                         FogPlaneRenderer.lastBelow ? "below" : "above", FogPlaneRenderer.lastFadeEnd), OK)
                 : new Line("plane off (renderPlane)", BAD));
+        lines.add(new Line(String.format("scene fog %.0f..%.0f shape %d  colour %.0f %.0f %.0f  clear %.0f %.0f %.0f",
+                FogPlaneRenderer.lastFogStart, FogPlaneRenderer.lastFogEnd, FogPlaneRenderer.lastFogShape,
+                FogPlaneRenderer.lastFogColor[0] * 255, FogPlaneRenderer.lastFogColor[1] * 255, FogPlaneRenderer.lastFogColor[2] * 255,
+                FogPlaneRenderer.frameClearColor[0] * 255, FogPlaneRenderer.frameClearColor[1] * 255, FogPlaneRenderer.frameClearColor[2] * 255), PLAIN));
         if (FogPlaneRenderer.lastThroughPack) {
             lines.add(new Line("drawn through the Iris shader pack", PLAIN));
         }
