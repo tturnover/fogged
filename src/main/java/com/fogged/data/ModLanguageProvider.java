@@ -91,10 +91,6 @@ public class ModLanguageProvider extends LanguageProvider {
                 "How far you can see (in blocks) once the camera is under the boundary. Lower = denser murk.");
         cfg("fogStartRaise", "Murk Start Offset",
                 "Where the murk begins, from the plane: above it, 0 at it, or below it.");
-        cfg("murkDrag", "Murk Drag",
-                "How much of the speed of anything submerged in the murk it takes per second -- mobs, "
-                        + "players, dropped items, and Sable's ships -- scaled by how much of it is under "
-                        + "the surface. Water does its own dragging. 0 leaves movement alone.");
         cfg("flipFog", "Flip Fog Side",
                 "Put the murk above the boundary instead of below it. Does not move the breathing boundary.");
         cfg("enableWorldChanges", "Change The World",
@@ -124,9 +120,12 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "submerged float block holds up this much of the ship's mass. Raise it to float a "
                         + "ship on less wool. 0 is no buoyancy.");
 
+        cfg("sableMurkDrag", "Murk Drag",
+                "How much of a submerged hull's speed the murk takes per second, at the point where all "
+                        + "its float blocks are under. 0 and a ship dropped in bobs forever. Hulls only.");
         cfg("sableMurkSpinDrag", "Murk Spin Drag",
-                "What Murk Drag is to a hull's speed, this is to its spin -- what stops a ship rolling on "
-                        + "once the murk has righted it. Its own value because only a hull can spin.");
+                "The same for a submerged hull's spin -- what stops a ship rolling on once the murk has "
+                        + "righted it.");
         cfg("sableBuoyancyProbes", "Hull Sample Limit",
                 "How many float blocks of one hull the murk is measured against at most. A ship with more "
                         + "is sampled instead, so this is the cost per ship per physics step, not a size limit.");

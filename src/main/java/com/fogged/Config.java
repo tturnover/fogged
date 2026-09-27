@@ -140,15 +140,6 @@ public class Config {
                     "the breathing boundary.")
             .define("flipFog", false);
 
-    public static final ModConfigSpec.DoubleValue MURK_DRAG = COMMON
-            .comment("How much of the speed of anything submerged in the murk it takes per second -- mobs,",
-                    "players, dropped items, and with Sable its ships and contraptions, all held back the",
-                    "same way. Scaled by how much of the thing is actually under the surface, so wading",
-                    "through the top of it barely tugs. 0 leaves movement alone and the murk is as thin as",
-                    "air to move through. Water's own drag is left to the water: something swimming in a",
-                    "lake under the murk is dragged by the lake, not twice over.")
-            .defineInRange("murkDrag", 2.0, 0.0, 20.0);
-
     public static final ModConfigSpec.BooleanValue ENABLE_WORLD_CHANGES = COMMON
             .comment("Whether the murk works on the world at all under the boundary. This is the master",
                     "switch over the three below it -- enableExtinguish, enableScour and",
@@ -327,10 +318,15 @@ public class Config {
                     "0 is no buoyancy.")
             .defineInRange("sableMurkDensity", 1.5, 0.0, 64.0);
 
+    public static final ModConfigSpec.DoubleValue SABLE_MURK_DRAG = COMMON
+            .comment("How much of a submerged hull's speed the murk takes per second, at the point where all",
+                    "of its float blocks are under. At 0 it is frictionless and a ship dropped in bobs",
+                    "forever. Only hulls: what swims and walks through the murk is not held back by it.")
+            .defineInRange("sableMurkDrag", 2.0, 0.0, 20.0);
+
     public static final ModConfigSpec.DoubleValue SABLE_MURK_SPIN_DRAG = COMMON
-            .comment("What murkDrag is to a hull's speed, this is to its spin: what stops a ship rolling on",
-                    "once the murk has righted it. Its own value because only a hull can spin -- a mob has",
-                    "nothing for this to hold back.")
+            .comment("The same for a submerged hull's spin: what stops a ship rolling on once the murk has",
+                    "righted it.")
             .defineInRange("sableMurkSpinDrag", 3.0, 0.0, 20.0);
 
     public static final ModConfigSpec.IntValue SABLE_BUOYANCY_PROBES = COMMON

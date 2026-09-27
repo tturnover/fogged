@@ -229,13 +229,11 @@ final class SableBuoyancy {
         }
     }
 
-    // The murk's viscosity: bleed a share of the submerged hull's speed and spin per second. The speed
-    // reads the same murkDrag every mob is held back by (see MurkDrag), so a ship and a mob alongside it
-    // are slowed alike. Capped at taking all of the motion in one substep, so a large drag can never
-    // push it back the other way.
+    // The murk's viscosity: bleed a share of the submerged hull's speed and spin per second. Capped at
+    // taking all of it in one substep, so a large drag can never push the motion back the other way.
     private static void drag(ServerSubLevel sub, RigidBodyHandle handle, Pose3dc pose, MassData mass,
             double submerged, double timeStep) {
-        double linear = Math.min(1.0, Config.MURK_DRAG.get() * submerged * timeStep);
+        double linear = Math.min(1.0, Config.SABLE_MURK_DRAG.get() * submerged * timeStep);
         double spin = Math.min(1.0, Config.SABLE_MURK_SPIN_DRAG.get() * submerged * timeStep);
         if (linear <= 0.0 && spin <= 0.0) {
             return;
