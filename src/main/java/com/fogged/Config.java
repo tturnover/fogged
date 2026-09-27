@@ -751,6 +751,34 @@ public class Config {
             .define("vaporUnderwater", true);
 
     static { CLIENT.pop(); }   // [plane.vapor]
+
+    // ---- client [plane.motes] : specks adrift inside the murk ----
+    static {
+        CLIENT.comment("The specks drifting inside the murk -- the same puff the nozzle filter breathes out,",
+                "hanging in the air around the camera so the murk reads as something you are inside of",
+                "rather than a colour over the lens.");
+        CLIENT.push("motes");
+    }
+
+    public static final ModConfigSpec.IntValue MOTES_PER_TICK = CLIENT
+            .comment("How many specks are cast into the murk each tick while the camera is inside it. Each",
+                    "one lives about half a second, so this is roughly a tenth of how many hang in the air",
+                    "at once. 0 leaves the murk empty.")
+            .defineInRange("motesPerTick", 6, 0, 64);
+
+    public static final ModConfigSpec.DoubleValue MOTES_RANGE = CLIENT
+            .comment("How far out from the camera specks are cast, in blocks, capped at the murk's own fog",
+                    "distance -- past that they would be cast into fog too thick to show them.")
+            .defineInRange("motesRange", 12.0, 1.0, 64.0);
+
+    public static final ModConfigSpec.DoubleValue MOTES_DRIFT = CLIENT
+            .comment("How fast a speck drifts, in blocks per tick. The drift is mostly sideways with a",
+                    "slight sink, so the murk looks like it is settling rather than boiling. 0 leaves them",
+                    "hanging still.")
+            .defineInRange("motesDrift", 0.01, 0.0, 0.5);
+
+    static { CLIENT.pop(); }   // [plane.motes]
+
     static { CLIENT.pop(); }   // [plane]
 
     // ==== client [debug] : diagnostics for the render path ====

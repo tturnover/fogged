@@ -73,6 +73,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.shape", "How They Are Built");
         add("fogged.configuration.surface", "What Covers Them");
         add("fogged.configuration.plane", "Separation Plane");
+        add("fogged.configuration.motes", "Drifting Specks");
         add("fogged.configuration.dither", "Pixel Dither");
         add("fogged.configuration.vapor", "Cold Vapour");
         add("fogged.configuration.debug", "Debug");
@@ -134,6 +135,16 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.shape.tooltip", "What one tower is built out of, and the range of builds a group draws from.");
         add("fogged.configuration.surface.tooltip", "Everything laid over the bare rock: its bedding, the scree at its foot, and what grows or freezes on it.");
         add("fogged.configuration.plane.tooltip", "The murk's visible surface: its colour, the foam along its waterline, and how it meets the blocks that cross it. Yours alone; a server cannot dictate it.");
+        add("fogged.configuration.motes.tooltip", "The specks drifting inside the murk -- the same puff a nozzle filter breathes out, hanging in the air around you so the murk reads as somewhere you are rather than a colour over the lens.");
+        cfg("motesPerTick", "Specks Per Tick",
+                "How many specks are cast into the murk each tick while you are inside it. Each lives about "
+                        + "half a second, so this is roughly a tenth of what hangs in the air at once. 0 "
+                        + "leaves the murk empty.");
+        cfg("motesRange", "Speck Range",
+                "How far out from you specks are cast, in blocks, capped at the murk's own fog distance.");
+        cfg("motesDrift", "Speck Drift",
+                "How fast a speck drifts, in blocks per tick -- mostly sideways with a slight sink. 0 leaves "
+                        + "them hanging still.");
         add("fogged.configuration.dither.tooltip", "The pixel dither: how the plane thins out around the camera, and the grain of every dithered edge. Under an Iris shader pack this is also how the whole murk is drawn.");
         add("fogged.configuration.vapor.tooltip", "The cold-vapour layer: stacked mist sheets over the surface, terraced by a noise field so the plane never reads as dead flat.");
         add("fogged.configuration.debug.tooltip", "Ways of seeing what the renderer is doing: raw views of the buffers behind the murk, a readout of its state, and whether compatibility trouble is logged.");
