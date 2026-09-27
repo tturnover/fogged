@@ -73,7 +73,7 @@ public final class MurkComposite {
 
     private static void renderPass(boolean pack) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null) {
+        if (mc.level == null || !Config.dimensionEnabled(mc.level)) {
             return;
         }
         Camera camera = mc.gameRenderer.getMainCamera();

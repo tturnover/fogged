@@ -68,6 +68,11 @@ public final class FoggedCommands {
             src.sendFailure(Component.literal("No server level."));
             return 0;
         }
+        if (!Config.dimensionEnabled(level)) {
+            src.sendSuccess(() -> Component.literal(
+                    "No fog in this dimension (not listed in the 'dimensions' config)."), false);
+            return Command.SINGLE_SUCCESS;
+        }
         double surface = Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET;
         double boundary = Config.breathHeight(level);
         src.sendSuccess(() -> Component.literal(String.format(
@@ -77,6 +82,12 @@ public final class FoggedCommands {
 
     private static int depth(CommandContext<CommandSourceStack> ctx, ServerPlayer player) throws CommandSyntaxException {
         CommandSourceStack src = ctx.getSource();
+        if (!Config.dimensionEnabled(player.level())) {
+            src.sendSuccess(() -> Component.literal(String.format(
+                    "%s: no fog in this dimension (not listed in the 'dimensions' config).",
+                    player.getName().getString())), false);
+            return Command.SINGLE_SUCCESS;
+        }
         double surface = Config.breathHeight(player.level()) + Config.PLANE_SURFACE_OFFSET;
         double depth = surface - player.getEyeY();
         String where = depth >= 0.0

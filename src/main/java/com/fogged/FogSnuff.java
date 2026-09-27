@@ -237,7 +237,8 @@ public final class FogSnuff {
      */
     public static boolean snuffedAt(Level level, BlockPos pos) {
         ensureDevices();
-        if (devices.isEmpty() || !Config.ENABLE_WORLD_CHANGES.get() || !Config.ENABLE_EXTINGUISH.get()) {
+        if (devices.isEmpty() || !Config.ENABLE_WORLD_CHANGES.get() || !Config.ENABLE_EXTINGUISH.get()
+                || !Config.dimensionEnabled(level)) {
             return false;
         }
         if (!devices.contains(level.getBlockState(pos).getBlock())) {

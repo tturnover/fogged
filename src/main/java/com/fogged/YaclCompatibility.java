@@ -70,6 +70,7 @@ final class YaclCompatibility {
         return ConfigCategory.createBuilder()
                 .name(Component.translatable(KEY + "boundary"))
                 .tooltip(Component.translatable(KEY + "boundary.tooltip"))
+                .group(strings("dimensions", Config.DIMENSIONS))
                 .group(strings("planeHeightSchedule", Config.PLANE_HEIGHT_SCHEDULE))
                 .option(bool("planeHeightCycle", Config.PLANE_HEIGHT_CYCLE))
                 .option(dbl("overdayOffsetNoon", Config.OVERDAY_OFFSET_NOON, -64.0, 64.0, 0.25))
@@ -77,6 +78,7 @@ final class YaclCompatibility {
                 .option(integer("fogDistance", Config.FOG_DISTANCE, 4, 256, 1))
                 .option(dbl("fogStartRaise", Config.FOG_START_RAISE, -8.0, 8.0, 0.05))
                 .option(bool("flipFog", Config.FLIP_FOG))
+                .option(dbl("murkDrag", Config.MURK_DRAG, 0.0, 20.0, 0.25))
                 .option(bool("enableWorldChanges", Config.ENABLE_WORLD_CHANGES))
                 .option(integer("worldChangeSkip", Config.WORLD_CHANGE_SKIP, 0, 64, 1))
                 .option(integer("worldChangeDelaySeconds", Config.WORLD_CHANGE_DELAY, 0, 60, 1))
@@ -122,6 +124,12 @@ final class YaclCompatibility {
                 .option(dbl("murkThirstScale", Config.MURK_THIRST_SCALE, 0.0, 1.0, 0.05))
                 .option(dbl("murkColdness", Config.MURK_COLDNESS, 0.0, 1.0, 0.05))
                 .option(bool("snuffColdSweatDevices", Config.SNUFF_COLD_SWEAT_DEVICES))
+                .option(bool("sableFoam", Config.SABLE_FOAM))
+                .option(bool("sableBuoyancy", Config.SABLE_BUOYANCY))
+                .option(dbl("sableMurkDensity", Config.SABLE_MURK_DENSITY, 0.0, 8.0, 0.05))
+                .option(dbl("sableMurkSpinDrag", Config.SABLE_MURK_SPIN_DRAG, 0.0, 20.0, 0.25))
+                .option(integer("sableBuoyancyProbes", Config.SABLE_BUOYANCY_PROBES, 16, 4096, 16))
+                .group(strings("sableFloatBlocks", Config.SABLE_FLOAT_BLOCKS))
                 .build();
     }
 
@@ -135,7 +143,6 @@ final class YaclCompatibility {
                 .option(color("foamColor", Config.FOAM_COLOR, true))
                 .option(dbl("foamWidth", Config.FOAM_WIDTH, 0.0, 8.0, 0.25))
                 .option(dbl("foamReach", Config.FOAM_REACH, 0.0, 4.0, 0.25))
-                .option(bool("sableFoam", Config.SABLE_FOAM))
                 .option(bool("planeSoftOcclusion", Config.PLANE_SOFT_OCCLUSION))
                 .option(dbl("murkDarkness", Config.MURK_DARKNESS, 0.0, 1.0, 0.05))
                 .option(integer("waterlineCellsPerBlock", Config.WATERLINE_CELLS_PER_BLOCK, 1, 4, 1))

@@ -86,6 +86,17 @@ public class Config {
         COMMON.push("boundary");
     }
 
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> DIMENSIONS = COMMON
+            .comment("Dimension IDs the murk exists in, one per line. An unlisted dimension has no boundary",
+                    "at all -- no fog, no plane, no drowning, nothing scoured -- whatever the rest of this",
+                    "config says. IDs may omit the 'minecraft:' namespace; \"*\" means every dimension, and an",
+                    "empty list none. The karst towers are worldgen, placed by a biome modifier, so where",
+                    "they stand is a datapack matter rather than this list.",
+                    "Example: dimensions = [\"minecraft:overworld\", \"the_nether\", \"twilightforest:twilight_forest\"]")
+            .defineListAllowEmpty("dimensions", Config::defaultDimensions, () -> "minecraft:overworld",
+                    o -> o instanceof String s
+                            && (s.trim().equals("*") || ResourceLocation.tryParse(withNamespace(s)) != null));
+
     public static final ModConfigSpec.ConfigValue<List<? extends String>> PLANE_HEIGHT_SCHEDULE = COMMON
             .comment("Breathing-boundary height over time, one \"day=height\" entry per line. The boundary",
                     "is the Y below which the player breathes as if underwater. Height is linearly",
@@ -128,6 +139,15 @@ public class Config {
                     "boundary (underwater-style); true fogs ABOVE it instead. Affects the fog only, not",
                     "the breathing boundary.")
             .define("flipFog", false);
+
+    public static final ModConfigSpec.DoubleValue MURK_DRAG = COMMON
+            .comment("How much of the speed of anything submerged in the murk it takes per second -- mobs,",
+                    "players, dropped items, and with Sable its ships and contraptions, all held back the",
+                    "same way. Scaled by how much of the thing is actually under the surface, so wading",
+                    "through the top of it barely tugs. 0 leaves movement alone and the murk is as thin as",
+                    "air to move through. Water's own drag is left to the water: something swimming in a",
+                    "lake under the murk is dragged by the lake, not twice over.")
+            .defineInRange("murkDrag", 2.0, 0.0, 20.0);
 
     public static final ModConfigSpec.BooleanValue ENABLE_WORLD_CHANGES = COMMON
             .comment("Whether the murk works on the world at all under the boundary. This is the master",
@@ -253,8 +273,9 @@ public class Config {
 
     // ==== common [compat] : what the murk does inside other mods ====
     static {
-        COMMON.comment("What the murk does to the survival mods that measure a player: each value is",
-                "read only when its mod is installed, and does nothing without it.");
+        COMMON.comment("What the murk does inside other mods: to the survival mods that measure a player,",
+                "and to Sable's ships and contraptions. Each value is read only when its mod is",
+                "installed, and does nothing without it.");
         COMMON.push("compat");
     }
 
@@ -280,7 +301,62 @@ public class Config {
                     "list is for devices a pack names itself. Needs enableExtinguish.")
             .define("snuffColdSweatDevices", true);
 
+    public static final ModConfigSpec.BooleanValue SABLE_BUOYANCY = COMMON
+            .comment("Ships and contraptions float on the murk as they would on water: each float block of",
+                    "the hull (see sableFloatBlocks) under the surface is pushed back up by the murk it",
+                    "displaces, and what is under it is dragged as through a fluid. Ignored while flipFog",
+                    "is on -- murk overhead is no surface to float on. Needs Sable.")
+            .define("sableBuoyancy", true);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> SABLE_FLOAT_BLOCKS = COMMON
+            .comment("The blocks that hold a ship up, and how strongly each one does, as \"block=strength\":",
+                    "only these displace murk, so a hull floats on what it is built to float on and the rest",
+                    "of what is on board is only weight. Strength multiplies sableMurkDensity for that block",
+                    "alone -- 2 lifts twice as hard as 1, 0.5 half -- and may be left off for 1.",
+                    "Each entry is a block id or, with a leading '#', a block tag. '*' matches any run of",
+                    "characters in an id (tags are matched whole), and the 'minecraft:' namespace may be",
+                    "omitted. Where entries overlap the strongest wins. An empty list floats nothing.",
+                    "Example: sableFloatBlocks = [\"#minecraft:wool=1\", \"oak_planks=0.4\", \"create:*_casing=2\"]")
+            .defineListAllowEmpty("sableFloatBlocks", Config::defaultSableFloatBlocks, () -> "#minecraft:wool=1",
+                    o -> o instanceof String s && parseFloatBlock(s) != null);
+
+    public static final ModConfigSpec.DoubleValue SABLE_MURK_DENSITY = COMMON
+            .comment("How dense the murk is, in Sable's units, where a plain block has mass 1 and volume 1:",
+                    "one submerged float block holds up this much of the ship's mass, so at 1.5 every three",
+                    "blocks of wool carry four plain blocks' worth. Raise it to float a ship on less wool.",
+                    "0 is no buoyancy.")
+            .defineInRange("sableMurkDensity", 1.5, 0.0, 64.0);
+
+    public static final ModConfigSpec.DoubleValue SABLE_MURK_SPIN_DRAG = COMMON
+            .comment("What murkDrag is to a hull's speed, this is to its spin: what stops a ship rolling on",
+                    "once the murk has righted it. Its own value because only a hull can spin -- a mob has",
+                    "nothing for this to hold back.")
+            .defineInRange("sableMurkSpinDrag", 3.0, 0.0, 20.0);
+
+    public static final ModConfigSpec.IntValue SABLE_BUOYANCY_PROBES = COMMON
+            .comment("How many float blocks of one hull the murk is measured against at most; a ship with more",
+                    "sampled instead of walked block by block. The cost ceiling per ship per physics step,",
+                    "not a size limit: lower it if ships cost too much tick time, raise it if a large hull",
+                    "floats unevenly.")
+            .defineInRange("sableBuoyancyProbes", 512, 16, 8192);
+
     static { COMMON.pop(); }   // [compat]
+
+    // ==== client [compat] : how other mods' things are drawn at the boundary ====
+    static {
+        CLIENT.comment("How other mods' things are drawn where they meet the murk; read only when that mod",
+                "is installed. The gameplay half of the same compatibility is in the common config's",
+                "own [compat].");
+        CLIENT.push("compat");
+    }
+
+    public static final ModConfigSpec.BooleanValue SABLE_FOAM = CLIENT
+            .comment("Foam around Sable's sub-levels (ships / contraptions) where they cross the boundary:",
+                    "the painted ring over the whole of what a hull touches, and spray along its waterline.",
+                    "Needs Sable.")
+            .define("sableFoam", true);
+
+    static { CLIENT.pop(); }   // [compat]
 
     // ==== common [suffocation] : what the murk does to the things breathing in it ====
     static {
@@ -559,24 +635,19 @@ public class Config {
                     "under ~0.65 will not reach the block row below it at all.")
             .defineInRange("foamReach", 1.0, 0.0, 4.0);
 
-    public static final ModConfigSpec.BooleanValue SABLE_FOAM = CLIENT
-            .comment("If the Sable physics mod is installed, also generate foam around its sub-levels",
-                    "(ships / contraptions) where they cross the boundary. No effect without Sable.")
-            .define("sableFoam", true);
-
     public static final ModConfigSpec.BooleanValue PLANE_SOFT_OCCLUSION = CLIENT
-            .comment("EXPERIMENTAL. Soft-fade the plane and vapour against the silhouettes of blocks, mobs",
-                    "and machines instead of a hard depth cut (uses a per-frame scene-depth snapshot -- see",
-                    "SceneDepth), open a soft disc around every entity crossing the boundary so it is",
-                    "not sliced by the surface. Water counts like a block here: a fall or a current",
-                    "crossing the boundary dissolves the surface around it too. Off skips the snapshot",
-                    "and the per-frame entity scan both (a small perf win) and cuts every edge hard.",
-                    "Experimental because it depends on reading the depth buffer of whatever",
-                    "framebuffer the pipeline is drawing into, which other rendering mods and shader packs",
-                    "are free to move or replace: where that fails the fade is wrong, or the whole plane is.",
-                    "Off by default for that reason -- turn it on to soften the edges, and turn it back",
-                    "off first when the murk looks wrong under another rendering mod.")
-            .define("planeSoftOcclusion", false);
+            .comment("Soft-fade the plane and vapour against the silhouettes of blocks, mobs and machines",
+                    "instead of a hard depth cut (uses a per-frame scene-depth snapshot -- see SceneDepth),",
+                    "and open a soft disc around everything crossing the boundary -- entities, and Sable's",
+                    "ships and contraptions -- so it is not sliced by the surface. Water counts like a block",
+                    "here: a fall or a current crossing the boundary dissolves the surface around it too.",
+                    "Off skips the snapshot and the per-frame crossing scan both (a small perf win) and cuts",
+                    "every edge hard.",
+                    "This reads the depth buffer of whatever framebuffer the pipeline is drawing into, which",
+                    "other rendering mods and shader packs are free to move or replace: where that fails the",
+                    "fade is wrong, or the whole plane is. Turn it off first when the murk looks wrong under",
+                    "another rendering mod.")
+            .define("planeSoftOcclusion", true);
 
     public static final ModConfigSpec.DoubleValue MURK_DARKNESS = CLIENT
             .comment("The surface's shadow, 0 to 1: how much darker the world under the boundary is drawn,",
@@ -784,7 +855,7 @@ public class Config {
      * that treat the plane as ground should check for that rather than assume a surface exists.
      */
     public static int planeSurfaceY(Level level) {
-        if (!RENDER_PLANE.getAsBoolean() || FLIP_FOG.getAsBoolean()) {
+        if (!dimensionEnabled(level) || !RENDER_PLANE.getAsBoolean() || FLIP_FOG.getAsBoolean()) {
             return Integer.MIN_VALUE;
         }
         return (int) Math.ceil(breathHeight(level) + PLANE_SURFACE_OFFSET);
@@ -796,13 +867,17 @@ public class Config {
      * visual fogStartRaise that {@link #fogged} folds in for the camera.
      */
     public static boolean eyesUnderSurface(Level level, double eyeY) {
-        return eyeY < breathHeight(level) + PLANE_SURFACE_OFFSET - EFFECTS_DIP;
+        return dimensionEnabled(level)
+                && eyeY < breathHeight(level) + PLANE_SURFACE_OFFSET - EFFECTS_DIP;
     }
 
     // True when a camera at world height y is on the fogged side of the boundary (the thick murk side).
     // Normally that is below the boundary; flipFog moves it to the side above. Shared by the fog
     // override, the separation plane and the weather suppression so they all agree on the murk side.
     public static boolean fogged(Level level, double y) {
+        if (!dimensionEnabled(level)) {
+            return false;
+        }
         double fogLine = breathHeight(level) + PLANE_SURFACE_OFFSET + FOG_START_RAISE.get();
         return (y < fogLine) != FLIP_FOG.getAsBoolean();
     }
@@ -812,7 +887,7 @@ public class Config {
     // How many depthScalingBlocks steps deep world height y sits below the boundary. 0 at or above the
     // boundary; fractional, so the scaling below eases in instead of jumping at every step.
     private static double depthSteps(Level level, double y) {
-        if (!DEPTH_SCALING.get()) {
+        if (!DEPTH_SCALING.get() || !dimensionEnabled(level)) {
             return 0.0;
         }
         double step = DEPTH_SCALING_BLOCKS.get();
@@ -927,6 +1002,59 @@ public class Config {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    // Wool is what a ship floats on by default: cheap, dyeable, and a hull built of it reads as a
+    // float rather than as structure.
+    private static List<String> defaultSableFloatBlocks() {
+        return new ArrayList<>(List.of("#minecraft:wool=1"));
+    }
+
+    // --- dimension set ---
+
+    private static List<String> defaultDimensions() {
+        return new ArrayList<>(List.of("minecraft:overworld"));
+    }
+
+    private static List<? extends String> cachedDimensionList;
+    private static Set<ResourceLocation> dimensionIds = Set.of();
+    private static boolean everyDimension;
+
+    private static void ensureDimensions() {
+        List<? extends String> raw = DIMENSIONS.get();
+        if (raw == cachedDimensionList) {
+            return;
+        }
+        cachedDimensionList = raw;
+        boolean all = false;
+        Set<ResourceLocation> ids = new HashSet<>();
+        for (String s : raw) {
+            if (s.trim().equals("*")) {
+                all = true;
+                continue;
+            }
+            ResourceLocation id = ResourceLocation.tryParse(withNamespace(s));
+            if (id != null) {
+                ids.add(id);
+            }
+        }
+        everyDimension = all;
+        dimensionIds = ids;
+    }
+
+    /**
+     * True when the murk exists in this level's dimension at all. Everything that reads the boundary is
+     * behind this, so elsewhere the mod may as well not be installed.
+     *
+     * <p>Not memoized per level, unlike {@link #breathHeight}: it is one set lookup, and a memo would
+     * have to hold a reference to whichever level asked last.
+     */
+    public static boolean dimensionEnabled(Level level) {
+        if (level == null) {
+            return false;
+        }
+        ensureDimensions();
+        return everyDimension || dimensionIds.contains(level.dimension().location());
     }
 
     // --- allowed-mob set ---
@@ -1167,6 +1295,41 @@ public class Config {
         }
         String id = idOrTag(text, false);
         return id == null ? null : new String[] { Integer.toString(count), id };
+    }
+
+    /**
+     * One parsed line of {@link #SABLE_FLOAT_BLOCKS}: "block[=strength]", where block keeps its '#' (a
+     * tag) or its '*' wildcards and has had a namespace filled in.
+     *
+     * <p>Strength is how hard that block floats, as a multiple of the murk's own density; it is 1 when
+     * the line does not say. Zero is allowed -- it names a block the murk explicitly does not lift,
+     * which is how one entry is taken back out of a tag that covers it.
+     */
+    record FloatBlock(String id, double strength) {}
+
+    /**
+     * Parse one float-block line, or null if it is not usable -- what the config validator tests, so a
+     * malformed line is refused at load rather than silently ignored later.
+     *
+     * <p>'=' cannot appear in a resource location, so it can only ever be the strength's separator.
+     */
+    static FloatBlock parseFloatBlock(String rawEntry) {
+        String entry = rawEntry.trim();
+        double strength = 1.0;
+        int eq = entry.indexOf('=');
+        if (eq >= 0) {
+            try {
+                strength = Double.parseDouble(entry.substring(eq + 1).trim());
+            } catch (NumberFormatException e) {
+                return null;
+            }
+            if (!Double.isFinite(strength) || strength < 0.0) {
+                return null;
+            }
+            entry = entry.substring(0, eq).trim();
+        }
+        String id = idOrTag(entry, true);
+        return id == null ? null : new FloatBlock(id, strength);
     }
 
     // One id, with its namespace filled in: a '#' tag or a '*' glob on the left, one plain id on the

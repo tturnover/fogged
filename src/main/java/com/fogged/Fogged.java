@@ -48,5 +48,11 @@ public class Fogged {
         if (ModList.get().isLoaded("cold_sweat")) {
             ColdSweatCompatibility.register(NeoForge.EVENT_BUS);
         }
+
+        // Same isolation for Sable: only SableBuoyancy and SableCompatibility name its classes, and
+        // neither is touched unless it is installed.
+        if (ModList.get().isLoaded("sable")) {
+            SableBuoyancy.register();
+        }
     }
 }

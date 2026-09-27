@@ -189,6 +189,31 @@ final class SableCompatibility {
         return subLevel.getBlockState(local).blocksMotion();
     }
 
+    // How far to the side the hull is asked about when looking for its waterline edge. Half a block:
+    // far enough to leave the block the probe landed in, near enough that the edge it finds is the
+    // hull's own outline and not the next thing over.
+    private static final double EDGE_STEP = 0.5;
+
+    // A weight is only worth anything if it beats its neighbour's by this much -- the probe ramp is
+    // coarse (1, 2/3, 1/3), so anything smaller is the same reading twice.
+    private static final float EDGE_MARGIN = 1.0e-4F;
+
+    /**
+     * Whether the hull's waterline at {@code (wx, wz)} is an EDGE of the contact rather than inside it:
+     * one of the four neighbouring columns meets the surface less than this one does (or not at all).
+     *
+     * <p>What the spray is picked by: without it a deck lying along the surface puffs foam over its
+     * whole footprint, where spray belongs where the murk is actually parted -- along the hull's
+     * outline. The painted ring is not filtered this way; it covers the whole contact.
+     */
+    private static boolean atEdge(Level subLevel, Pose3dc pose, Vector3d src, Vector3d dst,
+            BlockPos.MutableBlockPos local, double wx, double wz, double surfaceY, double band, float weight) {
+        return probeColumn(subLevel, pose, src, dst, local, wx + EDGE_STEP, wz, surfaceY, band) < weight - EDGE_MARGIN
+                || probeColumn(subLevel, pose, src, dst, local, wx - EDGE_STEP, wz, surfaceY, band) < weight - EDGE_MARGIN
+                || probeColumn(subLevel, pose, src, dst, local, wx, wz + EDGE_STEP, surfaceY, band) < weight - EDGE_MARGIN
+                || probeColumn(subLevel, pose, src, dst, local, wx, wz - EDGE_STEP, surfaceY, band) < weight - EDGE_MARGIN;
+    }
+
     /**
      * Sample the waterline of every sub-level crossing {@code surfaceY} and hand each hit to
      * {@code sink}, so ships and contraptions throw the same movement-driven spray an entity does.
@@ -227,8 +252,62 @@ final class SableCompatibility {
                 double wx = bb.minX() + rnd.nextDouble() * (bb.maxX() - bb.minX());
                 double wz = bb.minZ() + rnd.nextDouble() * (bb.maxZ() - bb.minZ());
                 float weight = probeColumn(subLevel, pose, src, dst, local, wx, wz, surfaceY, band);
-                if (weight > 0.0F) {
+                if (weight > 0.0F
+                        && atEdge(subLevel, pose, src, dst, local, wx, wz, surfaceY, band, weight)) {
                     sink.accept(wx, wz, motion, weight);
+                }
+            }
+        }
+    }
+
+    /** Receives one dissolve disc for a sub-level crossing the surface, in world XZ. */
+    @FunctionalInterface
+    interface HoleSink {
+        /** {@code gap} is the vertical distance from the surface to the hull, 0 while it straddles. */
+        void accept(double worldX, double worldZ, double radius, double gap);
+    }
+
+    /**
+     * Lay dissolve discs along the part of every sub-level that meets the surface, so the plane dithers
+     * open around a hull the way it does around a crossing entity. A sub-level is not an entity and so
+     * never turns up in the renderer's entity query -- this is that query's other half.
+     *
+     * <p>One disc per {@code spacing} blocks of the hull's footprint, wherever the hull is actually
+     * there: a lattice, not one disc over the whole bounding box, or a pointed bow would open a round
+     * hole in the murk well off the ship.
+     */
+    static void sampleHoles(Level level, double surfaceY, double vertRange, double spacing, double radius,
+            double camX, double camZ, double range, HoleSink sink) {
+        SubLevelContainer container = SubLevelContainer.getContainer(level);
+        if (container == null) {
+            return;
+        }
+        Vector3d src = new Vector3d();
+        Vector3d dst = new Vector3d();
+        BlockPos.MutableBlockPos local = new BlockPos.MutableBlockPos();
+
+        for (SubLevel sub : container.getAllSubLevels()) {
+            BoundingBox3dc bb = sub.boundingBox();
+            double gap = Math.max(0.0, Math.max(surfaceY - bb.maxY(), bb.minY() - surfaceY));
+            if (gap > vertRange) {
+                continue; // clear of the surface: nothing of it pokes through the plane
+            }
+            // Nearest point of the footprint to the camera, so a long hull alongside still qualifies.
+            double dx = Math.max(0.0, Math.max(bb.minX() - camX, camX - bb.maxX()));
+            double dz = Math.max(0.0, Math.max(bb.minZ() - camZ, camZ - bb.maxZ()));
+            if (dx * dx + dz * dz > range * range) {
+                continue;
+            }
+            Pose3dc pose = sub.logicalPose();
+            Level subLevel = sub.getLevel();
+            // The hull's own height nearest the surface: a hull just clear of it is still asked about
+            // at the row facing it, which is what its disc is then faded out by.
+            double probeY = Mth.clamp(surfaceY, bb.minY(), bb.maxY());
+            for (double wz = bb.minZ(); wz <= bb.maxZ(); wz += spacing) {
+                for (double wx = bb.minX(); wx <= bb.maxX(); wx += spacing) {
+                    if (solidAt(subLevel, pose, src, dst, local, wx, probeY, wz)) {
+                        sink.accept(wx, wz, radius, gap);
+                    }
                 }
             }
         }
@@ -263,6 +342,9 @@ final class SableCompatibility {
 
             Pose3dc pose = sub.logicalPose();
             Level subLevel = sub.getLevel();
+            // The whole contact is stamped, not just its outline: the painted ring is a distance field,
+            // and a hull lying in the murk should read as murk all the way across what it touches. The
+            // spray is the one that goes on the outline alone (see sampleWakes).
             for (int cz = z0; cz <= z1; cz++) {
                 double wz = originZ + (cz + 0.5) / cellsPerBlock;
                 for (int cx = x0; cx <= x1; cx++) {

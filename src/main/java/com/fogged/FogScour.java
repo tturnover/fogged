@@ -70,7 +70,7 @@ public final class FogScour {
         if (!Config.ENABLE_WORLD_CHANGES.get()) {
             return;
         }
-        if (!(event.getLevel() instanceof ServerLevel level)) {
+        if (!(event.getLevel() instanceof ServerLevel level) || !Config.dimensionEnabled(level)) {
             return;
         }
         tickPending(level);
@@ -107,6 +107,9 @@ public final class FogScour {
             return;
         }
         ServerLevel level = event.getLevel();
+        if (!Config.dimensionEnabled(level)) {
+            return;
+        }
         scanChunk(level, event.getPos().x, event.getPos().z, FogBand.activeTopY(level), true);
     }
 
@@ -122,7 +125,8 @@ public final class FogScour {
     }
 
     private static void notice(LevelAccessor accessor, BlockPos pos, BlockState state) {
-        if (!(accessor instanceof ServerLevel level) || !Config.ENABLE_WORLD_CHANGES.get()) {
+        if (!(accessor instanceof ServerLevel level) || !Config.ENABLE_WORLD_CHANGES.get()
+                || !Config.dimensionEnabled(level)) {
             return;
         }
         if (pos.getY() > FogBand.activeTopY(level)) {

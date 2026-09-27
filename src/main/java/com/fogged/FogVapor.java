@@ -72,7 +72,7 @@ public final class FogVapor {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null) {
+        if (mc.level == null || !Config.dimensionEnabled(mc.level)) {
             return;
         }
         if (IrisCompatibility.renderingShadowPass()) {

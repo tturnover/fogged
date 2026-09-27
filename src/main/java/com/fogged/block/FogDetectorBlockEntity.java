@@ -107,7 +107,10 @@ public class FogDetectorBlockEntity extends BlockEntity {
 
         // Light the base plus the "waterline" (topmost submerged segment) -- a single lit ring marking the
         // fog level; when fully submerged the waterline is the tip.
-        double surfaceY = com.fogged.Config.breathHeight(level) + com.fogged.Config.PLANE_SURFACE_OFFSET;
+        // No boundary in this dimension: nothing is submerged, so the sweep below unlights the column.
+        double surfaceY = com.fogged.Config.dimensionEnabled(level)
+                ? com.fogged.Config.breathHeight(level) + com.fogged.Config.PLANE_SURFACE_OFFSET
+                : Double.NEGATIVE_INFINITY;
         Direction up = state.getValue(FogDetectorBlock.VERTICAL_DIRECTION);
         BlockPos waterline = null;
         BlockPos scan = pos;

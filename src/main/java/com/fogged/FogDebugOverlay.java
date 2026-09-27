@@ -49,7 +49,9 @@ public final class FogDebugOverlay {
         lines.add(FogPlaneRenderer.lastDrawn
                 ? new Line(String.format("plane on  %s  fade end %.0f",
                         FogPlaneRenderer.lastBelow ? "below" : "above", FogPlaneRenderer.lastFadeEnd), OK)
-                : new Line("plane off (renderPlane)", BAD));
+                : new Line(Config.dimensionEnabled(mc.level)
+                        ? "plane off (renderPlane)"
+                        : "plane off (dimension not in the dimensions list)", BAD));
         lines.add(new Line(String.format("scene fog %.0f..%.0f shape %d  colour %.0f %.0f %.0f  clear %.0f %.0f %.0f",
                 FogPlaneRenderer.lastFogStart, FogPlaneRenderer.lastFogEnd, FogPlaneRenderer.lastFogShape,
                 FogPlaneRenderer.lastFogColor[0] * 255, FogPlaneRenderer.lastFogColor[1] * 255, FogPlaneRenderer.lastFogColor[2] * 255,

@@ -76,6 +76,9 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.dither", "Pixel Dither");
         add("fogged.configuration.vapor", "Cold Vapour");
         add("fogged.configuration.debug", "Debug");
+        cfg("dimensions", "Fogged Dimensions",
+                "Dimension ids the murk exists in, one per line. Anywhere unlisted has no boundary at all. "
+                        + "\"*\" means every dimension.");
         cfg("planeHeightSchedule", "Boundary Height Schedule",
                 "One \"day=height\" entry per line; the boundary eases between them as the days pass.");
         cfg("planeHeightCycle", "Cycle Height Schedule",
@@ -88,6 +91,10 @@ public class ModLanguageProvider extends LanguageProvider {
                 "How far you can see (in blocks) once the camera is under the boundary. Lower = denser murk.");
         cfg("fogStartRaise", "Murk Start Offset",
                 "Where the murk begins, from the plane: above it, 0 at it, or below it.");
+        cfg("murkDrag", "Murk Drag",
+                "How much of the speed of anything submerged in the murk it takes per second -- mobs, "
+                        + "players, dropped items, and Sable's ships -- scaled by how much of it is under "
+                        + "the surface. Water does its own dragging. 0 leaves movement alone.");
         cfg("flipFog", "Flip Fog Side",
                 "Put the murk above the boundary instead of below it. Does not move the breathing boundary.");
         cfg("enableWorldChanges", "Change The World",
@@ -102,7 +109,27 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.group.murkActions", "What The Murk Does");
         add("fogged.configuration.boundary.tooltip", "Where the boundary sits, how the murk behaves at it, and what it does to the world underneath. Shared by the server and its clients: gameplay, not looks.");
         add("fogged.configuration.suffocation.tooltip", "What the murk does to the things breathing in it -- players and mobs -- and how much worse that gets with depth.");
-        add("fogged.configuration.compat.tooltip", "What the murk does to the survival mods that measure a player. Each value is read only when its mod is installed, and does nothing without it.");
+        add("fogged.configuration.compat.tooltip", "What the murk does inside other mods: to the survival mods that measure a player, and to Sable's ships and contraptions -- whether it floats them, how heavily it carries them, and how it marks where they cut the surface. Each value is read only when its mod is installed.");
+        cfg("sableBuoyancy", "Float Ships On The Murk",
+                "Ships and contraptions float on the murk as they would on water: every float block under "
+                        + "the surface is pushed back up by the murk it displaces. Ignored while the murk "
+                        + "is flipped overhead.");
+        cfg("sableFloatBlocks", "Blocks That Float",
+                "The blocks that hold a ship up and how hard each one does, as \"block=strength\" -- wool by "
+                        + "default. Strength multiplies the murk's density for that block alone, and may be "
+                        + "left off for 1; 0 takes a block back out of a tag that covers it. Only listed "
+                        + "blocks lift; everything else on board is weight. Ids, '#tags' and '*' globs.");
+        cfg("sableMurkDensity", "Murk Density",
+                "How dense the murk is, in Sable's units, where a plain block has mass 1 and volume 1: one "
+                        + "submerged float block holds up this much of the ship's mass. Raise it to float a "
+                        + "ship on less wool. 0 is no buoyancy.");
+
+        cfg("sableMurkSpinDrag", "Murk Spin Drag",
+                "What Murk Drag is to a hull's speed, this is to its spin -- what stops a ship rolling on "
+                        + "once the murk has righted it. Its own value because only a hull can spin.");
+        cfg("sableBuoyancyProbes", "Hull Sample Limit",
+                "How many float blocks of one hull the murk is measured against at most. A ship with more "
+                        + "is sampled instead, so this is the cost per ship per physics step, not a size limit.");
         add("fogged.configuration.pillars.tooltip", "Stone towers raised from bedrock to around the murk's high-water mark, in groups. Worldgen: changes here only reach chunks generated afterwards.");
         add("fogged.configuration.layout.tooltip", "Where the groups stand and how often you meet them.");
         add("fogged.configuration.shape.tooltip", "What one tower is built out of, and the range of builds a group draws from.");
@@ -258,11 +285,11 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "block row, so a reach under about 0.65 never reaches the row below it.");
         cfg("sableFoam", "Sable Sub-Level Foam",
                 "Also ring Sable ships and contraptions with foam. No effect without Sable installed.");
-        cfg("planeSoftOcclusion", "Soft Occlusion Edge (experimental)",
+        cfg("planeSoftOcclusion", "Soft Occlusion Edge",
                 "Dissolve the plane against blocks, mobs, machines and flowing water instead of cutting them "
-                        + "hard at the boundary, and open a soft disc around each entity crossing it. Experimental, and "
-                        + "off by default: it reads the scene's depth buffer, which other rendering mods "
-                        + "can move or replace. Turn it back off first if the murk looks wrong.");
+                        + "hard at the boundary, and open a soft disc around everything crossing it, ships "
+                        + "and contraptions included. It reads the scene's depth buffer, which other "
+                        + "rendering mods can move or replace, so turn it off first if the murk looks wrong.");
         cfg("murkDarkness", "Murk Darkness",
                 "The surface's shadow: how much darker the world under the boundary is drawn, by how deep under "
                         + "it each thing lies, from either side. 0 leaves the lighting alone.");

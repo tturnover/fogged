@@ -291,6 +291,9 @@ public class FogDetectorBlock extends HorizontalDirectionalBlock implements Simp
      */
     public static int columnPower(Level level, BlockPos basePos, BlockState baseState) {
         Direction stackDir = baseState.getValue(VERTICAL_DIRECTION);
+        if (!Config.dimensionEnabled(level)) {
+            return 0; // no boundary here for the column to measure
+        }
         double surfaceY = Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET;
         int length = 0;
         int submerged = 0;

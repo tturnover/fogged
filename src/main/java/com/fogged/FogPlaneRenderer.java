@@ -26,6 +26,7 @@ import net.minecraft.world.phys.Vec3;
 
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
@@ -69,6 +70,13 @@ public class FogPlaneRenderer {
     // Reused each frame to avoid per-frame allocation: 4 packed floats per disc (relX, relZ, radius, vgap).
     private static final float[] entityHoleBuf = new float[MAX_ENTITY_HOLES * 4];
     private static final double[] entityHoleDistSq = new double[MAX_ENTITY_HOLES];
+
+    // Sable hulls get the same discs, laid along whatever part of the sub-level meets the plane: one
+    // per HULL_HOLE_SPACING blocks of its footprint, each a little wider than the spacing so they
+    // overlap into a continuous dissolve instead of a row of separate pits.
+    private static final boolean SABLE = ModList.get().isLoaded("sable");
+    private static final double HULL_HOLE_SPACING = 3.0;
+    private static final double HULL_HOLE_RADIUS = 2.4;
 
     // Last frame's render state, for the debug HUD (FogDebugOverlay) to read back. Written only here.
     static double lastSurfaceY;
@@ -130,7 +138,7 @@ public class FogPlaneRenderer {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
             return;
         }
-        if (!Config.RENDER_PLANE.getAsBoolean()) {
+        if (!Config.RENDER_PLANE.getAsBoolean() || !Config.dimensionEnabled(mc.level)) {
             lastDrawn = false;
             return;
         }
@@ -698,28 +706,53 @@ public class FogPlaneRenderer {
                 continue;
             }
             double radius = 0.5 * Math.max(b.maxX - b.minX, b.maxZ - b.minZ) + ENTITY_HOLE_MARGIN;
-            int slot;
-            if (count < MAX_ENTITY_HOLES) {
-                slot = count++;
-            } else {
-                // Full: replace the farthest disc, but only if this entity is closer than it.
-                int farthest = 0;
-                for (int i = 1; i < MAX_ENTITY_HOLES; i++) {
-                    if (entityHoleDistSq[i] > entityHoleDistSq[farthest]) {
-                        farthest = i;
-                    }
-                }
-                if (dSq >= entityHoleDistSq[farthest]) {
-                    continue;
-                }
-                slot = farthest;
-            }
-            entityHoleDistSq[slot] = dSq;
-            entityHoleBuf[slot * 4] = (float) dx;
-            entityHoleBuf[slot * 4 + 1] = (float) dz;
-            entityHoleBuf[slot * 4 + 2] = (float) radius;
-            entityHoleBuf[slot * 4 + 3] = (float) vgap;
+            count = addHole(count, dx, dz, dSq, radius, vgap);
         }
+
+        // Sable ships and contraptions are not entities, so the query above never sees them; their
+        // discs are sampled off the hulls themselves (see SableCompatibility.sampleHoles). Added after
+        // the entities so that, with more discs than slots, the nearest of the two sets survive
+        // together rather than a big hull crowding every mob out.
+        if (SABLE) {
+            final int[] held = { count };
+            SableCompatibility.sampleHoles(level, surfaceY, ENTITY_HOLE_VERT, HULL_HOLE_SPACING,
+                    HULL_HOLE_RADIUS, cam.x, cam.z, ENTITY_HOLE_RANGE,
+                    (worldX, worldZ, radius, gap) -> {
+                        double hx = worldX - cam.x;
+                        double hz = worldZ - cam.z;
+                        double dSq = hx * hx + hz * hz;
+                        if (dSq <= rangeSq) {
+                            held[0] = addHole(held[0], hx, hz, dSq, radius, gap);
+                        }
+                    });
+            count = held[0];
+        }
+        return count;
+    }
+
+    // Take one disc into the buffer: a free slot while there is one, else the farthest disc held, and
+    // only if this one is nearer than it. Returns the new count.
+    private static int addHole(int count, double dx, double dz, double dSq, double radius, double vgap) {
+        int slot;
+        if (count < MAX_ENTITY_HOLES) {
+            slot = count++;
+        } else {
+            int farthest = 0;
+            for (int i = 1; i < MAX_ENTITY_HOLES; i++) {
+                if (entityHoleDistSq[i] > entityHoleDistSq[farthest]) {
+                    farthest = i;
+                }
+            }
+            if (dSq >= entityHoleDistSq[farthest]) {
+                return count;
+            }
+            slot = farthest;
+        }
+        entityHoleDistSq[slot] = dSq;
+        entityHoleBuf[slot * 4] = (float) dx;
+        entityHoleBuf[slot * 4 + 1] = (float) dz;
+        entityHoleBuf[slot * 4 + 2] = (float) radius;
+        entityHoleBuf[slot * 4 + 3] = (float) vgap;
         return count;
     }
 }
