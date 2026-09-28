@@ -42,8 +42,35 @@ public final class MurkComposite {
     private MurkComposite() {
     }
 
+    // Whether this frame's depth was taken before the particles were drawn (see below). Cleared by the
+    // pass that consumes it, so a frame that never reaches that stage falls back to taking it itself.
+    private static boolean depthTakenEarly;
+
     @SubscribeEvent
     static void onRenderLevelStage(RenderLevelStageEvent event) {
+        // Take the depth BEFORE the particles. Every particle sheet draws with depth writes on, even
+        // the see-through ones, so a particle in front of the murk leaves its own distance in the depth
+        // buffer -- and this pass, which fogs a pixel by how much murk the line of sight to it crosses,
+        // then measures to the particle rather than to the world behind it and lays next to no murk
+        // there. A puff of spray over the surface punched a clear hole through the murk, and one at the
+        // surface's own height was taken for the surface itself and cleared outright.
+        //
+        // AFTER_TRIPWIRE_BLOCKS is the last stage before AFTER_PARTICLES, and everything this pass has
+        // to measure -- terrain, entities, the plane, water -- is drawn by then. It is the same one
+        // capture as before, only taken a stage earlier, so it costs nothing extra.
+        //
+        // Not under a shader pack: there this pass runs from Iris' own finalize hook, long after these
+        // stages, against whatever depth the pack has ended up with -- so the early copy would be of
+        // the wrong buffer. The pack path keeps taking its own, as it always has.
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRIPWIRE_BLOCKS
+                && !IrisCompatibility.shaderPackActive()) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.level != null && Config.dimensionEnabled(mc.level)) {
+                SceneDepth.SCENE.capture();
+                depthTakenEarly = SceneDepth.SCENE.depthAvailable();
+            }
+            return;
+        }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL || IrisCompatibility.shaderPackActive()) {
             return;
         }
@@ -93,9 +120,13 @@ public final class MurkComposite {
         // Read the depth from a copy, never from the main target's own attachment: main is what this
         // draws into, and sampling a texture attached to the framebuffer being drawn is undefined even
         // with depth writes off -- on radeonsi it came back as flickering tile-shaped garbage, worse
-        // after every window resize. The SCENE snapshot is done with by now (the plane and vapour
-        // read it earlier in the frame), so retake it here with the whole frame in it.
-        SceneDepth.SCENE.capture();
+        // after every window resize. The SCENE snapshot is done with by now (the plane and vapour read
+        // it earlier in the frame), so it is retaken for this pass -- before the particles where the
+        // stage for that fired, and here otherwise, which is where it was always taken.
+        if (!depthTakenEarly) {
+            SceneDepth.SCENE.capture();
+        }
+        depthTakenEarly = false;
         if (!SceneDepth.SCENE.depthAvailable()) {
             return;
         }
