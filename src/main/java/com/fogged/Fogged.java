@@ -52,7 +52,7 @@ public class Fogged {
         // Same isolation for Sable: only SableBuoyancy and SableCompatibility name its classes, and
         // neither is touched unless it is installed.
         if (ModList.get().isLoaded("sable")) {
-            SableBuoyancy.register();
+            SableBuoyancy.register(modEventBus);
         }
     }
 }

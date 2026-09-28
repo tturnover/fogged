@@ -155,7 +155,7 @@
   "fogged.configuration.sableBuoyancyProbes": "Hull Sample Limit",
   "fogged.configuration.sableBuoyancyProbes.tooltip": "How many float blocks of one hull the murk is measured against at most. A ship with more is sampled instead, so this is the cost per ship per physics step, not a size limit.",
   "fogged.configuration.sableFloatBlocks": "Blocks That Float",
-  "fogged.configuration.sableFloatBlocks.tooltip": "The blocks that hold a ship up and how hard each one does, as \"block=strength\" -- wool by default. Strength multiplies the murk's density for that block alone, and may be left off for 1; 0 takes a block back out of a tag that covers it. Only listed blocks lift; everything else on board is weight. Ids, '#tags' and '*' globs.",
+  "fogged.configuration.sableFloatBlocks.tooltip": "The blocks that hold a ship up and how hard each one does, as \"block=strength\" -- wool by default. Strength multiplies the murk's density for that block alone and may be left off for 1; 0 takes a block back out of a tag that covers it. \"weight\" uses Sable's mass for the block, so it carries exactly itself, and \"weight*2\" twice that. Only listed blocks lift; everything else on board is weight. Ids, '#tags', globs.",
   "fogged.configuration.sableFoam": "Sable Sub-Level Foam",
   "fogged.configuration.sableFoam.tooltip": "Also ring Sable ships and contraptions with foam. No effect without Sable installed.",
   "fogged.configuration.sableMurkDensity": "Murk Density",
@@ -215,5 +215,6 @@
   "fogged.tooltip.fog_detector.desc1": "Emits a _redstone signal_ by how deep it sits under the fog.",
   "fogged.tooltip.fog_detector.desc2": "Right-click with _another_ to stack it taller.",
   "fogged.tooltip.nozzle.desc1": "Apply a _Wool Block_ to filter out _thick fog_.",
-  "fogged.tooltip.nozzle.desc2": "An _Encased Fan's_ speed controls the _breathable area_."
+  "fogged.tooltip.nozzle.desc2": "An _Encased Fan's_ speed controls the _breathable area_.",
+  "force_group.fogged.fog_buoyancy": "Fog Buoyancy"
 }

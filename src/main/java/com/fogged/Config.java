@@ -304,10 +304,14 @@ public class Config {
                     "only these displace murk, so a hull floats on what it is built to float on and the rest",
                     "of what is on board is only weight. Strength multiplies sableMurkDensity for that block",
                     "alone -- 2 lifts twice as hard as 1, 0.5 half -- and may be left off for 1.",
+                    "Strength may also be \"weight\" (or \"mass\"), which is Sable's own mass for that block:",
+                    "the block then carries exactly itself, whatever a pack has weighed it at, so a heavy",
+                    "block lifts as much as it costs. \"weight*2\" carries twice itself, \"weight*0.5\" half,",
+                    "and a hull of blocks written \"weight\" hangs wherever it is left however it is built.",
                     "Each entry is a block id or, with a leading '#', a block tag. '*' matches any run of",
                     "characters in an id (tags are matched whole), and the 'minecraft:' namespace may be",
                     "omitted. Where entries overlap the strongest wins. An empty list floats nothing.",
-                    "Example: sableFloatBlocks = [\"#minecraft:wool=1\", \"oak_planks=0.4\", \"create:*_casing=2\"]")
+                    "Example: sableFloatBlocks = [\"#minecraft:wool=1\", \"oak_planks=weight\", \"create:*_casing=weight*2\"]")
             .defineListAllowEmpty("sableFloatBlocks", Config::defaultSableFloatBlocks, () -> "#minecraft:wool=1",
                     o -> o instanceof String s && parseFloatBlock(s) != null);
 
@@ -1030,6 +1034,9 @@ public class Config {
 
     // Wool is what a ship floats on by default: cheap, dyeable, and a hull built of it reads as a
     // float rather than as structure.
+    // Wool alone: cheap, dyeable, and a hull built of it reads as a float rather than as structure.
+    // What else floats is a pack's business -- Sable's own #sable:super_light and #sable:weightless are
+    // there to be added with "=weight" by anyone who wants everything light to carry itself.
     private static List<String> defaultSableFloatBlocks() {
         return new ArrayList<>(List.of("#minecraft:wool=1"));
     }
@@ -1321,6 +1328,10 @@ public class Config {
         return id == null ? null : new String[] { Integer.toString(count), id };
     }
 
+    /** What "float as hard as you weigh" is written as in {@link #SABLE_FLOAT_BLOCKS}. */
+    private static final String FLOAT_WEIGHT = "weight";
+    private static final String FLOAT_MASS = "mass"; // Sable's own name for it, taken as a synonym
+
     /**
      * One parsed line of {@link #SABLE_FLOAT_BLOCKS}: "block[=strength]", where block keeps its '#' (a
      * tag) or its '*' wildcards and has had a namespace filled in.
@@ -1328,24 +1339,42 @@ public class Config {
      * <p>Strength is how hard that block floats, as a multiple of the murk's own density; it is 1 when
      * the line does not say. Zero is allowed -- it names a block the murk explicitly does not lift,
      * which is how one entry is taken back out of a tag that covers it.
+     *
+     * <p>With {@code byWeight} the strength is instead that multiple of the block's OWN mass, as Sable
+     * weighs it, worked out per block when the hull is measured. A block then carries its own weight in
+     * the murk: one written "=weight" neither sinks nor lifts whatever it is made of, and the multiple
+     * says how much more than itself it holds up.
      */
-    record FloatBlock(String id, double strength) {}
+    record FloatBlock(String id, double strength, boolean byWeight) {}
 
     /**
      * Parse one float-block line, or null if it is not usable -- what the config validator tests, so a
      * malformed line is refused at load rather than silently ignored later.
      *
-     * <p>'=' cannot appear in a resource location, so it can only ever be the strength's separator.
+     * <p>'=' cannot appear in a resource location, so it can only ever be the strength's separator, and
+     * '*' cannot appear to the right of one, so there it can only be the weight's multiplier.
      */
     static FloatBlock parseFloatBlock(String rawEntry) {
         String entry = rawEntry.trim();
         double strength = 1.0;
+        boolean byWeight = false;
         int eq = entry.indexOf('=');
         if (eq >= 0) {
-            try {
-                strength = Double.parseDouble(entry.substring(eq + 1).trim());
-            } catch (NumberFormatException e) {
-                return null;
+            String[] factors = entry.substring(eq + 1).split("\\*", -1);
+            for (String raw : factors) {
+                String factor = raw.trim().toLowerCase(java.util.Locale.ROOT);
+                if (factor.equals(FLOAT_WEIGHT) || factor.equals(FLOAT_MASS)) {
+                    if (byWeight) {
+                        return null; // "weight*weight" is not a thing
+                    }
+                    byWeight = true;
+                    continue;
+                }
+                try {
+                    strength *= Double.parseDouble(factor);
+                } catch (NumberFormatException e) {
+                    return null;
+                }
             }
             if (!Double.isFinite(strength) || strength < 0.0) {
                 return null;
@@ -1353,7 +1382,7 @@ public class Config {
             entry = entry.substring(0, eq).trim();
         }
         String id = idOrTag(entry, true);
-        return id == null ? null : new FloatBlock(id, strength);
+        return id == null ? null : new FloatBlock(id, strength, byWeight);
     }
 
     // One id, with its namespace filled in: a '#' tag or a '*' glob on the left, one plain id on the

@@ -60,6 +60,7 @@ public class ModLanguageProvider extends LanguageProvider {
     /** Config-screen translation keys, one per option in {@link com.fogged.Config}. */
     private void addConfigTranslations() {
 
+        add("force_group.fogged.fog_buoyancy", "Fog Buoyancy");
         add("fogged.configuration.title", "Fogged Configs");
         add("fogged.configuration.section.fogged.common.toml", "Fogged Gameplay");
         add("fogged.configuration.section.fogged.common.toml.title", "Fogged Gameplay");
@@ -113,9 +114,10 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "is flipped overhead.");
         cfg("sableFloatBlocks", "Blocks That Float",
                 "The blocks that hold a ship up and how hard each one does, as \"block=strength\" -- wool by "
-                        + "default. Strength multiplies the murk's density for that block alone, and may be "
-                        + "left off for 1; 0 takes a block back out of a tag that covers it. Only listed "
-                        + "blocks lift; everything else on board is weight. Ids, '#tags' and '*' globs.");
+                        + "default. Strength multiplies the murk's density for that block alone and may be left off "
+                        + "for 1; 0 takes a block back out of a tag that covers it. \"weight\" uses Sable's "
+                        + "mass for the block, so it carries exactly itself, and \"weight*2\" twice that. "
+                        + "Only listed blocks lift; everything else on board is weight. Ids, '#tags', globs.");
         cfg("sableMurkDensity", "Murk Density",
                 "How dense the murk is, in Sable's units, where a plain block has mass 1 and volume 1: one "
                         + "submerged float block holds up this much of the ship's mass. Raise it to float a "

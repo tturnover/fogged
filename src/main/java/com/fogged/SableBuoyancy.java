@@ -28,12 +28,16 @@ import org.joml.Vector3d;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
  * Floats Sable's sub-levels -- its ships and contraptions -- on the murk, as water would float them.
@@ -69,11 +73,17 @@ final class SableBuoyancy {
     // wholesale on a reload). Globs are matched against the registry once, here, rather than per block,
     // so what is left at lookup time is a map hit and a walk over however many tags were listed.
     private static List<? extends String> cachedFloatList;
-    private static Map<Block, Double> floatBlocks = Map.of();
+    private static Map<Block, List<Lift>> floatBlocks = Map.of();
     private static List<FloatTag> floatTags = List.of();
 
-    /** One listed block tag and how hard the murk lifts what it covers. */
-    private record FloatTag(TagKey<Block> tag, double strength) {}
+    /**
+     * How hard the murk lifts one listed block: a flat strength, or -- with {@code byWeight} -- that
+     * multiple of the block's own Sable mass, which is only known once there is a block to weigh.
+     */
+    private record Lift(double strength, boolean byWeight) {}
+
+    /** One listed block tag and the lift it gives what it covers. */
+    private record FloatTag(TagKey<Block> tag, Lift lift) {}
 
     private static void ensureFloatBlocks() {
         List<? extends String> raw = Config.SABLE_FLOAT_BLOCKS.get();
@@ -81,7 +91,7 @@ final class SableBuoyancy {
             return;
         }
         cachedFloatList = raw;
-        Map<Pattern, Double> globs = new LinkedHashMap<>();
+        Map<Pattern, List<Lift>> globs = new LinkedHashMap<>();
         List<FloatTag> tags = new ArrayList<>();
         for (String entry : raw) {
             Config.FloatBlock parsed = Config.parseFloatBlock(entry);
@@ -90,22 +100,23 @@ final class SableBuoyancy {
                         + "\"block[=strength]\".", entry);
                 continue;
             }
+            Lift lift = new Lift(parsed.strength(), parsed.byWeight());
             if (parsed.id().startsWith("#")) {
                 ResourceLocation key = ResourceLocation.tryParse(parsed.id().substring(1));
                 if (key != null) {
-                    tags.add(new FloatTag(TagKey.create(Registries.BLOCK, key), parsed.strength()));
+                    tags.add(new FloatTag(TagKey.create(Registries.BLOCK, key), lift));
                 }
             } else {
-                globs.merge(Config.idGlob(parsed.id()), parsed.strength(), Math::max);
+                globs.computeIfAbsent(Config.idGlob(parsed.id()), g -> new ArrayList<>()).add(lift);
             }
         }
-        Map<Block, Double> blocks = new HashMap<>();
+        Map<Block, List<Lift>> blocks = new HashMap<>();
         if (!globs.isEmpty()) {
             for (Block block : BuiltInRegistries.BLOCK) {
                 String id = BuiltInRegistries.BLOCK.getKey(block).toString();
-                for (Map.Entry<Pattern, Double> glob : globs.entrySet()) {
+                for (Map.Entry<Pattern, List<Lift>> glob : globs.entrySet()) {
                     if (glob.getKey().matcher(id).matches()) {
-                        blocks.merge(block, glob.getValue(), Math::max);
+                        blocks.computeIfAbsent(block, b -> new ArrayList<>()).addAll(glob.getValue());
                     }
                 }
             }
@@ -115,28 +126,57 @@ final class SableBuoyancy {
         HULLS.clear(); // every measured hull was measured against the old list
     }
 
-    // How hard the murk lifts this block, 0 for anything unlisted. The strongest entry that names it
-    // wins, so a tag can be given a baseline and one block inside it raised, lowered or -- at 0 --
-    // taken back out, without the order entries happen to be written in deciding it.
-    private static double floatStrength(BlockState state) {
-        double strength = floatBlocks.getOrDefault(state.getBlock(), 0.0);
-        for (FloatTag listed : floatTags) {
-            if (listed.strength() > strength && state.is(listed.tag())) {
-                strength = listed.strength();
+    // How hard the murk lifts this block, 0 for anything unlisted. Every entry that names it is worked
+    // out and the strongest taken, so a tag can be given a baseline and one block inside it raised,
+    // lowered or -- at 0 -- taken back out, without the order entries happen to be written in deciding
+    // it. Settled here rather than at load because a weighed entry needs the block itself: Sable's mass
+    // is the block's own, and a pack is free to have changed it.
+    private static double floatStrength(Level level, BlockPos pos, BlockState state) {
+        double best = 0.0;
+        List<Lift> listed = floatBlocks.get(state.getBlock());
+        if (listed != null) {
+            for (Lift lift : listed) {
+                best = Math.max(best, resolve(lift, level, pos, state));
             }
         }
-        return strength;
+        for (FloatTag tag : floatTags) {
+            if (state.is(tag.tag())) {
+                best = Math.max(best, resolve(tag.lift(), level, pos, state));
+            }
+        }
+        return best;
     }
 
-    // The groups Sable files these forces under, for its own force readout. Looked up in its registry
-    // rather than through ForceGroups' registry objects, which are Veil types this mod does not compile
-    // against. Null if Sable ever renames them: the forces are then simply not grouped.
-    private static final ResourceLocation LIFT_GROUP = ResourceLocation.fromNamespaceAndPath("sable", "balloon_lift");
+    private static double resolve(Lift lift, Level level, BlockPos pos, BlockState state) {
+        if (!lift.byWeight()) {
+            return lift.strength();
+        }
+        return lift.strength() * Math.max(0.0, PhysicsBlockPropertyHelper.getMass(level, pos, state));
+    }
+
+    // The murk's own entry in Sable's force registry, so its readout says where the force comes from:
+    // under balloon_lift, which is where this used to file, a hull's buoyancy was listed as a balloon's.
+    // Registered into Sable's registry with NeoForge's own DeferredRegister rather than through Veil's
+    // provider, which this mod does not compile against.
+    private static final DeferredRegister<ForceGroup> FORCE_GROUPS =
+            DeferredRegister.create(ForceGroups.REGISTRY_KEY, Fogged.MODID);
+
+    // The murk's own green, as the plane is drawn by default, so its arrows are told apart at a glance.
+    private static final int MURK_COLOR = 0x406440;
+
+    private static final DeferredHolder<ForceGroup, ForceGroup> FOG_BUOYANCY = FORCE_GROUPS.register(
+            "fog_buoyancy", () -> new ForceGroup(
+                    Component.translatable("force_group.fogged.fog_buoyancy"), null, MURK_COLOR, true));
+
+    // Sable's own drag group: what this adds there IS drag, and reads correctly under that name. Looked
+    // up in the registry rather than through ForceGroups' registry objects, which are Veil types this
+    // mod does not compile against. Null if Sable ever renames it: the drag is then simply not grouped.
     private static final ResourceLocation DRAG_GROUP = ResourceLocation.fromNamespaceAndPath("sable", "drag");
 
     private SableBuoyancy() {}
 
-    static void register() {
+    static void register(IEventBus modEventBus) {
+        FORCE_GROUPS.register(modEventBus);
         SableEventPlatform.INSTANCE.onPhysicsTick(SableBuoyancy::prePhysicsTick);
     }
 
@@ -194,10 +234,7 @@ final class SableBuoyancy {
         // The debug force overlay keeps whatever vectors it is handed, so it gets copies; with the
         // overlay off nothing is retained and one pair of scratch vectors does for the whole hull.
         boolean tracking = sub.isTrackingIndividualQueuedForces();
-        QueuedForceGroup lift = group(sub, LIFT_GROUP);
-        if (lift == null) {
-            return;
-        }
+        QueuedForceGroup lift = sub.getOrCreateQueuedForceGroup(FOG_BUOYANCY.get());
         Vector3d point = new Vector3d();
         Vector3d world = new Vector3d();
         Vector3d impulse = new Vector3d();
@@ -274,8 +311,9 @@ final class SableBuoyancy {
     // Walk the sub-level's own block bounds and keep every float block. A hull too big to
     // walk whole is walked on a lattice, and one with more blocks than the probe budget keeps every
     // k-th of them -- spread through the hull, not taken off its keel, or the lift would all be applied
-    // low and the ship would float on its bottom layer. Each kept block carries the lift of the
-    // blocks it stands in for, so how deep the ship floats does not change with the sampling.
+    // low and the ship would float on its bottom layer. Each kept block keeps its own lift, scaled by
+    // the blocks it stands in for, so how deep the ship floats does not change with the sampling and
+    // where it floats still follows where the float blocks are.
     private static Hull build(ServerSubLevel sub, double mass, long tick) {
         BoundingBox3ic bounds = sub.getPlot().getBoundingBox();
         Level level = sub.getLevel();
@@ -311,19 +349,23 @@ final class SableBuoyancy {
             return new Hull(0, tick, mass);
         }
 
-        // Second pass: keep every keepEvery-th of them, and give each kept block an equal share of the
-        // hull's lift so the total is preserved whatever the sampling threw away.
+        // Second pass: keep every keepEvery-th of them, each carrying ITS OWN lift rather than an equal
+        // share of the hull's. A block that floats harder than its neighbour has to pull harder at its
+        // own place, or the wool at one end and the rope at the other come out the same and the hull
+        // has no reason to sit the way it is built. Where the sampling thins the blocks out, what is
+        // kept is scaled by what was dropped, so the hull's total lift is the same either way.
         int budget = Config.SABLE_BUOYANCY_PROBES.getAsInt();
         int keepEvery = (found + budget - 1) / budget;
         Hull hull = new Hull((found + keepEvery - 1) / keepEvery, tick, mass);
         hull.liftTotal = liftTotal;
-        double perProbe = liftTotal / hull.size;
+        double thinned = latticeShare * (double) found / (double) hull.size;
         int seen = 0;
         int kept = 0;
         for (int y = bounds.minY(); y <= bounds.maxY() && kept < hull.size; y += stride) {
             for (int x = bounds.minX(); x <= bounds.maxX() && kept < hull.size; x += stride) {
                 for (int z = bounds.minZ(); z <= bounds.maxZ() && kept < hull.size; z += stride) {
-                    if (liftVolume(level, pos.set(x, y, z)) <= 0.0) {
+                    double lift = liftVolume(level, pos.set(x, y, z));
+                    if (lift <= 0.0) {
                         continue;
                     }
                     if (seen++ % keepEvery != 0) {
@@ -332,7 +374,7 @@ final class SableBuoyancy {
                     hull.x[kept] = x;
                     hull.y[kept] = y;
                     hull.z[kept] = z;
-                    hull.lift[kept] = perProbe;
+                    hull.lift[kept] = lift * thinned;
                     kept++;
                 }
             }
@@ -347,7 +389,7 @@ final class SableBuoyancy {
      */
     private static double liftVolume(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        double strength = floatStrength(state);
+        double strength = floatStrength(level, pos, state);
         return strength <= 0.0 ? 0.0 : strength * Math.max(0.0, PhysicsBlockPropertyHelper.getVolume(state));
     }
 
