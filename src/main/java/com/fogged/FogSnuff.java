@@ -244,6 +244,9 @@ public final class FogSnuff {
         if (!devices.contains(level.getBlockState(pos).getBlock())) {
             return false;
         }
+        if (BreatheSpheres.shelters(level, pos)) {
+            return false; // a filter's air keeps a device lit, and its redstone with it
+        }
         // World-space height, so a device riding a Sable sub-level is judged where it actually floats.
         double activeSurfaceY = FogBand.surfaceY(level) - Config.WORLD_CHANGE_SKIP.getAsInt();
         return PlaneSensor.worldY(level, pos) < activeSurfaceY;

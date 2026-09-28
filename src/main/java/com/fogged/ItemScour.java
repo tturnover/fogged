@@ -46,8 +46,11 @@ public final class ItemScour {
             return;
         }
         CompoundTag data = item.getPersistentData();
+        // A stack lying in a filter's air is left alone, as one above the boundary is -- and one
+        // already counting down lets go the moment the air reaches it.
+        boolean sheltered = BreatheSpheres.isBreathable(level, item.position());
         if (data.contains(PENDING)) {
-            if (!Config.fogged(level, item.getY())) {
+            if (sheltered || !Config.fogged(level, item.getY())) {
                 data.remove(PENDING);
                 return;
             }
@@ -61,7 +64,7 @@ public final class ItemScour {
             convert(level, item);
             return;
         }
-        if (item.tickCount % CHECK_INTERVAL != 0 || !Config.fogged(level, item.getY())) {
+        if (item.tickCount % CHECK_INTERVAL != 0 || sheltered || !Config.fogged(level, item.getY())) {
             return;
         }
         if (ScourRules.convert(level, item.getItem(), item.getY()) == null) {

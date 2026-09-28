@@ -229,7 +229,8 @@ public final class CreateCompatibility {
         return player != null
                 && !player.isCreative()
                 && player.getEyeInFluidType().isAir()
-                && Config.eyesUnderSurface(player.level(), player.getEyeY());
+                && Config.eyesUnderSurface(player.level(), player.getEyeY())
+                && !BreatheSpheres.isBreathable(player.level(), player.getEyePosition());
     }
 
     // The backtank icon to draw: the first worn item that still has air.

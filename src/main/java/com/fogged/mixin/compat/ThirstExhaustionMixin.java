@@ -1,5 +1,6 @@
 package com.fogged.mixin.compat;
 
+import com.fogged.BreatheSpheres;
 import com.fogged.Config;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -25,8 +26,9 @@ public abstract class ThirstExhaustionMixin {
 
     @ModifyVariable(method = "addExhaustion", at = @At("HEAD"), argsOnly = true, remap = false)
     private float fogged$murkThirst(float amount, Player player) {
-        if (!Config.eyesUnderSurface(player.level(), player.getEyeY())) {
-            return amount;
+        if (!Config.eyesUnderSurface(player.level(), player.getEyeY())
+                || BreatheSpheres.isBreathable(player.level(), player.getEyePosition())) {
+            return amount; // a filter's air is as dry as the air above the boundary
         }
         return amount * (float) (double) Config.MURK_THIRST_SCALE.get();
     }

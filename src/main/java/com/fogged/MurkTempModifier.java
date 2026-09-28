@@ -30,8 +30,9 @@ public final class MurkTempModifier extends TempModifier {
 
     @Override
     protected Function<Double, Double> calculate(LivingEntity entity, Temperature.Trait trait) {
-        if (trait != Temperature.Trait.WORLD || !Config.eyesUnderSurface(entity.level(), entity.getEyeY())) {
-            return UNCHANGED;
+        if (trait != Temperature.Trait.WORLD || !Config.eyesUnderSurface(entity.level(), entity.getEyeY())
+                || BreatheSpheres.isBreathable(entity.level(), entity.getEyePosition())) {
+            return UNCHANGED; // a filter's air is as warm as the air above the boundary
         }
         double keep = 1.0 - Config.MURK_COLDNESS.get();
         if (keep >= 1.0) {

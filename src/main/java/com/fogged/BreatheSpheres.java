@@ -70,6 +70,22 @@ public final class BreatheSpheres {
     }
 
     /**
+     * True when the block at {@code pos} stands in breathable air, and so is none of the murk's
+     * business: inside a nozzle filter's sphere the world is left as it is above the boundary --
+     * nothing snuffed, scoured or turned into anything else.
+     *
+     * <p>Judged at the block's world-space centre, so a block riding a Sable sub-level is judged where
+     * the contraption actually floats rather than where its plot sits (see {@link PlaneSensor}).
+     */
+    public static boolean shelters(Level level, BlockPos pos) {
+        Map<BlockPos, Sphere> dim = side(level).get(level.dimension());
+        if (dim == null || dim.isEmpty()) {
+            return false; // no filter is running: the common case, and free
+        }
+        return isBreathable(level, PlaneSensor.worldCenter(level, pos));
+    }
+
+    /**
      * World-space centre of the sphere nearest {@code point}, or {@code null} when none has its centre
      * within {@code maxDist}. Used by {@link FogEscapeGoal} to pick the shelter a drowning mob runs for.
      * The centre, not the nearest point on the surface: a mob that stops on the rim drifts back out as

@@ -201,7 +201,8 @@ public final class FogScour {
                 continue;
             }
             BlockState state = level.getBlockState(pos);
-            if (pos.getY() > FogBand.activeTopY(level) || !wantsSlow(level, state, pos.getY())) {
+            if (pos.getY() > FogBand.activeTopY(level) || !wantsSlow(level, state, pos.getY())
+                    || BreatheSpheres.shelters(level, pos)) {
                 it.remove();
                 continue;
             }
@@ -217,6 +218,9 @@ public final class FogScour {
     }
 
     private static void schedule(ServerLevel level, BlockPos pos) {
+        if (BreatheSpheres.shelters(level, pos)) {
+            return; // nothing in breathable air is ever marked, so nothing there steams either
+        }
         int delay = Config.WORLD_CHANGE_DELAY.getAsInt() * 20;
         if (delay <= 0) {
             rot(level, pos);
@@ -264,6 +268,9 @@ public final class FogScour {
 
     /** Apply the under-fog scour to one block: the config's rules first, then fire, lava, farmland. */
     private static void rot(Level level, BlockPos pos) {
+        if (BreatheSpheres.shelters(level, pos)) {
+            return; // breathable air: the murk has no hold on what stands in it
+        }
         BlockState state = level.getBlockState(pos);
 
         // The config's rules first: they are where the vegetation and the ground it grows in are
@@ -289,6 +296,9 @@ public final class FogScour {
     // Everything the murk puts out: loose fire, lava, torches and the configured devices. Returns true
     // when this block was one of them and is dealt with.
     private static boolean extinguish(Level level, BlockPos pos, BlockState state) {
+        if (BreatheSpheres.shelters(level, pos)) {
+            return false; // a fire inside a filter's sphere burns as one above the boundary does
+        }
         if (state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE)) {
             level.removeBlock(pos, false);
             return true;
