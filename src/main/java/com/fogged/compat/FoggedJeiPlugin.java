@@ -116,9 +116,9 @@ public class FoggedJeiPlugin implements IModPlugin {
         // art somewhere inside it, so the region is taken rather than the whole file. Both are drawn at
         // the size they were authored -- no padding around them, and nothing scaled.
         private static final int MARK_SHEET = 64;
-        private static final int MARK_U = 11;
+        private static final int MARK_U = 9;
         private static final int MARK_V = 3;
-        private static final int MARK_W = 43;
+        private static final int MARK_W = 48;
         private static final int MARK_H = 52;
         private static final int ICON_SHEET = 16;
         private static final int ICON_U = 2;
