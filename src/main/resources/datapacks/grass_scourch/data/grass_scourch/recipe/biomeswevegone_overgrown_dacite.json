@@ -1,0 +1,14 @@
+{
+  "type": "fogged:murk_transform",
+  "neoforge:conditions": [
+    {
+      "type": "fogged:pack_enabled",
+      "pack": "grass_scourch"
+    }
+  ],
+  "from": [
+    "biomeswevegone:overgrown_dacite"
+  ],
+  "to": "biomeswevegone:dacite",
+  "silent": true
+}

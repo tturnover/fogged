@@ -37,6 +37,7 @@ public class Fogged {
         ModBlockEntities.register(modEventBus);
         ModParticles.register(modEventBus);
         ModRecipes.register(modEventBus);
+        FoggedDatapacks.register(modEventBus);
         ModFeatures.register(modEventBus);
         ModStructures.register(modEventBus);
         ModStructurePieces.register(modEventBus);

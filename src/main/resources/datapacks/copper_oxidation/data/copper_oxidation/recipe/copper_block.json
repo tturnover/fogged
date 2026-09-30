@@ -1,0 +1,15 @@
+{
+  "type": "fogged:murk_transform",
+  "neoforge:conditions": [
+    {
+      "type": "fogged:pack_enabled",
+      "pack": "copper_oxidation"
+    }
+  ],
+  "from": [
+    "minecraft:copper_block",
+    "minecraft:exposed_copper",
+    "minecraft:weathered_copper"
+  ],
+  "to": "minecraft:oxidized_copper"
+}

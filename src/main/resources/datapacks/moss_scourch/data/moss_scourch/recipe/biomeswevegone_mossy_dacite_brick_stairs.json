@@ -1,0 +1,14 @@
+{
+  "type": "fogged:murk_transform",
+  "neoforge:conditions": [
+    {
+      "type": "fogged:pack_enabled",
+      "pack": "moss_scourch"
+    }
+  ],
+  "from": [
+    "biomeswevegone:mossy_dacite_brick_stairs"
+  ],
+  "to": "biomeswevegone:dacite_brick_stairs",
+  "silent": true
+}

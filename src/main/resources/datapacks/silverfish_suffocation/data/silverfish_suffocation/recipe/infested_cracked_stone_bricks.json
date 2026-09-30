@@ -1,0 +1,14 @@
+{
+  "type": "fogged:murk_transform",
+  "neoforge:conditions": [
+    {
+      "type": "fogged:pack_enabled",
+      "pack": "silverfish_suffocation"
+    }
+  ],
+  "from": [
+    "minecraft:infested_cracked_stone_bricks"
+  ],
+  "to": "minecraft:cracked_stone_bricks",
+  "silent": true
+}

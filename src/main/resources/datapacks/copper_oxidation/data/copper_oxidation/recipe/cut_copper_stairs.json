@@ -1,0 +1,15 @@
+{
+  "type": "fogged:murk_transform",
+  "neoforge:conditions": [
+    {
+      "type": "fogged:pack_enabled",
+      "pack": "copper_oxidation"
+    }
+  ],
+  "from": [
+    "minecraft:cut_copper_stairs",
+    "minecraft:exposed_cut_copper_stairs",
+    "minecraft:weathered_cut_copper_stairs"
+  ],
+  "to": "minecraft:oxidized_cut_copper_stairs"
+}

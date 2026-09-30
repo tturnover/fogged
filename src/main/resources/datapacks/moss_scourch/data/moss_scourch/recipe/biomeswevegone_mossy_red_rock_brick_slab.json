@@ -1,0 +1,14 @@
+{
+  "type": "fogged:murk_transform",
+  "neoforge:conditions": [
+    {
+      "type": "fogged:pack_enabled",
+      "pack": "moss_scourch"
+    }
+  ],
+  "from": [
+    "biomeswevegone:mossy_red_rock_brick_slab"
+  ],
+  "to": "biomeswevegone:red_rock_brick_slab",
+  "silent": true
+}

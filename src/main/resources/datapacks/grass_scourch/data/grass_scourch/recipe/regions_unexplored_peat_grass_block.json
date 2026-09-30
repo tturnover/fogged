@@ -1,0 +1,14 @@
+{
+  "type": "fogged:murk_transform",
+  "neoforge:conditions": [
+    {
+      "type": "fogged:pack_enabled",
+      "pack": "grass_scourch"
+    }
+  ],
+  "from": [
+    "regions_unexplored:peat_grass_block"
+  ],
+  "to": "regions_unexplored:peat_coarse_dirt",
+  "silent": true
+}

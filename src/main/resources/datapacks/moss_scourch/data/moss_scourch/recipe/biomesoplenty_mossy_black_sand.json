@@ -1,0 +1,14 @@
+{
+  "type": "fogged:murk_transform",
+  "neoforge:conditions": [
+    {
+      "type": "fogged:pack_enabled",
+      "pack": "moss_scourch"
+    }
+  ],
+  "from": [
+    "biomesoplenty:mossy_black_sand"
+  ],
+  "to": "biomesoplenty:black_sand",
+  "silent": true
+}

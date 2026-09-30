@@ -1,0 +1,15 @@
+{
+  "type": "fogged:murk_transform",
+  "neoforge:conditions": [
+    {
+      "type": "fogged:pack_enabled",
+      "pack": "coal_remover"
+    }
+  ],
+  "from": [
+    "minecraft:coal_block",
+    "#c:storage_blocks/coal"
+  ],
+  "to": "minecraft:air",
+  "silent": true
+}
