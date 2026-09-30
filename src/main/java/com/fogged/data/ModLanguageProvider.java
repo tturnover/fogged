@@ -42,6 +42,23 @@ public class ModLanguageProvider extends LanguageProvider {
         // Custom death messages (keyed by each damage type's message_id).
         // JEI category for the murk's block conversions (see FoggedJeiPlugin); only shown when JEI is in.
         add("fogged.jei.murk_transform", "Murk Conversion");
+        add("fogged.datapack.grass_scourch", "Grass Scourch");
+        add("fogged.datapack.moss_scourch", "Moss Scourch");
+        cfg("datapacks", "Conversion Packs",
+                "The conversions the mod ships, each as a datapack it carries and a switch here. A switch is read when the datapacks load, so a change takes a /reload or reopening the world. A world can also turn one off in its own pack list, which travels with the world.");
+        cfg("grassScourch", "Grass Scourch",
+                "Every grassed block goes back to the bare ground under it: grass blocks to coarse dirt, and the same for the grassed stone, deepslate, chalk and peat of the biome mods.");
+        cfg("mossScourch", "Moss Scourch",
+                "The murk strips moss off what it covers: moss blocks, prismoss, and mossy cobblestone and brick with the stairs, slabs and walls cut from them.");
+        cfg("copperOxidation", "Copper Oxidation",
+                "The murk is weather, so unwaxed copper under it weathers the whole way through to oxidised. Waxed copper is left alone. The one set shown in JEI.");
+        cfg("silverfishSuffocation", "Silverfish Suffocation",
+                "Nothing breathes under the murk, silverfish least of all: an infested block comes back as the plain stone it was hiding in.");
+        cfg("coalRemover", "Coal Remover",
+                "The murk eats coal. Ore goes back to the rock it sat in, any mod's coal ore through the common tag, and a block of coal is taken outright.");
+        add("fogged.datapack.silverfish_suffocation", "Silverfish Suffocation");
+        add("fogged.datapack.coal_remover", "Coal Remover");
+        add("fogged.datapack.copper_oxidation", "Copper Oxidation");
 
         add("death.attack.fog_suffocation", "%1$s was swallowed by the fog");
         add("death.attack.fog_suffocation.player", "%1$s drowned in the fog while fleeing %2$s");
@@ -117,7 +134,9 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "default. Strength multiplies the murk's density for that block alone and may be left off "
                         + "for 1; 0 takes a block back out of a tag that covers it. \"weight\" uses Sable's "
                         + "mass for the block, so it carries exactly itself, and \"weight*2\" twice that. "
-                        + "Only listed blocks lift; everything else on board is weight. Ids, '#tags', globs.");
+                        + "Only listed blocks lift; everything else on board is weight. Ids, '#tags', globs.\n"
+                        + "Wool by default, named in the list itself; the mod's own #fogged:floats ships "
+                        + "empty, for another mod's hull material to add itself to at strength 1.");
         cfg("sableMurkDensity", "Murk Density",
                 "How dense the murk is, in Sable's units, where a plain block has mass 1 and volume 1: one "
                         + "submerged float block holds up this much of the ship's mass. Raise it to float a "
@@ -167,18 +186,15 @@ public class ModLanguageProvider extends LanguageProvider {
         cfg("snuffedDevices", "Snuffed Devices",
                 "Fire-burning devices the murk puts out: each is unlit, its burn timer zeroed and its "
                         + "fuel ejected.\n"
-                        + "One block id per entry; '*' matches any run of characters and 'minecraft:' may "
-                        + "be left off. An entry for a mod you do not have is simply ignored.\n"
-                        + "A device that needs more than unlighting has its own option under Other Mods "
-                        + "instead, as Cold Sweat's hearth and boiler do.\n"
+                        + "One entry per line: a block id, or a block tag with a leading '#'. '*' matches "
+                        + "any run of characters and 'minecraft:' may be left off. An entry for a mod you "
+                        + "do not have is simply ignored.\n"
+                        + "The default is the mod's own tag, which holds the burners it knows about -- "
+                        + "vanilla's, Create's, and Cold Sweat's hearth and boiler, which are smothered "
+                        + "rather than doused so they keep the fuel already in the tank.\n"
+                        + "#fogged:snuffed_devices\n"
                         + "furnace\n"
-                        + "create:lit_blaze_burner\n"
                         + "simulated:*_portable_engine");
-        cfg("snuffColdSweatDevices", "Smother Cold Sweat's Burners",
-                "With Cold Sweat: the murk smothers its hearth and boiler under the boundary -- both are "
-                        + "held still, so they neither warm nor burn, and what waits in the fuel slot is "
-                        + "thrown out, while the fuel already in the tank keeps. Off leaves them running. "
-                        + "Does nothing without that mod.");
         cfg("enableScour", "Scour Blocks",
                 "The murk takes things out under the boundary: everything in the list below, broken "
                         + "without drops, and farmland, which reverts and loses what was planted on it.");
@@ -191,8 +207,11 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "without drops.\n"
                         + "One block id per entry; '*' matches any run of characters and a leading '#' "
                         + "names a block tag. 'minecraft:' may be left off.\n"
+                        + "The default is the mod's own tag, which holds the plants it wilts; a datapack "
+                        + "adds to that tag, or to #fogged:scour_immune to spare one plant the murk would "
+                        + "otherwise take.\n"
+                        + "#fogged:scoured\n"
                         + "cobweb\n"
-                        + "#minecraft:banners\n"
                         + "create:*_casing");
         cfg("enableTransforms", "Enable Transforms",
                 "Master switch for the transform list. Off, the murk changes nothing into anything and "
@@ -277,7 +296,11 @@ public class ModLanguageProvider extends LanguageProvider {
         cfg("pillarTilt", "Pillar Lean",
                 "Greatest lean off vertical, in degrees. Each tower leans a random amount up to this.");
         cfg("allowedMobs", "Mobs Allowed Under The Fog",
-                "Entity-type ids that may live in the murk. The 'minecraft:' namespace may be omitted.");
+                "What may live in the murk: an entity-type id per line, or an entity-type tag with a "
+                        + "leading '#'. The 'minecraft:' namespace may be omitted. The default is the "
+                        + "warden, named so it can be argued with, plus #fogged:breathes_murk, which ships "
+                        + "empty for other mods to join. #minecraft:aquatic lets the sea live down there in "
+                        + "one line.");
         cfg("mobSuffocateDelaySeconds", "Mob Suffocation Delay",
                 "Seconds a non-allowed mob survives in the murk before it starts taking damage.");
         cfg("mobSuffocateDamage", "Mob Suffocation Damage",

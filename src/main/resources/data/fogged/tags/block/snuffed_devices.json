@@ -1,0 +1,14 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:furnace",
+    "minecraft:blast_furnace",
+    "minecraft:smoker",
+    "minecraft:campfire",
+    "minecraft:soul_campfire",
+    { "id": "create:lit_blaze_burner", "required": false },
+    { "id": "aeronautics:adjustable_burner", "required": false },
+    { "id": "cold_sweat:hearth_bottom", "required": false },
+    { "id": "cold_sweat:boiler", "required": false }
+  ]
+}

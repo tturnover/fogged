@@ -11,8 +11,10 @@ import java.util.regex.Pattern;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.Clearable;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
@@ -34,8 +36,8 @@ import net.neoforged.neoforge.items.IItemHandler;
  * {@link Config#SNUFFED_DEVICES} lists is unlit, its burn timer zeroed and its fuel ejected. Taking the
  * fuel is the part that makes it stick -- a device left holding any just relights between sweeps.
  *
- * <p>Cold Sweat's own burners come from {@link ColdSweatCompatibility#snuffedDevices()} rather than from
- * that list, while {@link Config#SNUFF_COLD_SWEAT_DEVICES} is on and the mod is there.
+ * <p>Cold Sweat's own burners are in that tag too, as optional entries: with the mod absent they name
+ * nothing, and with it there they are snuffed like any other device.
  *
  * <p>Only vanilla furnaces are touched through real types; everything else is reached by name through
  * reflection, so the mods owning them stay optional (as in {@link CreateCompatibility}).
@@ -50,44 +52,75 @@ public final class FogSnuff {
 
 
     // Resolved once per config change: matching ids per block would run a registry lookup and a regex
-    // for every block in the scour band, the hottest loop in the mod.
+    // for every block in the scour band, the hottest loop in the mod. Tags are not resolved here --
+    // what they hold comes from datapacks and changes on a reload without the config changing -- so
+    // they are kept as keys and tested per state.
     private static List<? extends String> cachedRaw;
-    private static boolean cachedColdSweat;
     private static Set<Block> devices = Set.of();
+    private static List<TagKey<Block>> deviceTags = List.of();
 
     private static void ensureDevices() {
         List<? extends String> raw = Config.SNUFFED_DEVICES.get();
-        boolean coldSweat = COLD_SWEAT && Config.SNUFF_COLD_SWEAT_DEVICES.get();
-        if (raw == cachedRaw && coldSweat == cachedColdSweat) {
+        if (raw == cachedRaw) {
             return;
         }
         cachedRaw = raw;
-        cachedColdSweat = coldSweat;
-        List<String> ids = new ArrayList<>(raw);
-        if (coldSweat) {
-            ids.addAll(ColdSweatCompatibility.snuffedDevices());
-        }
         List<Pattern> patterns = new ArrayList<>();
-        for (String s : ids) {
-            patterns.add(Config.idGlob(Config.withNamespace(s.trim())));
+        List<TagKey<Block>> tags = new ArrayList<>();
+        for (String entry : raw) {
+            String s = entry.trim();
+            if (s.isEmpty()) {
+                continue;
+            }
+            if (s.startsWith("#")) {
+                ResourceLocation key = ResourceLocation.tryParse(Config.withNamespace(s.substring(1)));
+                if (key == null) {
+                    Fogged.LOGGER.warn("Fogged: ignoring \"{}\" in snuffedDevices -- not a valid tag id.", s);
+                    continue;
+                }
+                tags.add(TagKey.create(Registries.BLOCK, key));
+            } else {
+                patterns.add(Config.idGlob(Config.withNamespace(s)));
+            }
         }
         Set<Block> found = new HashSet<>();
-        for (Block block : BuiltInRegistries.BLOCK) {
-            String id = BuiltInRegistries.BLOCK.getKey(block).toString();
-            for (Pattern p : patterns) {
-                if (p.matcher(id).matches()) {
-                    found.add(block);
-                    break;
+        if (!patterns.isEmpty()) {
+            for (Block block : BuiltInRegistries.BLOCK) {
+                String id = BuiltInRegistries.BLOCK.getKey(block).toString();
+                for (Pattern p : patterns) {
+                    if (p.matcher(id).matches()) {
+                        found.add(block);
+                        break;
+                    }
                 }
             }
         }
         devices = found;
+        deviceTags = List.copyOf(tags);
+    }
+
+    // Nothing is listed at all: the whole snuff is off, and the callers can say so without looking at
+    // the block in front of them.
+    private static boolean nothingListed() {
+        return devices.isEmpty() && deviceTags.isEmpty();
+    }
+
+    private static boolean listed(BlockState state) {
+        if (devices.contains(state.getBlock())) {
+            return true;
+        }
+        for (TagKey<Block> tag : deviceTags) {
+            if (state.is(tag)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether this block is one of the configured fire-burning devices. */
     public static boolean isDevice(BlockState state) {
         ensureDevices();
-        return !devices.isEmpty() && devices.contains(state.getBlock());
+        return listed(state);
     }
 
     /** Unlight a device, zero its burn timer and eject its fuel. */
@@ -237,11 +270,11 @@ public final class FogSnuff {
      */
     public static boolean snuffedAt(Level level, BlockPos pos) {
         ensureDevices();
-        if (devices.isEmpty() || !Config.ENABLE_WORLD_CHANGES.get() || !Config.ENABLE_EXTINGUISH.get()
+        if (nothingListed() || !Config.ENABLE_WORLD_CHANGES.get() || !Config.ENABLE_EXTINGUISH.get()
                 || !Config.dimensionEnabled(level)) {
             return false;
         }
-        if (!devices.contains(level.getBlockState(pos).getBlock())) {
+        if (!listed(level.getBlockState(pos))) {
             return false;
         }
         if (BreatheSpheres.shelters(level, pos)) {

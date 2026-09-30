@@ -34,6 +34,8 @@ import net.minecraft.world.level.block.VineBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 
+import com.fogged.registry.ModTags;
+
 /**
  * The configurable half of the under-fog scour: the blocks {@link Config#SCOURED_BLOCKS} says the murk
  * takes, and everything {@link Config#TRANSFORMS} says it turns into something else.
@@ -57,6 +59,11 @@ public final class ScourRules {
 
     private static List<? extends String> cachedScoured;
     private static List<? extends String> cachedTransforms;
+
+    // The same lines, from the datapacks in force rather than from the config (see
+    // MurkTransformRecipe). Replaced wholesale on a reload, which is also what makes the rules stale.
+    private static List<String> dataTransforms = List.of();
+    private static boolean dataChanged;
 
     private static Set<Block> scouredBlocks = Set.of();
     private static List<TagKey<Block>> scouredTags = List.of();
@@ -231,7 +238,20 @@ public final class ScourRules {
         return null;
     }
 
+    /**
+     * Blocks the scour is never allowed to take, whatever else says so: the mod's own
+     * {@code #fogged:scour_immune} tag. It beats the scoured list and, more to the point,
+     * {@code scourAllPlants}, which judges by what a block IS and so cannot otherwise be argued with
+     * one plant at a time. Transforms are left alone by it -- those name their target outright.
+     */
+    public static boolean immune(BlockState state) {
+        return state.is(ModTags.SCOUR_IMMUNE);
+    }
+
     private static boolean isScoured(BlockState state) {
+        if (immune(state)) {
+            return false;
+        }
         if (scouredBlocks.contains(state.getBlock())) {
             return true;
         }
@@ -265,7 +285,18 @@ public final class ScourRules {
                 || state.is(BlockTags.LEAVES);
     }
 
-    // Rebuilt only when the config lists themselves change (they are replaced wholesale on a reload).
+    /**
+     * The conversions the datapacks in force define, as config lines (see
+     * {@link MurkTransformRecipe#toEntry()}). Called on a datapack reload and on the recipe sync that
+     * follows it, by {@link MurkTransformLoader}; the rules are rebuilt the next time anything asks.
+     */
+    public static void setDataTransforms(List<String> entries) {
+        dataTransforms = List.copyOf(entries);
+        dataChanged = true;
+    }
+
+    // Rebuilt only when the lists themselves change: the config's (replaced wholesale on a reload) or
+    // the datapacks' (replaced wholesale on theirs).
     private static void ensureRules() {
         List<? extends String> scoured = Config.SCOURED_BLOCKS.get();
         if (scoured != cachedScoured) {
@@ -273,9 +304,15 @@ public final class ScourRules {
             rebuildScoured(scoured);
         }
         List<? extends String> transforms = Config.TRANSFORMS.get();
-        if (transforms != cachedTransforms) {
+        if (transforms != cachedTransforms || dataChanged) {
             cachedTransforms = transforms;
-            rebuildTransforms(transforms);
+            dataChanged = false;
+            // Config first: an entry a player wrote beats a datapack's for the same block, since the
+            // rules are taken first-come (see rebuildTransforms) and the config is the one place
+            // someone can argue with what a mod ships.
+            List<String> all = new ArrayList<>(transforms);
+            all.addAll(dataTransforms);
+            rebuildTransforms(all);
         }
     }
 

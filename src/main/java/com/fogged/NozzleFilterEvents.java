@@ -2,13 +2,13 @@ package com.fogged;
 
 import com.fogged.block.NozzleFilterBlock;
 import com.fogged.registry.ModBlocks;
+import com.fogged.registry.ModTags;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.DyeColor;
@@ -27,8 +27,9 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 /**
  * Turns a {@code create:nozzle} into a {@code fogged:nozzle_filter}: right-click the nozzle while
- * holding at least {@link #REQUIRED} wool block(s) -- any dye colour, matched by the data-driven
- * {@code minecraft:wool} item tag -- and the nozzle block is replaced in place (inheriting its facing)
+ * holding at least {@link #REQUIRED} wool block(s) -- any dye colour, matched by the mod's own
+ * {@code #fogged:filter_media} item tag, which holds {@code #minecraft:wool} and whatever a pack or
+ * another mod has added to it -- and the nozzle block is replaced in place (inheriting its facing)
  * and the wool consumed. The filter remembers the wool's colour ({@link NozzleFilterBlock#COLOR}), so it
  * both renders in that colour and returns that same wool when broken. Replacing the block outright --
  * rather than layering on top -- is deliberate: it drops Create's own nozzle behaviour so the two air
@@ -73,7 +74,7 @@ public final class NozzleFilterEvents {
             return;
         }
 
-        if (!stack.is(ItemTags.WOOL) || stack.getCount() < REQUIRED) {
+        if (!stack.is(ModTags.FILTER_MEDIA) || stack.getCount() < REQUIRED) {
             return;
         }
         BlockState nozzle = clicked;

@@ -6,7 +6,9 @@ import java.util.List;
 import java.util.Set;
 
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -171,12 +173,17 @@ public class Config {
             .define("enableExtinguish", true);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SNUFFED_DEVICES = COMMON
-            .comment("Block ids of fire-burning devices the murk puts out: each is unlit, its burn timer",
-                    "zeroed and its fuel ejected. '*' matches any run of characters, and the 'minecraft:'",
-                    "namespace may be omitted. Empty list = leave devices burning. Needs enableWorldChanges.",
-                    "A device that needs more than unlighting is not listed here: it gets its own option",
-                    "in [compat], as Cold Sweat's hearth and boiler do under snuffColdSweatDevices.",
-                    "Example: snuffedDevices = [\"furnace\", \"create:lit_blaze_burner\"]")
+            .comment("Fire-burning devices the murk puts out: each is unlit, its burn timer zeroed and its",
+                    "fuel ejected. Each entry is a block id or, with a leading '#', a block tag. '*' matches",
+                    "any run of characters in an id, and the 'minecraft:' namespace may be omitted.",
+                    "Empty list = leave devices burning. Needs enableWorldChanges.",
+                    "The default is one tag, #fogged:snuffed_devices, which is where the mod keeps the",
+                    "burners it knows about -- vanilla's, Create's, Cold Sweat's hearth and boiler -- so a",
+                    "mod with a burner of its own adds it to that tag rather than asking a player to.",
+                    "A device that cannot simply be unlit is still snuffed through this list: Cold Sweat's",
+                    "hearth has its tick held by a mixin, which asks this same list which devices are the",
+                    "murk's.",
+                    "Example: snuffedDevices = [\"furnace\", \"#fogged:snuffed_devices\", \"create:lit_*\"]")
             .defineListAllowEmpty("snuffedDevices", Config::defaultSnuffedDevices, () -> "minecraft:furnace",
                     o -> o instanceof String s && !s.isBlank());
 
@@ -192,6 +199,10 @@ public class Config {
                     "its own; fires, lava, torches, devices and farmland are still built in.",
                     "Each entry is a block id or, with a leading '#', a block tag. '*' matches any run of",
                     "characters in an id, and the 'minecraft:' namespace may be omitted.",
+                    "The default is one tag, #fogged:scoured, which is where the mod keeps the plants it",
+                    "wilts: another mod or a datapack adds its own to that tag and they wilt without this",
+                    "list being touched, which is the way to do it for something shipped rather than",
+                    "chosen. This list is for what one world wants.",
                     "Needs enableWorldChanges.",
                     "Example: scouredBlocks = [\"cobweb\", \"#minecraft:banners\", \"create:*_casing\"]")
             .defineListAllowEmpty("scouredBlocks", Config::defaultScouredBlocks, () -> "minecraft:cobweb",
@@ -255,12 +266,84 @@ public class Config {
                     "Applied before the built-in scour, so an entry here overrides what the murk would",
                     "otherwise do to that block. A transform whose result matches another rule is itself",
                     "converted on the next pass, so do not point one at something another rule takes.",
+                    "Empty by default: everything the mod itself turns over is in its own datapacks now",
+                    "(Grass Scourch, Moss Scourch, Copper Oxidation, Silverfish Suffocation, Coal",
+                    "Remover), each one a switch in the pack list rather than lines to delete here.",
+                    "A datapack or another mod can ship conversions of its own instead of asking for this",
+                    "list to be edited: a recipe file, data/<namespace>/recipe/<name>.json, of type",
+                    "fogged:murk_transform, with the same parts under JSON names --",
+                    "{\"type\": \"fogged:murk_transform\", \"from\": [\"minecraft:copper_block\"],",
+                    " \"to\": \"minecraft:oxidized_copper\", \"depth\": 0, \"silent\": false}.",
+                    "They reload with /reload and are shown in JEI like these. Where both name the same",
+                    "block this list wins, so a pack can always argue with what a mod ships.",
                     "Needs enableWorldChanges.")
             .defineListAllowEmpty("transforms", Config::defaultTransforms,
                     () -> "minecraft:coal_ore=minecraft:stone !silent",
                     o -> o instanceof String s && parseTransform(s) != null);
 
     static { COMMON.pop(); }   // [boundary]
+
+    // ==== common [datapacks] : the mod's own conversion packs ====
+    static {
+        COMMON.comment("The conversions the mod itself ships, each as a datapack it carries inside it and",
+                "a switch here. They are the same fogged:murk_transform recipe files any other mod",
+                "would write, so a pack can override one of them line by line; these switches are for",
+                "turning a whole set off without going near a pack list.",
+                "A switch is read when the datapacks are loaded, so changing one takes a /reload (or",
+                "reopening the world) to show. Turning a pack off in the world's own pack list does the",
+                "same thing and outlives this file, which is what a server wants.");
+        COMMON.push("datapacks");
+    }
+
+    public static final ModConfigSpec.BooleanValue PACK_GRASS_SCOURCH = COMMON
+            .comment("Grass Scourch: every grassed block goes back to the bare ground under it -- grass",
+                    "blocks to coarse dirt, and the same for the grassed stone, deepslate, chalk and peat",
+                    "of the biome mods. Coarse dirt rather than dirt, which would re-grass the moment the",
+                    "boundary moved off it.")
+            .define("grassScourch", true);
+
+    public static final ModConfigSpec.BooleanValue PACK_MOSS_SCOURCH = COMMON
+            .comment("Moss Scourch: the murk strips moss off what it covers -- moss blocks, prismoss, and",
+                    "mossy cobblestone and brick with the stairs, slabs and walls cut from them.")
+            .define("mossScourch", true);
+
+    public static final ModConfigSpec.BooleanValue PACK_COPPER_OXIDATION = COMMON
+            .comment("Copper Oxidation: the murk is weather, so every unwaxed copper block under it",
+                    "weathers the whole way through to oxidised. Waxed copper is left alone -- wax is what",
+                    "stops the weather getting at it. The only set of the five shown in JEI: someone who",
+                    "finds their roof green should be able to look up why.")
+            .define("copperOxidation", true);
+
+    public static final ModConfigSpec.BooleanValue PACK_SILVERFISH_SUFFOCATION = COMMON
+            .comment("Silverfish Suffocation: nothing breathes under the murk, silverfish least of all, so",
+                    "an infested block comes back as the plain stone it was hiding in.")
+            .define("silverfishSuffocation", true);
+
+    public static final ModConfigSpec.BooleanValue PACK_COAL_REMOVER = COMMON
+            .comment("Coal Remover: the murk eats coal. Ore goes back to the rock it sat in -- stone or",
+                    "deepslate, and any other mod's coal ore through the #c:ores/coal tag -- and a block of",
+                    "coal is taken outright, which this pack arranges by adding it to #fogged:scoured.")
+            .define("coalRemover", true);
+
+    static { COMMON.pop(); }   // [datapacks]
+
+    // Keyed by the pack's folder name, which is what its recipes name in their condition (see
+    // PackEnabledCondition). Declared after the switches so they are assigned by the time it is built.
+    private static final java.util.Map<String, ModConfigSpec.BooleanValue> PACK_SWITCHES = java.util.Map.of(
+            "grass_scourch", PACK_GRASS_SCOURCH,
+            "moss_scourch", PACK_MOSS_SCOURCH,
+            "copper_oxidation", PACK_COPPER_OXIDATION,
+            "silverfish_suffocation", PACK_SILVERFISH_SUFFOCATION,
+            "coal_remover", PACK_COAL_REMOVER);
+
+    /**
+     * Whether one of the mod's own conversion packs is switched on here. A pack this does not know is
+     * allowed: the switches are the mod's own, and a pack someone else added is theirs to manage.
+     */
+    public static boolean packEnabled(String pack) {
+        ModConfigSpec.BooleanValue value = PACK_SWITCHES.get(pack);
+        return value == null || value.get();
+    }
 
     // ==== common [compat] : what the murk does inside other mods ====
     static {
@@ -284,14 +367,6 @@ public class Config {
                     "already at. 0 leaves the temperature alone. Nothing happens without that mod.")
             .defineInRange("murkColdness", 1.0 / 6.0, 0.0, 1.0);
 
-    public static final ModConfigSpec.BooleanValue SNUFF_COLD_SWEAT_DEVICES = COMMON
-            .comment("With Cold Sweat installed: the murk smothers its hearth and boiler under the",
-                    "boundary -- their ticks are held, so they neither warm nor burn, and what waits in",
-                    "the fuel slot is thrown out, but the fuel already in the tank keeps. Off leaves both",
-                    "running under the fog. They are not in snuffedDevices: the mod owns them, and that",
-                    "list is for devices a pack names itself. Needs enableExtinguish.")
-            .define("snuffColdSweatDevices", true);
-
     public static final ModConfigSpec.BooleanValue SABLE_BUOYANCY = COMMON
             .comment("Ships and contraptions float on the murk as they would on water: each float block of",
                     "the hull (see sableFloatBlocks) under the surface is pushed back up by the murk it",
@@ -311,6 +386,10 @@ public class Config {
                     "Each entry is a block id or, with a leading '#', a block tag. '*' matches any run of",
                     "characters in an id (tags are matched whole), and the 'minecraft:' namespace may be",
                     "omitted. Where entries overlap the strongest wins. An empty list floats nothing.",
+                    "The default is wool, named here so it can be argued with, plus the mod's own",
+                    "#fogged:floats, which ships empty for a mod with a hull material of its own to add",
+                    "itself to. Anything joining that tag floats at strength 1; a strength other than 1 has",
+                    "to be written here, since a tag cannot carry one.",
                     "Example: sableFloatBlocks = [\"#minecraft:wool=1\", \"oak_planks=weight\", \"create:*_casing=weight*2\"]")
             .defineListAllowEmpty("sableFloatBlocks", Config::defaultSableFloatBlocks, () -> "#minecraft:wool=1",
                     o -> o instanceof String s && parseFloatBlock(s) != null);
@@ -417,12 +496,18 @@ public class Config {
             .define("mobEscape", true);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> ALLOWED_MOBS = COMMON
-            .comment("Entity-type IDs allowed to live under the fog (on the murk side of the boundary).",
-                    "Anything NOT listed cannot spawn there and starts taking damage after",
-                    "mobSuffocateDelaySeconds submerged. IDs may omit the 'minecraft:' namespace.",
-                    "Example: allowedMobs = [\"minecraft:cod\", \"axolotl\", \"guardian\"]")
+            .comment("What is allowed to live under the fog (on the murk side of the boundary). Anything",
+                    "NOT listed cannot spawn there and starts taking damage after mobSuffocateDelaySeconds",
+                    "submerged. Each entry is an entity-type id or, with a leading '#', an entity-type tag,",
+                    "and the 'minecraft:' namespace may be omitted.",
+                    "The default is the warden, named here so it can be argued with, plus the mod's own",
+                    "#fogged:breathes_murk, which ships empty for a mod whose creature belongs down there",
+                    "to add itself to. A pack that wants the sea to live can add #minecraft:aquatic in one",
+                    "line rather than naming every fish.",
+                    "Example: allowedMobs = [\"#fogged:breathes_murk\", \"#minecraft:aquatic\", \"axolotl\"]")
             .defineListAllowEmpty("allowedMobs", Config::defaultAllowedMobs, () -> "minecraft:cod",
-                    o -> o instanceof String s && ResourceLocation.tryParse(withNamespace(s)) != null);
+                    o -> o instanceof String s && !s.isBlank()
+                            && ResourceLocation.tryParse(withNamespace(s.startsWith("#") ? s.substring(1) : s)) != null);
 
     public static final ModConfigSpec.IntValue MOB_SUFFOCATE_DELAY = COMMON
             .comment("Seconds a non-allowed mob can stay under the fog before it starts taking damage.")
@@ -1037,8 +1122,11 @@ public class Config {
     // Wool alone: cheap, dyeable, and a hull built of it reads as a float rather than as structure.
     // What else floats is a pack's business -- Sable's own #sable:super_light and #sable:weightless are
     // there to be added with "=weight" by anyone who wants everything light to carry itself.
+    // Wool by name for the same reason as the warden: it is this mod's choice of hull material, so it
+    // belongs where a player can argue with it. #fogged:floats ships empty, for a mod with a hull
+    // material of its own to add itself to -- at strength 1, since a tag cannot carry a number.
     private static List<String> defaultSableFloatBlocks() {
-        return new ArrayList<>(List.of("#minecraft:wool=1"));
+        return new ArrayList<>(List.of("#minecraft:wool=1", "#fogged:floats=1"));
     }
 
     // --- dimension set ---
@@ -1090,144 +1178,39 @@ public class Config {
 
     // --- allowed-mob set ---
 
-    // Default allow-list: only the warden belongs in the murk (the mod's own mobs are auto-allowed by
-    // namespace in mobAllowedUnderFog, so they need no listing here).
+    // The warden by name, so that whoever disagrees can take it out here rather than having to write a
+    // datapack, and the mod's own tag alongside it for a mod whose creature belongs down there to join.
+    // The tag ships empty: it is an opening for other people, not a hiding place for this mod's
+    // choices. (The mod's own mobs are auto-allowed by namespace in mobAllowedUnderFog.)
     private static List<String> defaultAllowedMobs() {
-        return new ArrayList<>(List.of("minecraft:warden"));
+        return new ArrayList<>(List.of("minecraft:warden", "#fogged:breathes_murk"));
     }
 
-    // Devices snuffed under the fog by default: the vanilla fire-burners plus the burners and engines
-    // of the Create-family mods this pack runs with (each entry is simply ignored when its mod is absent).
+    // Devices snuffed under the fog by default. The named ones live in #fogged:snuffed_devices, where
+    // another mod can join them; the glob stays here because a tag names blocks one by one and cannot
+    // match a family that may not be installed to be enumerated.
     private static List<String> defaultSnuffedDevices() {
         return new ArrayList<>(List.of(
-                "minecraft:furnace",
-                "minecraft:blast_furnace",
-                "minecraft:smoker",
-                "minecraft:campfire",
-                "minecraft:soul_campfire",
-                "create:lit_blaze_burner",
-                "aeronautics:adjustable_burner",
+                "#fogged:snuffed_devices",
                 "simulated:*_portable_engine"));
     }
 
-    // Coal is what the murk eats: an ore left in the dark under the boundary comes back as the rock it
-    // sat in. Silent -- it is the murk taking something, not a process to look up.
-    //
-    // Copper it weathers, all the way through, which IS worth looking up: someone who finds their roof
-    // green should be able to ask why. Every unwaxed weathering block, in each of its three
-    // un-oxidised stages. Waxed copper is deliberately absent -- wax is what stops the weather getting
-    // at it, and the murk is weather. Listed rather than driven off vanilla's WeatheringCopper so a
-    // pack can edit any line of it.
-    //
-    // And moss, which cannot hold on fifty blocks down; that depth is what makes it worth showing.
-    // Mossy blocks and what they are without the moss: the base block and the stairs / slab / wall
-    // cut from it, in every mod that has them.
-    private static final String[][] MOSSY = {
-            { "minecraft:mossy_cobblestone", "minecraft:cobblestone" },
-            { "minecraft:mossy_stone_bricks", "minecraft:stone_bricks" },
-            { "regions_unexplored:mossy_stone", "minecraft:stone" },
-            { "biomeswevegone:mossy_stone", "minecraft:stone" },
-            { "biomeswevegone:mossy_dacite_bricks", "biomeswevegone:dacite_bricks" },
-            { "biomeswevegone:mossy_red_rock_bricks", "biomeswevegone:red_rock_bricks" },
-            { "biomeswevegone:mossy_white_dacite_bricks", "biomeswevegone:white_dacite_bricks" },
-            { "biomesoplenty:mossy_black_sand", "biomesoplenty:black_sand" },
-    };
 
-    private static final String[][] COPPER_FAMILIES = {
-            { "copper_block", "exposed_copper", "weathered_copper", "oxidized_copper" },
-            { "cut_copper", "exposed_cut_copper", "weathered_cut_copper", "oxidized_cut_copper" },
-            { "cut_copper_stairs", "exposed_cut_copper_stairs", "weathered_cut_copper_stairs",
-                    "oxidized_cut_copper_stairs" },
-            { "cut_copper_slab", "exposed_cut_copper_slab", "weathered_cut_copper_slab",
-                    "oxidized_cut_copper_slab" },
-            { "chiseled_copper", "exposed_chiseled_copper", "weathered_chiseled_copper",
-                    "oxidized_chiseled_copper" },
-            { "copper_grate", "exposed_copper_grate", "weathered_copper_grate", "oxidized_copper_grate" },
-            { "copper_door", "exposed_copper_door", "weathered_copper_door", "oxidized_copper_door" },
-            { "copper_trapdoor", "exposed_copper_trapdoor", "weathered_copper_trapdoor",
-                    "oxidized_copper_trapdoor" },
-            { "copper_bulb", "exposed_copper_bulb", "weathered_copper_bulb", "oxidized_copper_bulb" },
-    };
-
-    // What the murk does to the things growing under it. These were rules in FogScour until they were
-    // moved out here, where a pack can argue with them.
+    // What the murk does to the things growing under it. These were rules in FogScour, then a list
+    // here, and are now the mod's own datapack tag: a mod that wants its plants wilted says so in
+    // #fogged:scoured without a player editing anything, and a pack overrides the tag the way it
+    // overrides any other.
     private static List<String> defaultScouredBlocks() {
-        return new ArrayList<>(List.of(
-                "#minecraft:leaves",
-                "#minecraft:flowers",
-                "minecraft:short_grass",
-                "minecraft:tall_grass",
-                "minecraft:fern",
-                "minecraft:large_fern",
-                "minecraft:sweet_berry_bush",
-                "#minecraft:saplings",
-                "minecraft:coal_block",
-                "minecraft:moss_carpet",
-                "biomesoplenty:glowing_moss_block",
-                "biomesoplenty:glowing_moss_carpet",
-                "biomesoplenty:spanish_moss",
-                "biomesoplenty:spanish_moss_plant",
-                "biomesoplenty:huge_clover_petal",
-                "biomesoplenty:huge_lily_pad",
-                "biomeswevegone:shelf_fungi",
-                "regions_unexplored:spanish_moss",
-                "regions_unexplored:spanish_moss_plant",
-                "regions_unexplored:*_wisteria_vines"));
+        return new ArrayList<>(List.of("#fogged:scoured"));
     }
 
+    // Empty, and meant to be. Every conversion the mod ships is one of its own datapacks now -- Grass
+    // Scourch, Moss Scourch, Copper Oxidation, Silverfish Suffocation, Coal Remover (see
+    // FoggedDatapacks) -- because each is a set that is answered yes or no, and a pack is one switch
+    // where this list was a dozen lines to delete. What is left here is the world's own: what a player
+    // wants converted in THIS world and nowhere else.
     private static List<String> defaultTransforms() {
-        List<String> out = new ArrayList<>();
-        out.add("minecraft:coal_ore=minecraft:stone !silent");
-        // The sward is the first thing the murk takes. Coarse dirt, not plain dirt, because plain dirt
-        // re-grasses from a lit neighbour the moment the boundary moves off it. Silent: it is the murk
-        // killing the grass, not a process anyone looks up.
-        out.add("minecraft:grass_block=minecraft:coarse_dirt !silent");
-        out.add("minecraft:moss_block=minecraft:rooted_dirt !silent");
-        out.add("biomesoplenty:origin_grass_block=minecraft:coarse_dirt !silent");
-        out.add("biomeswevegone:lush_grass_block=minecraft:coarse_dirt !silent");
-        out.add("biomeswevegone:overgrown_stone=minecraft:stone !silent");
-        out.add("biomeswevegone:overgrown_dacite=biomeswevegone:dacite !silent");
-        out.add("biomeswevegone:white_overgrown_dacite=biomeswevegone:white_dacite !silent");
-        out.add("regions_unexplored:alpha_grass_block=minecraft:coarse_dirt !silent");
-        out.add("regions_unexplored:stone_grass_block=minecraft:stone !silent");
-        out.add("regions_unexplored:deepslate_grass_block=minecraft:deepslate !silent");
-        out.add("regions_unexplored:chalk_grass_block=regions_unexplored:chalk !silent");
-        out.add("regions_unexplored:argillite_grass_block=regions_unexplored:argillite !silent");
-        out.add("regions_unexplored:peat_grass_block=regions_unexplored:peat_coarse_dirt !silent");
-        out.add("regions_unexplored:silt_grass_block=regions_unexplored:silt_coarse_dirt !silent");
-        out.add("regions_unexplored:prismoss=minecraft:stone !silent");
-        out.add("regions_unexplored:deepslate_prismoss=minecraft:deepslate !silent");
-        for (String[] mossy : MOSSY) {
-            out.add(mossy[0] + "=" + mossy[1] + " !silent");
-            // "mossy_x_bricks" cuts as "mossy_x_brick_stairs"; a plain block keeps its name.
-            String from = mossy[0].endsWith("bricks") ? mossy[0].substring(0, mossy[0].length() - 1) : mossy[0];
-            String to = mossy[1].endsWith("bricks") ? mossy[1].substring(0, mossy[1].length() - 1) : mossy[1];
-            if (mossy[0].endsWith("bricks") || mossy[0].endsWith("cobblestone")) {
-                for (String cut : new String[] { "_stairs", "_slab", "_wall" }) {
-                    out.add(from + cut + "=" + to + cut + " !silent");
-                }
-            }
-        }
-        out.add("biomeswevegone:mossy_stone_stairs=minecraft:stone_stairs !silent");
-        out.add("biomeswevegone:mossy_stone_slab=minecraft:stone_slab !silent");
-        out.add("minecraft:deepslate_coal_ore=minecraft:deepslate !silent");
-        out.add("minecraft:infested_stone=minecraft:stone !silent");
-        out.add("minecraft:infested_cobblestone=minecraft:cobblestone !silent");
-        out.add("minecraft:infested_stone_bricks=minecraft:stone_bricks !silent");
-        out.add("minecraft:infested_mossy_stone_bricks=minecraft:stone_bricks !silent");
-        out.add("minecraft:infested_cracked_stone_bricks=minecraft:cracked_stone_bricks !silent");
-        out.add("minecraft:infested_chiseled_stone_bricks=minecraft:chiseled_stone_bricks !silent");
-        out.add("minecraft:infested_deepslate=minecraft:deepslate !silent");
-        for (String[] family : COPPER_FAMILIES) {
-            // One line a family: the three un-oxidised stages, comma-separated, all ending at the same
-            // block. Twenty-seven lines said the same thing.
-            StringBuilder from = new StringBuilder();
-            for (int i = 0; i < family.length - 1; i++) {
-                from.append(i == 0 ? "" : ",").append("minecraft:").append(family[i]);
-            }
-            out.add(from + "=minecraft:" + family[family.length - 1]);
-        }
-        return out;
+        return new ArrayList<>();
     }
 
     /** Deepest a transform may ask to be, in blocks below the surface. Past the world's own height. */
@@ -1440,6 +1423,9 @@ public class Config {
 
     private static List<? extends String> cachedMobsList;
     private static Set<ResourceLocation> allowedMobIds = new HashSet<>();
+    // Kept as keys rather than resolved: what a tag holds comes from datapacks and changes on a reload
+    // without this list changing.
+    private static List<TagKey<EntityType<?>>> allowedMobTags = List.of();
 
     private static void ensureAllowedMobs() {
         List<? extends String> raw = ALLOWED_MOBS.get();
@@ -1448,13 +1434,25 @@ public class Config {
         }
         cachedMobsList = raw;
         Set<ResourceLocation> ids = new HashSet<>();
-        for (String s : raw) {
-            ResourceLocation id = ResourceLocation.tryParse(withNamespace(s));
-            if (id != null) {
+        List<TagKey<EntityType<?>>> tags = new ArrayList<>();
+        for (String entry : raw) {
+            String s = entry.trim();
+            if (s.isEmpty()) {
+                continue;
+            }
+            boolean isTag = s.startsWith("#");
+            ResourceLocation id = ResourceLocation.tryParse(withNamespace(isTag ? s.substring(1) : s));
+            if (id == null) {
+                continue;
+            }
+            if (isTag) {
+                tags.add(TagKey.create(Registries.ENTITY_TYPE, id));
+            } else {
                 ids.add(id);
             }
         }
         allowedMobIds = ids;
+        allowedMobTags = List.copyOf(tags);
     }
 
     // True if the given entity type may live under the fog. The mod's own mobs (fogged: namespace) are
@@ -1466,7 +1464,15 @@ public class Config {
         if (id == null) {
             return false;
         }
-        return id.getNamespace().equals(Fogged.MODID) || allowedMobIds.contains(id);
+        if (id.getNamespace().equals(Fogged.MODID) || allowedMobIds.contains(id)) {
+            return true;
+        }
+        for (TagKey<EntityType<?>> tag : allowedMobTags) {
+            if (type.builtInRegistryHolder().is(tag)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // --- colour helpers ---

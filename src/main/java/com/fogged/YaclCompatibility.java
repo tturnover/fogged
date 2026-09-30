@@ -54,6 +54,7 @@ final class YaclCompatibility {
                 .title(Component.translatable("fogged.configuration.title"))
                 .category(boundary())
                 .category(suffocation())
+                .category(datapacks())
                 .category(compat())
                 .category(pillars())
                 .category(plane())
@@ -116,13 +117,26 @@ final class YaclCompatibility {
                 .build();
     }
 
+    // The mod's own conversion packs, one switch each. The packs themselves are datapacks, so a world
+    // can also turn one off in its own pack list; these are the same answer given from the mods menu.
+    private static ConfigCategory datapacks() {
+        return ConfigCategory.createBuilder()
+                .name(Component.translatable(KEY + "datapacks"))
+                .tooltip(Component.translatable(KEY + "datapacks.tooltip"))
+                .option(bool("grassScourch", Config.PACK_GRASS_SCOURCH))
+                .option(bool("mossScourch", Config.PACK_MOSS_SCOURCH))
+                .option(bool("copperOxidation", Config.PACK_COPPER_OXIDATION))
+                .option(bool("silverfishSuffocation", Config.PACK_SILVERFISH_SUFFOCATION))
+                .option(bool("coalRemover", Config.PACK_COAL_REMOVER))
+                .build();
+    }
+
     private static ConfigCategory compat() {
         return ConfigCategory.createBuilder()
                 .name(Component.translatable(KEY + "compat"))
                 .tooltip(Component.translatable(KEY + "compat.tooltip"))
                 .option(dbl("murkThirstScale", Config.MURK_THIRST_SCALE, 0.0, 1.0, 0.05))
                 .option(dbl("murkColdness", Config.MURK_COLDNESS, 0.0, 1.0, 0.05))
-                .option(bool("snuffColdSweatDevices", Config.SNUFF_COLD_SWEAT_DEVICES))
                 .option(bool("sableFoam", Config.SABLE_FOAM))
                 .option(bool("sableBuoyancy", Config.SABLE_BUOYANCY))
                 .option(dbl("sableMurkDensity", Config.SABLE_MURK_DENSITY, 0.0, 8.0, 0.05))

@@ -7,8 +7,6 @@ import com.momosoftworks.coldsweat.api.util.Temperature;
 import com.momosoftworks.coldsweat.common.blockentity.HearthBlockEntity;
 import com.momosoftworks.coldsweat.common.blockentity.IceboxBlockEntity;
 
-import java.util.List;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
@@ -45,18 +43,6 @@ public final class ColdSweatCompatibility {
                 event.addModifier(Temperature.Trait.WORLD, new MurkTempModifier());
             }
         });
-    }
-
-    // The mod's own burners. They are Cold Sweat's blocks rather than something a pack named, so
-    // FogSnuff takes them from here instead of from snuffedDevices; snuffColdSweatDevices says
-    // whether it asks at all. The icebox is a hearth too, but a cold one, and is not among them.
-    private static final List<String> SNUFFED_DEVICES = List.of(
-            "cold_sweat:hearth_bottom",
-            "cold_sweat:boiler");
-
-    /** Block ids of the mod's burners the murk smothers. */
-    public static List<String> snuffedDevices() {
-        return SNUFFED_DEVICES;
     }
 
     // Slot 0 is the fuel input on a hearth (its only slot) and on a boiler (whose other nine hold the

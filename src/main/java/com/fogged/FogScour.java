@@ -15,6 +15,8 @@ import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
+
+import com.fogged.registry.ModTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -250,19 +252,20 @@ public final class FogScour {
 
     // Everything the sweep ever stops on: what the config names, and the built-in fire and farmland.
     private static boolean mayTouch(BlockState state) {
-        return ScourRules.mayTouch(state) || extinguishable(state) || state.is(Blocks.FARMLAND);
+        return ScourRules.mayTouch(state) || extinguishable(state)
+                || (state.is(Blocks.FARMLAND) && !ScourRules.immune(state));
     }
 
     // What takes the slow path: a transform, a scoured block, or farmland. Fire is not slow.
     private static boolean wantsSlow(Level level, BlockState state, int y) {
         return ScourRules.wants(level, state, y)
-                || (Config.ENABLE_SCOUR.get() && state.is(Blocks.FARMLAND));
+                || (Config.ENABLE_SCOUR.get() && state.is(Blocks.FARMLAND) && !ScourRules.immune(state));
     }
 
+    // What the murk puts out is a datapack matter now (#fogged:doused, #fogged:knocked_down), bar the
+    // lava, whose result depends on whether it is a source block.
     private static boolean extinguishable(BlockState state) {
-        return state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE) || state.is(Blocks.LAVA)
-                || state.is(Blocks.TORCH) || state.is(Blocks.WALL_TORCH)
-                || state.is(Blocks.SOUL_TORCH) || state.is(Blocks.SOUL_WALL_TORCH)
+        return state.is(ModTags.DOUSED) || state.is(ModTags.KNOCKED_DOWN) || state.is(Blocks.LAVA)
                 || FogSnuff.isDevice(state) || BurntCompatibility.isBurning(state);
     }
 
@@ -284,10 +287,11 @@ public final class FogScour {
                 return;
             }
         }
-        if (Config.ENABLE_SCOUR.get() && state.is(Blocks.FARMLAND)) {
+        if (Config.ENABLE_SCOUR.get() && state.is(Blocks.FARMLAND) && !ScourRules.immune(state)) {
             level.setBlock(pos, Blocks.DIRT.defaultBlockState(), Block.UPDATE_ALL);
             BlockPos above = pos.above();
-            if (isFarmPlant(level.getBlockState(above))) {
+            BlockState planted = level.getBlockState(above);
+            if (isFarmPlant(planted) && !ScourRules.immune(planted)) {
                 level.destroyBlock(above, false); // remove whatever was planted on it
             }
         }
@@ -299,7 +303,7 @@ public final class FogScour {
         if (BreatheSpheres.shelters(level, pos)) {
             return false; // a fire inside a filter's sphere burns as one above the boundary does
         }
-        if (state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE)) {
+        if (state.is(ModTags.DOUSED)) {
             level.removeBlock(pos, false);
             return true;
         }
@@ -311,8 +315,7 @@ public final class FogScour {
             level.levelEvent(1501, pos, 0); // lava-extinguish fizz
             return true;
         }
-        if (state.is(Blocks.TORCH) || state.is(Blocks.WALL_TORCH)
-                || state.is(Blocks.SOUL_TORCH) || state.is(Blocks.SOUL_WALL_TORCH)) {
+        if (state.is(ModTags.KNOCKED_DOWN)) {
             level.destroyBlock(pos, true);
             return true;
         }
