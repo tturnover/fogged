@@ -34,7 +34,6 @@
         { "name": "FoamFog", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "NearDither", "type": "float", "count": 4, "values": [ 0.0, 1.0, 0.0, 0.0 ] },
         { "name": "DitherPixelSize", "type": "float", "count": 1, "values": [ 2.0 ] },
-        { "name": "StepDither", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "EntityHoleCount", "type": "int", "count": 1, "values": [ 0 ] },
         { "name": "EntityHoles", "type": "float", "count": 128, "values": [ 0.0 ] },
         { "name": "NoiseOrigin", "type": "float", "count": 2, "values": [ 0.0, 0.0 ] },

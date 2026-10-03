@@ -175,7 +175,6 @@ final class YaclCompatibility {
                         .option(dbl("nearDitherEnd", Config.NEAR_DITHER_END, 0.0, 64.0, 0.25))
                         .option(dbl("nearDitherMinVisibility", Config.NEAR_DITHER_MIN_VISIBILITY, 0.0, 1.0, 0.05))
                         .option(integer("ditherPixelSize", Config.DITHER_PIXEL_SIZE, 1, 8, 1))
-                        .option(bool("stepDither", Config.STEP_DITHER))
                         .build())
                 .group(OptionGroup.createBuilder()
                         .name(Component.translatable(KEY + "vapor"))

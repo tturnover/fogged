@@ -1178,9 +1178,6 @@ public final class WaterlineMap {
         float halfCells = cells * 0.5F;
         float fadeTo = Math.max(1.0F, halfCells - FOAM_FADE_MARGIN * cellsPerBlock);
         float fadeFrom = Math.min(FOAM_FADE_START * halfCells, fadeTo - cellsPerBlock);
-        boolean stepDither = Config.STEP_DITHER.getAsBoolean();
-        int cellX0 = originX * cellsPerBlock;
-        int cellZ0 = originZ * cellsPerBlock;
         for (int z = 0; z < cells; z++) {
             int x0 = partial ? workMin[z] : 0;
             int x1 = partial ? workMax[z] : cells - 1;
@@ -1202,8 +1199,7 @@ public final class WaterlineMap {
                     keep = keep * keep * (3.0F - 2.0F * keep); // smoothstep, as the shaders'
                     foamImg.setPixelRGBA(x, z, keep <= 0.0F ? rimPixel
                             : foamPixel(Math.min(d, dn) / cellsPerBlock, dp / cellsPerBlock, planeCol,
-                                    foamCol, foamWidth, keep,
-                                    stepDither ? BAYER[(cellX0 + x) & 3][(cellZ0 + z) & 3] : -1.0F));
+                                    foamCol, foamWidth, keep));
                 }
             }
         }
@@ -1217,13 +1213,6 @@ public final class WaterlineMap {
     // into a finished colour for the pack-drawn plane. MUST stay in step with those two -- the same
     // look reached by another route; only the shader path also adds the surface spots.
     private static final float FOAM_STEPS = 4.0F;     // == fog_plane.fsh FOAM_STEPS
-    // == fogged_dither.glsl FOGGED_BAYER, indexed [cellX & 3][cellZ & 3] as fogged_bayerCell does
-    private static final float[][] BAYER = {
-            {1.0F / 17.0F, 9.0F / 17.0F, 3.0F / 17.0F, 11.0F / 17.0F},
-            {13.0F / 17.0F, 5.0F / 17.0F, 15.0F / 17.0F, 7.0F / 17.0F},
-            {4.0F / 17.0F, 12.0F / 17.0F, 2.0F / 17.0F, 10.0F / 17.0F},
-            {16.0F / 17.0F, 8.0F / 17.0F, 14.0F / 17.0F, 6.0F / 17.0F},
-    };
     private static final float SOLID_STRENGTH = 1.0F; // == fogged_foam.glsl FOGGED_SOLID_STRENGTH
     private static final float PLANT_STRENGTH = 0.5F; // == fogged_foam.glsl FOGGED_PLANT_STRENGTH
     private static final float PLANE_BASE = 0.92F;    // == fog_plane.fsh planarFog's plane-colour scale
@@ -1235,10 +1224,8 @@ public final class WaterlineMap {
     /** Blocks of margin inside the inscribed circle: the camera sits within one block of the centre. */
     static final float FOAM_FADE_MARGIN = 1.0F;
 
-    // threshold: the cell's Bayer value with stepDither on, or below zero for the plain stair-step
-    // (== fog_plane.fsh fogged_foamStep).
     private static int foamPixel(float solidBlocks, float plantBlocks,
-                                 float[] plane, float[] foamCol, float width, float keep, float threshold) {
+                                 float[] plane, float[] foamCol, float width, float keep) {
         float foam = 0.0F;
         if (width > 0.0F) {
             float solidEdge = SOLID_STRENGTH
@@ -1247,9 +1234,7 @@ public final class WaterlineMap {
                     * (1.0F - Mth.clamp(plantBlocks / (width * PLANT_STRENGTH), 0.0F, 1.0F));
             float edge = Math.max(solidEdge, plantEdge);
             foam = edge * edge * (3.0F - 2.0F * edge);
-            float q = foam * FOAM_STEPS;
-            float lo = (float) Math.floor(q);
-            foam = (threshold < 0.0F ? (float) Math.ceil(q) : q - lo > threshold ? lo + 1.0F : lo) / FOAM_STEPS;
+            foam = (float) Math.ceil(foam * FOAM_STEPS) / FOAM_STEPS;
             foam *= foamCol[3] * keep;
         }
         return packAbgr(Mth.lerp(foam, plane[0] * PLANE_BASE, foamCol[0]),

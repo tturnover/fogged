@@ -188,8 +188,6 @@
   "fogged.configuration.silverfishSuffocation.tooltip": "Nothing breathes under the murk, silverfish least of all: an infested block comes back as the plain stone it was hiding in.",
   "fogged.configuration.snuffedDevices": "Snuffed Devices",
   "fogged.configuration.snuffedDevices.tooltip": "Fire-burning devices the murk puts out: each is unlit, its burn timer zeroed and its fuel ejected.\nOne entry per line: a block id, or a block tag with a leading '#'. '*' matches any run of characters and 'minecraft:' may be left off. An entry for a mod you do not have is simply ignored.\nAdded to #fogged:snuffed_devices, which is asked whether or not it is named here: that tag holds the burners the murk knows about -- vanilla's, Create's, and Cold Sweat's hearth and boiler, smothered rather than doused so they keep the fuel already in the tank -- shipped in the Device Snuffing datapack.\nfurnace\nsimulated:*_portable_engine",
-  "fogged.configuration.stepDither": "Dither Foam Bands",
-  "fogged.configuration.stepDither.tooltip": "Blend the foam's bands into each other pixel by pixel, in the foam's own grid, instead of a hard line between them.",
   "fogged.configuration.suffocation": "Suffocation",
   "fogged.configuration.suffocation.tooltip": "What the murk does to the things breathing in it -- players and mobs -- and how much worse that gets with depth.",
   "fogged.configuration.surface": "What Covers Them",

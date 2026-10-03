@@ -316,7 +316,6 @@ public class FogPlaneRenderer {
             float[] nd = nearDither();
             shader.safeGetUniform("NearDither").set(nd[0], nd[1], nd[2], nd[3]);
             shader.safeGetUniform("DitherPixelSize").set((float) Config.DITHER_PIXEL_SIZE.getAsInt());
-            shader.safeGetUniform("StepDither").set(Config.STEP_DITHER.getAsBoolean() ? 1.0F : 0.0F);
         } else {
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
         }
