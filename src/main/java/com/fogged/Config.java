@@ -176,10 +176,13 @@ public class Config {
             .comment("Fire-burning devices the murk puts out: each is unlit, its burn timer zeroed and its",
                     "fuel ejected. Each entry is a block id or, with a leading '#', a block tag. '*' matches",
                     "any run of characters in an id, and the 'minecraft:' namespace may be omitted.",
-                    "Empty list = leave devices burning. Needs enableWorldChanges.",
-                    "The default is one tag, #fogged:snuffed_devices, which is where the mod keeps the",
-                    "burners it knows about -- vanilla's, Create's, Cold Sweat's hearth and boiler -- so a",
-                    "mod with a burner of its own adds it to that tag rather than asking a player to.",
+                    "Needs enableWorldChanges.",
+                    "This list is ADDED to #fogged:snuffed_devices, which is asked whether or not it is",
+                    "named here: that tag is where the mod keeps the burners it knows about -- vanilla's,",
+                    "Create's, Cold Sweat's hearth and boiler -- and where a mod with a burner of its own",
+                    "adds it. Emptying this list therefore leaves those still going out; to stop that,",
+                    "turn off the Device Snuffing datapack, or take them out of the tag with one of your",
+                    "own.",
                     "A device that cannot simply be unlit is still snuffed through this list: Cold Sweat's",
                     "hearth has its tick held by a mixin, which asks this same list which devices are the",
                     "murk's.",
@@ -199,10 +202,10 @@ public class Config {
                     "its own; fires, lava, torches, devices and farmland are still built in.",
                     "Each entry is a block id or, with a leading '#', a block tag. '*' matches any run of",
                     "characters in an id, and the 'minecraft:' namespace may be omitted.",
-                    "The default is one tag, #fogged:scoured, which is where the mod keeps the plants it",
-                    "wilts: another mod or a datapack adds its own to that tag and they wilt without this",
-                    "list being touched, which is the way to do it for something shipped rather than",
-                    "chosen. This list is for what one world wants.",
+                    "This list is ADDED to #fogged:scoured, which is asked whether or not it is named",
+                    "here: that tag is where the mod keeps the plants it wilts, and where another mod adds",
+                    "its own. Emptying this list therefore leaves those still wilting; to stop that, turn",
+                    "off the Plant Scouring datapack, or spare a block with #fogged:scour_immune.",
                     "Needs enableWorldChanges.",
                     "Example: scouredBlocks = [\"cobweb\", \"#minecraft:banners\", \"create:*_casing\"]")
             .defineListAllowEmpty("scouredBlocks", Config::defaultScouredBlocks, () -> "minecraft:cobweb",
@@ -1186,22 +1189,19 @@ public class Config {
         return new ArrayList<>(List.of("minecraft:warden", "#fogged:breathes_murk"));
     }
 
-    // Devices snuffed under the fog by default. The named ones live in #fogged:snuffed_devices, where
-    // another mod can join them; the glob stays here because a tag names blocks one by one and cannot
-    // match a family that may not be installed to be enumerated.
+    // The burners the murk knows about are in #fogged:snuffed_devices, which FogSnuff asks whether or
+    // not this list names it, so nothing here has to. What is left is the glob: a tag names blocks one
+    // by one and cannot match a family that may not be installed to be enumerated.
     private static List<String> defaultSnuffedDevices() {
-        return new ArrayList<>(List.of(
-                "#fogged:snuffed_devices",
-                "simulated:*_portable_engine"));
+        return new ArrayList<>(List.of("simulated:*_portable_engine"));
     }
 
 
-    // What the murk does to the things growing under it. These were rules in FogScour, then a list
-    // here, and are now the mod's own datapack tag: a mod that wants its plants wilted says so in
-    // #fogged:scoured without a player editing anything, and a pack overrides the tag the way it
-    // overrides any other.
+    // Empty, and meant to be. What the murk wilts is #fogged:scoured, which ScourRules asks whether or
+    // not this list names it; the mod's own answer is shipped in the Plant Scouring datapack, and a mod
+    // that wants its plant taken joins the tag. This list is what one world adds on top.
     private static List<String> defaultScouredBlocks() {
-        return new ArrayList<>(List.of("#fogged:scoured"));
+        return new ArrayList<>();
     }
 
     // Empty, and meant to be. Every conversion the mod ships is one of its own datapacks now -- Grass

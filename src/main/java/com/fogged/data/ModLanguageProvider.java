@@ -58,6 +58,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "The murk eats coal. Ore goes back to the rock it sat in, any mod's coal ore through the common tag, and a block of coal is taken outright.");
         add("fogged.datapack.silverfish_suffocation", "Silverfish Suffocation");
         add("fogged.datapack.coal_remover", "Coal Remover");
+        add("fogged.datapack.plant_scouring", "Plant Scouring");
+        add("fogged.datapack.device_snuffing", "Device Snuffing");
         add("fogged.datapack.copper_oxidation", "Copper Oxidation");
 
         add("death.attack.fog_suffocation", "%1$s was swallowed by the fog");
@@ -189,10 +191,10 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "One entry per line: a block id, or a block tag with a leading '#'. '*' matches "
                         + "any run of characters and 'minecraft:' may be left off. An entry for a mod you "
                         + "do not have is simply ignored.\n"
-                        + "The default is the mod's own tag, which holds the burners it knows about -- "
-                        + "vanilla's, Create's, and Cold Sweat's hearth and boiler, which are smothered "
-                        + "rather than doused so they keep the fuel already in the tank.\n"
-                        + "#fogged:snuffed_devices\n"
+                        + "Added to #fogged:snuffed_devices, which is asked whether or not it is named "
+                        + "here: that tag holds the burners the murk knows about -- vanilla's, Create's, "
+                        + "and Cold Sweat's hearth and boiler, smothered rather than doused so they keep "
+                        + "the fuel already in the tank -- shipped in the Device Snuffing datapack.\n"
                         + "furnace\n"
                         + "simulated:*_portable_engine");
         cfg("enableScour", "Scour Blocks",
@@ -207,10 +209,10 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "without drops.\n"
                         + "One block id per entry; '*' matches any run of characters and a leading '#' "
                         + "names a block tag. 'minecraft:' may be left off.\n"
-                        + "The default is the mod's own tag, which holds the plants it wilts; a datapack "
-                        + "adds to that tag, or to #fogged:scour_immune to spare one plant the murk would "
-                        + "otherwise take.\n"
-                        + "#fogged:scoured\n"
+                        + "Added to #fogged:scoured, which is asked whether or not it is named here: that "
+                        + "tag holds the plants the murk wilts, shipped in the Plant Scouring datapack. "
+                        + "Emptying this list leaves those wilting; turn the pack off, or spare a block "
+                        + "with #fogged:scour_immune.\n"
                         + "cobweb\n"
                         + "create:*_casing");
         cfg("enableTransforms", "Enable Transforms",

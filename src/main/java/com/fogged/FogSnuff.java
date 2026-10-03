@@ -31,6 +31,8 @@ import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 
+import com.fogged.registry.ModTags;
+
 /**
  * The fire-burning <em>devices</em> half of the under-fog scour ({@link FogScour}): whatever
  * {@link Config#SNUFFED_DEVICES} lists is unlit, its burn timer zeroed and its fuel ejected. Taking the
@@ -99,13 +101,13 @@ public final class FogSnuff {
         deviceTags = List.copyOf(tags);
     }
 
-    // Nothing is listed at all: the whole snuff is off, and the callers can say so without looking at
-    // the block in front of them.
-    private static boolean nothingListed() {
-        return devices.isEmpty() && deviceTags.isEmpty();
-    }
-
     private static boolean listed(BlockState state) {
+        // The mod's own tag is asked whatever the config says, as the scour asks #fogged:scoured: it is
+        // where the burners the murk knows about live (shipped in the Device Snuffing datapack, and
+        // open to any mod with a burner of its own), and the config list is for what one world adds.
+        if (state.is(ModTags.SNUFFED_DEVICES)) {
+            return true;
+        }
         if (devices.contains(state.getBlock())) {
             return true;
         }
@@ -270,7 +272,7 @@ public final class FogSnuff {
      */
     public static boolean snuffedAt(Level level, BlockPos pos) {
         ensureDevices();
-        if (nothingListed() || !Config.ENABLE_WORLD_CHANGES.get() || !Config.ENABLE_EXTINGUISH.get()
+        if (!Config.ENABLE_WORLD_CHANGES.get() || !Config.ENABLE_EXTINGUISH.get()
                 || !Config.dimensionEnabled(level)) {
             return false;
         }

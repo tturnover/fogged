@@ -252,6 +252,13 @@ public final class ScourRules {
         if (immune(state)) {
             return false;
         }
+        // The mod's own tag is asked whatever the config says. It is where the murk's own idea of what
+        // it wilts lives (shipped in the Plant Scouring datapack, and open to any mod that wants its
+        // plant taken), so it cannot depend on a line surviving in someone's config file; the list is
+        // for what one world adds on top.
+        if (state.is(ModTags.SCOURED)) {
+            return true;
+        }
         if (scouredBlocks.contains(state.getBlock())) {
             return true;
         }
