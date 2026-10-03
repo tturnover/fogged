@@ -69,6 +69,10 @@ final class SableBuoyancy {
 
     private static final Map<SubLevel, Hull> HULLS = new WeakHashMap<>();
 
+    // The surface each level's hulls were last floated against, so a step of the boundary can be told
+    // from the steady state.
+    private static final Map<Level, Double> LAST_SURFACE = new WeakHashMap<>();
+
     // What the configured list resolved to, rebuilt when the list itself changes (it is replaced
     // wholesale on a reload). Globs are matched against the registry once, here, rather than per block,
     // so what is left at lookup time is a map hit and a walk over however many tags were listed.
@@ -197,8 +201,16 @@ final class SableBuoyancy {
             return; // nothing is buoyant, so nothing to work out
         }
         double surfaceY = FogBand.surfaceY(level);
+        Double last = LAST_SURFACE.put(level, surfaceY);
+        // Rapier sleeps a hull once it settles, and Sable only wakes one when a force group jumps past
+        // its own threshold -- which a quarter-block step of the boundary does not reliably do. Left
+        // asleep, the hull hangs at the old surface, so every one the step reaches is woken by hand.
+        double reach = last == null || last == surfaceY ? Double.NaN : Math.max(last, surfaceY);
         for (SubLevel sub : container.getAllSubLevels()) {
             if (sub instanceof ServerSubLevel server && !server.isRemoved()) {
+                if (server.boundingBox().minY() < reach) {
+                    system.getPipeline().wakeUp(server);
+                }
                 buoy(server, system, surfaceY, timeStep);
             }
         }
