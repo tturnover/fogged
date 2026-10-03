@@ -58,6 +58,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.datapack.coal_remover", "Вигризання вугілля");
         add("fogged.datapack.plant_scouring", "Здирання рослин");
         add("fogged.datapack.device_snuffing", "Гасіння пристроїв");
+        add("fogged.datapack.mushroom_survival", "Живучість грибів");
         add("fogged.datapack.copper_oxidation", "Окиснення міді");
 
         add("death.attack.fog_suffocation", "Гравця %1$s поглинув туман");

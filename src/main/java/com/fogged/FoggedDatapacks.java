@@ -25,13 +25,13 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
  * Suffocation</b> (infested blocks back to the plain stone the silverfish were hiding in) and <b>Coal
  * Remover</b> (coal ore back to its own rock, blocks of coal taken outright).
  *
- * <p>Two more hold tags rather than recipes: <b>Plant Scouring</b> is what the murk wilts and
- * <b>Device Snuffing</b> is the burners it puts out, filling {@code #fogged:scoured} and
- * {@code #fogged:snuffed_devices}. The code asks those tags whether or not a config list names them,
- * so what the murk does by itself is data a pack can replace, and the lists are only what one world
- * adds on top.
+ * <p>Three more hold tags rather than recipes: <b>Plant Scouring</b> is what the murk wilts,
+ * <b>Device Snuffing</b> is the burners it puts out and <b>Mushroom Survival</b> is what it spares,
+ * filling {@code #fogged:scoured}, {@code #fogged:snuffed_devices} and {@code #fogged:scour_immune}.
+ * The code asks those tags whether or not a config list names them, so what the murk does by itself
+ * is data a pack can replace, and the lists are only what one world adds on top.
  *
- * <p>Those two have no switch in {@code [datapacks]}, unlike the five made of recipes: a tag file
+ * <p>Those three have no switch in {@code [datapacks]}, unlike the five made of recipes: a tag file
  * cannot carry a condition, and a switch that worked around it in code would have to empty the whole
  * tag -- taking another mod's entries with it, which are not this mod's to refuse. The pack list is
  * the honest place to say no to them.
@@ -62,7 +62,7 @@ public final class FoggedDatapacks {
 
     private static final String[] PACKS = {
             "grass_scourch", "moss_scourch", "copper_oxidation", "silverfish_suffocation", "coal_remover",
-            "plant_scouring", "device_snuffing",
+            "plant_scouring", "device_snuffing", "mushroom_survival",
     };
 
     @SubscribeEvent

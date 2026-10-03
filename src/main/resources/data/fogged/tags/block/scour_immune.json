@@ -1,20 +1,4 @@
 {
   "replace": false,
-  "values": [
-    "minecraft:brown_mushroom",
-    "minecraft:red_mushroom",
-    "minecraft:crimson_fungus",
-    "minecraft:warped_fungus",
-    { "id": "regions_unexplored:blue_bioshroom", "required": false },
-    { "id": "regions_unexplored:green_bioshroom", "required": false },
-    { "id": "regions_unexplored:pink_bioshroom", "required": false },
-    { "id": "regions_unexplored:yellow_bioshroom", "required": false },
-    { "id": "regions_unexplored:tall_blue_bioshroom", "required": false },
-    { "id": "regions_unexplored:tall_green_bioshroom", "required": false },
-    { "id": "regions_unexplored:tall_pink_bioshroom", "required": false },
-    { "id": "regions_unexplored:tall_yellow_bioshroom", "required": false },
-    { "id": "regions_unexplored:yellow_wall_bioshroom", "required": false },
-    { "id": "regions_unexplored:brown_wall_mushroom", "required": false },
-    { "id": "regions_unexplored:mycotoxic_mushrooms", "required": false }
-  ]
+  "values": []
 }

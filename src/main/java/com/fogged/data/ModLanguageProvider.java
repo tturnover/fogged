@@ -60,6 +60,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.datapack.coal_remover", "Coal Remover");
         add("fogged.datapack.plant_scouring", "Plant Scouring");
         add("fogged.datapack.device_snuffing", "Device Snuffing");
+        add("fogged.datapack.mushroom_survival", "Mushroom Survival");
         add("fogged.datapack.copper_oxidation", "Copper Oxidation");
 
         add("death.attack.fog_suffocation", "%1$s was swallowed by the fog");
