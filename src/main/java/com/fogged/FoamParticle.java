@@ -9,6 +9,7 @@ import net.minecraft.client.particle.TextureSheetParticle;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ColorParticleOption;
+import net.neoforged.fml.ModList;
 
 /**
  * Client-side render for the {@code fogged:foam} particle: vanilla's cosy campfire smoke
@@ -36,6 +37,8 @@ import net.minecraft.core.particles.ColorParticleOption;
  * on a dedicated server.
  */
 public class FoamParticle extends TextureSheetParticle {
+
+    private static final boolean SABLE = ModList.get().isLoaded("sable");
 
     private final SpriteSet sprites;
 
@@ -111,12 +114,21 @@ public class FoamParticle extends TextureSheetParticle {
         if (this.y < Config.breathHeight(this.level) + Config.PLANE_SURFACE_OFFSET - SINK_DEPTH) {
             return true;
         }
-        BlockPos pos = BlockPos.containing(this.x, this.y, this.z);
+        return buried(this.level, this.x, this.y, this.z);
+    }
+
+    // Inside a block, a liquid or a Sable hull. A particle takes its light from the block it is in, and
+    // a solid one holds none, so a puff left there draws black.
+    private static boolean buried(ClientLevel level, double x, double y, double z) {
+        BlockPos pos = BlockPos.containing(x, y, z);
         double top = Math.max(
-                this.level.getBlockState(pos).getCollisionShape(this.level, pos)
-                        .max(Direction.Axis.Y, this.x - pos.getX(), this.z - pos.getZ()),
-                this.level.getFluidState(pos).getHeight(this.level, pos));
-        return top > 0.0 && this.y < pos.getY() + top;
+                level.getBlockState(pos).getCollisionShape(level, pos)
+                        .max(Direction.Axis.Y, x - pos.getX(), z - pos.getZ()),
+                level.getFluidState(pos).getHeight(level, pos));
+        if (top > 0.0 && y < pos.getY() + top) {
+            return true;
+        }
+        return SABLE && SableCompatibility.insideHull(level, x, y, z);
     }
 
     @Override
@@ -134,6 +146,11 @@ public class FoamParticle extends TextureSheetParticle {
         @Override
         public Particle createParticle(ColorParticleOption options, ClientLevel level,
                 double x, double y, double z, double xd, double yd, double zd) {
+            // Spawn points are picked off the waterline map and hull probes, which can land just
+            // inside whatever the surface meets; thrown from there the puff is born buried.
+            if (buried(level, x, y, z)) {
+                return null;
+            }
             FoamParticle particle = new FoamParticle(level, x, y, z, xd, yd, zd, this.sprites);
             particle.setColor(options.getRed(), options.getGreen(), options.getBlue());
             particle.setAlpha(0.9F); // as vanilla's cosy smoke does

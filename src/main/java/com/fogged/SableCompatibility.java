@@ -149,6 +149,29 @@ final class SableCompatibility {
                 .transformPosition(new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
     }
 
+    // Whether a world-space point sits inside a solid block of any sub-level. Sub-level blocks live in
+    // their far-off plot, so the main level reports air at the point however solid the hull there is.
+    static boolean insideHull(Level level, double x, double y, double z) {
+        SubLevelContainer container = SubLevelContainer.getContainer(level);
+        if (container == null) {
+            return false;
+        }
+        Vector3d src = new Vector3d();
+        Vector3d dst = new Vector3d();
+        BlockPos.MutableBlockPos local = new BlockPos.MutableBlockPos();
+        for (SubLevel sub : container.getAllSubLevels()) {
+            BoundingBox3dc bb = sub.boundingBox();
+            if (x < bb.minX() || x > bb.maxX() || y < bb.minY() || y > bb.maxY()
+                    || z < bb.minZ() || z > bb.maxZ()) {
+                continue;
+            }
+            if (solidAt(sub.getLevel(), sub.logicalPose(), src, dst, local, x, y, z)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Receives one boundary-crossing sub-level: a contact point on its waterline, and how far the
      *  whole sub-level moved this tick. */
     @FunctionalInterface

@@ -1396,11 +1396,29 @@ public final class WaterlineMap {
                 // with no count to stratify against, so the sample is a plain random point in the
                 // interval -- over a hull's worth of probes that still fills the gap evenly.
                 double t = rnd.nextDouble();
-                spawnWake(level, foam, wx - motion.x * (1.0 - t), surfaceY, wz - motion.z * (1.0 - t),
-                        Math.cos(angle), Math.sin(angle), WAKE_SPREAD * (0.4 + strength), motion);
+                double ox = Math.cos(angle);
+                double oz = Math.sin(angle);
+                double sx = wx - motion.x * (1.0 - t);
+                double sz = wz - motion.z * (1.0 - t);
+                // The probe found the hull, so the point is usually inside it, where the puff would be
+                // born buried and culled. Walked out along its own throw to the hull's outer face.
+                int step = 0;
+                while (SableCompatibility.insideHull(level, sx, surfaceY + 0.05, sz)) {
+                    if (++step > HULL_EXIT_STEPS) {
+                        return;
+                    }
+                    sx += ox * HULL_EXIT_STEP;
+                    sz += oz * HULL_EXIT_STEP;
+                }
+                spawnWake(level, foam, sx, surfaceY, sz, ox, oz, WAKE_SPREAD * (0.4 + strength), motion);
             });
         }
     }
+
+    // How a hull spray point is walked out of the hull: a quarter block at a time, at most a block and a
+    // half, past which the throw points back across the deck and is dropped.
+    private static final double HULL_EXIT_STEP = 0.25;
+    private static final int HULL_EXIT_STEPS = 6;
 
     // One piece of spray: it travels OUTWARD from where it was thrown, faster the faster the thing
     // that threw it, while giving up that thing's own motion. Outward carries the wave off across the
