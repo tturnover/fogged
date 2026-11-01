@@ -1,6 +1,9 @@
 package com.fogged;
 
+import com.fogged.registry.ModEntities;
 import com.fogged.registry.ModParticles;
+import com.fogged.rig.RigAssets;
+import com.fogged.rig.RiggedRenderer;
 
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.resources.ResourceLocation;
@@ -11,7 +14,10 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
+import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
@@ -29,6 +35,25 @@ public class FoggedClient {
 
         modEventBus.addListener(FoggedClient::registerParticleProviders);
         modEventBus.addListener(FoggedClient::modifyBakingResult);
+        modEventBus.addListener(FoggedClient::registerRenderers);
+        modEventBus.addListener(FoggedClient::registerReloadListeners);
+        if (RigAssets.live()) {
+            // Dev client only (see RigAssets): picks up a new Blockbench export without F3+T.
+            NeoForge.EVENT_BUS.addListener(RigAssets::onClientTick);
+        }
+    }
+
+    // Rigged entities: one line each, naming the model under assets/fogged/geo/entity/.
+    private static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(ModEntities.PLODDER.get(),
+                ctx -> new RiggedRenderer<>(ctx, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "plodder")));
+        event.registerEntityRenderer(ModEntities.TRUDGER.get(),
+                ctx -> new RiggedRenderer<>(ctx, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "trudger")));
+    }
+
+    // Rig models, animations and tuning load with the resources, so F3+T picks up a new export.
+    private static void registerReloadListeners(RegisterClientReloadListenersEvent event) {
+        event.registerReloadListener(RigAssets.INSTANCE);
     }
 
     // YACL is optional: the ModList check stays here so YaclCompatibility (and every YACL class it

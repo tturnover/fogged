@@ -4,6 +4,8 @@
   "block.fogged.nozzle_filter": "Fog Filter",
   "death.attack.fog_suffocation": "%1$s was swallowed by the fog",
   "death.attack.fog_suffocation.player": "%1$s drowned in the fog while fleeing %2$s",
+  "entity.fogged.plodder": "Plodder",
+  "entity.fogged.trudger": "Trudger",
   "fogged.configuration.airLossPerTick": "Air Loss Per Tick",
   "fogged.configuration.airLossPerTick.tooltip": "Air a player loses per tick, out of 300. Higher = drown faster.",
   "fogged.configuration.allowedMobs": "Mobs Allowed Under The Fog",

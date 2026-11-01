@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import com.fogged.Fogged;
 import com.fogged.registry.ModBlocks;
+import com.fogged.registry.ModEntities;
 import com.fogged.registry.ModItems;
 
 import net.minecraft.data.PackOutput;
@@ -75,6 +76,9 @@ public class ModLanguageProvider extends LanguageProvider {
             }
             add(holder.get(), name(holder.getId().getPath()));
         });
+
+        ModEntities.ENTITY_TYPES.getEntries()
+                .forEach(holder -> add(holder.get(), name(holder.getId().getPath())));
     }
 
     /** Config-screen translation keys, one per option in {@link com.fogged.Config}. */

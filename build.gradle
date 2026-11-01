@@ -55,6 +55,10 @@ neoForge {
         client {
             client()
 
+            // Rigged entity models load live from the sources (see RigAssets): a Blockbench export
+            // shows in the running game within a second, without a build step or F3+T.
+            systemProperty 'fogged.rigSource', file('src/main/resources').absolutePath
+
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }

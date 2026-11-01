@@ -6,6 +6,7 @@ import com.mojang.logging.LogUtils;
 
 import com.fogged.registry.ModBlockEntities;
 import com.fogged.registry.ModBlocks;
+import com.fogged.registry.ModEntities;
 import com.fogged.registry.ModFeatures;
 import com.fogged.registry.ModItems;
 import com.fogged.registry.ModParticles;
@@ -35,6 +36,7 @@ public class Fogged {
         ModBlocks.register(modEventBus);
         ModItems.register(modEventBus);
         ModBlockEntities.register(modEventBus);
+        ModEntities.register(modEventBus);
         ModParticles.register(modEventBus);
         ModRecipes.register(modEventBus);
         FoggedDatapacks.register(modEventBus);

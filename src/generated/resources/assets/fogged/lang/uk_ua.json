@@ -4,6 +4,8 @@
   "block.fogged.nozzle_filter": "Фільтр туману",
   "death.attack.fog_suffocation": "Гравця %1$s поглинув туман",
   "death.attack.fog_suffocation.player": "Гравця %1$s поглинув туман під час втечі від %2$s",
+  "entity.fogged.plodder": "Тупцюн",
+  "entity.fogged.trudger": "Важкоступ",
   "fogged.configuration.airLossPerTick": "Втрата повітря за тік",
   "fogged.configuration.airLossPerTick.tooltip": "Скільки повітря гравець втрачає за тік із 300. Більше = швидше тоне.",
   "fogged.configuration.allowedMobs": "Моби, дозволені під туманом",

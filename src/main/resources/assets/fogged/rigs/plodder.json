@@ -1,0 +1,9 @@
+{
+	"walk_speed": 1.25,
+	"walk_threshold": 0.3,
+	"blend_time": 0.25,
+	"body_smoothing": 8,
+	"plant_low": 0.5,
+	"plant_high": 3,
+	"shadow_radius": 0.9
+}

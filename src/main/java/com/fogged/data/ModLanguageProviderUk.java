@@ -4,6 +4,7 @@ import java.util.Map;
 
 import com.fogged.Fogged;
 import com.fogged.registry.ModBlocks;
+import com.fogged.registry.ModEntities;
 import com.fogged.registry.ModItems;
 
 import net.minecraft.data.PackOutput;
@@ -22,7 +23,9 @@ public class ModLanguageProviderUk extends LanguageProvider {
     private static final Map<String, String> NAMES = Map.of(
             "fog_detector", "Детектор туману",
             "fog_detector_extension", "Секція детектора туману",
-            "nozzle_filter", "Фільтр туману");
+            "nozzle_filter", "Фільтр туману",
+            "plodder", "Тупцюн",
+            "trudger", "Важкоступ");
 
     public ModLanguageProviderUk(PackOutput output) {
         super(output, Fogged.MODID, "uk_ua");
@@ -73,6 +76,9 @@ public class ModLanguageProviderUk extends LanguageProvider {
             }
             add(holder.get(), name(holder.getId().getPath()));
         });
+
+        ModEntities.ENTITY_TYPES.getEntries()
+                .forEach(holder -> add(holder.get(), name(holder.getId().getPath())));
     }
 
     private void addConfigTranslations() {
