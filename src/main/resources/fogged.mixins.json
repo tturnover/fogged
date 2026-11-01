@@ -4,6 +4,7 @@
   "package": "com.fogged.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "MoveControlAccessor",
     "SignalGetterMixin"
   ],
   "client": [
