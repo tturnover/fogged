@@ -4,6 +4,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.fogged.entity.AnimTestControl;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -30,6 +31,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code /fogged pillars} -- why the towers near you came out as they did.</li>
  *   <li>{@code /fogged locate pillars|ridge|isle} -- the nearest karst tower of that kind, as a
  *       clickable position.</li>
+ *   <li>{@code /fogged animTest} -- pick the one mob that circles you, and steer it from clickable
+ *       chat buttons (see {@link AnimTestControl}).</li>
  * </ul>
  *
  * <p>Locating is here rather than under vanilla's {@code /locate} because that command only searches
@@ -44,6 +47,7 @@ public final class FoggedCommands {
     @SubscribeEvent
     static void onRegisterCommands(RegisterCommandsEvent event) {
         LiteralArgumentBuilder<CommandSourceStack> fogged = Commands.literal("fogged")
+                .then(AnimTestControl.command())
                 .then(Commands.literal("fogheight")
                         .executes(FoggedCommands::fogHeight))
                 .then(Commands.literal("depth")

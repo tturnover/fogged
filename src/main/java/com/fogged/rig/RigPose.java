@@ -77,12 +77,19 @@ public final class RigPose {
         position[bone * 3 + 1] += pixels;
     }
 
-    /** Blends {@code to} over this pose by {@code t} (0 keeps this, 1 takes {@code to}). */
-    void blend(RigPose to, float t) {
+    /** Takes {@code from}'s animated values. */
+    void copyFrom(RigPose from) {
+        System.arraycopy(from.rotation, 0, rotation, 0, rotation.length);
+        System.arraycopy(from.position, 0, position, 0, position.length);
+        System.arraycopy(from.scale, 0, scale, 0, scale.length);
+    }
+
+    /** Blends from {@code from} to this pose by {@code t} (0 is {@code from}, 1 keeps this). */
+    void blendFrom(RigPose from, float t) {
         for (int i = 0; i < rotation.length; i++) {
-            rotation[i] += (to.rotation[i] - rotation[i]) * t;
-            position[i] += (to.position[i] - position[i]) * t;
-            scale[i] += (to.scale[i] - scale[i]) * t;
+            rotation[i] = from.rotation[i] + (rotation[i] - from.rotation[i]) * t;
+            position[i] = from.position[i] + (position[i] - from.position[i]) * t;
+            scale[i] = from.scale[i] + (scale[i] - from.scale[i]) * t;
         }
     }
 

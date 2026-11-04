@@ -25,6 +25,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
             "fog_detector_extension", "Секція детектора туману",
             "nozzle_filter", "Фільтр туману",
             "plodder", "Тупцюн",
+            "snap_dog", "Клацопес",
             "trudger", "Важкоступ");
 
     public ModLanguageProviderUk(PackOutput output) {

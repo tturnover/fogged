@@ -18,6 +18,8 @@ import java.util.regex.Pattern;
  * <li>{@code reach_<id>_up}, {@code reach_<id>_down}: optional empty bones beside a leg (not inside
  * it), at the highest and lowest the sole may be moved to meet the ground. Either can be left out.
  * <li>{@code *_tilt}: leans with the slope under the planted feet. No such bone, no tilt.
+ * <li>{@code *_level}: inside a tilt bone, stays level while it leans, keeping its own animation.
+ * Legs inside a tilt bone do this by themselves.
  * <li>{@code ground}: an empty control bone; its animated scale fades the whole ground fit (1, the
  * default, is full; 0 is off). A {@code contact_<id>}'s own scale picks that foot's mode: 0 off,
  * 1 (the default) fitted and kept out of blocks, 2 fitted only. Both are keyframes like any other, so
@@ -45,14 +47,16 @@ public final class RigLayout {
     /** Bones that take the body height: {@code root}, or every top-level bone. */
     public final int[] bodyBones;
     public final int[] tiltBones;
+    public final int[] levelBones;
     /** The {@code ground} control bone, or -1. */
     public final int ground;
     public final List<String> problems;
 
-    private RigLayout(Leg[] legs, int[] bodyBones, int[] tiltBones, int ground, List<String> problems) {
+    private RigLayout(Leg[] legs, int[] bodyBones, int[] tiltBones, int[] levelBones, int ground, List<String> problems) {
         this.legs = legs;
         this.bodyBones = bodyBones;
         this.tiltBones = tiltBones;
+        this.levelBones = levelBones;
         this.ground = ground;
         this.problems = problems;
     }
@@ -76,8 +80,12 @@ public final class RigLayout {
         List<String> problems = new ArrayList<>();
         List<Leg> legs = new ArrayList<>();
         List<Integer> tilt = new ArrayList<>();
+        List<Integer> level = new ArrayList<>();
         for (int i = 0; i < g.bones.length; i++) {
             String name = g.bones[i].name;
+            if (name.endsWith("_level")) {
+                level.add(i);
+            }
             if (name.endsWith("_tilt")) {
                 tilt.add(i);
             }
@@ -148,6 +156,13 @@ public final class RigLayout {
             }
             body = top.stream().mapToInt(Integer::intValue).toArray();
         }
-        return new RigLayout(legs.toArray(new Leg[0]), body, tilt.stream().mapToInt(Integer::intValue).toArray(), ground, problems);
+        // A leg hangs from a leaning body but doesn't lean with it: only its animation angles it.
+        for (Leg leg : legs) {
+            if (tilt.stream().anyMatch(t -> g.descendsFrom(leg.upper, t))) {
+                level.add(leg.upper);
+            }
+        }
+        return new RigLayout(legs.toArray(new Leg[0]), body, tilt.stream().mapToInt(Integer::intValue).toArray(),
+                level.stream().mapToInt(Integer::intValue).toArray(), ground, problems);
     }
 }

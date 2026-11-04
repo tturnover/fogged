@@ -1,8 +1,14 @@
 package com.fogged.entity;
 
+import java.util.List;
+
+import com.fogged.rig.RigActor;
 import com.fogged.rig.RigGameplay;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
@@ -18,18 +24,53 @@ import net.minecraft.world.level.Level;
  * swings round slowly wherever the turn comes from: walking a path, circling, or standing. While walking
  * it also slows down until it faces where it is going, so a slow turner makes a wide, tidy arc rather
  * than orbiting the point it is trying to reach. The rig sees the slow turn and plays its turn animation.
+ *
+ * <p>It can also be set to an action, any animation in its model that isn't a movement one: the rig
+ * plays it over everything else until it is cleared. The action is sent to clients and saved with the mob.
  */
-public abstract class RiggedMob extends PathfinderMob {
+public abstract class RiggedMob extends PathfinderMob implements RigActor {
+
+    private static final EntityDataAccessor<String> ACTION = SynchedEntityData.defineId(RiggedMob.class, EntityDataSerializers.STRING);
 
     /** Most it turns in a tick, in degrees; 0 leaves turning to vanilla. */
     private final float maxTurn;
+    private final String model;
+    /** Whether the current action is one the model stands still for. Server side. */
+    private boolean still;
 
     protected RiggedMob(EntityType<? extends RiggedMob> type, Level level, String model) {
         super(type, level);
+        this.model = model;
         maxTurn = RigGameplay.maxTurnPerTick(model);
         if (maxTurn > 0) {
             moveControl = new TurnLimitedMoveControl(this, maxTurn);
         }
+    }
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(ACTION, "");
+    }
+
+    @Override
+    public String rigAction() {
+        return entityData.get(ACTION);
+    }
+
+    /** Plays an action from {@link #actions()}; empty clears it. */
+    public void setAction(String action) {
+        entityData.set(ACTION, action);
+        still = !action.isEmpty() && RigGameplay.standsStill(model, action);
+    }
+
+    public List<String> actions() {
+        return RigGameplay.actions(model);
+    }
+
+    /** Whether its action keeps it from walking. */
+    public boolean standingStill() {
+        return still;
     }
 
     @Override
@@ -45,6 +86,13 @@ public abstract class RiggedMob extends PathfinderMob {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         RigGameplay.restore(this); // the model's step height, not the one saved with the world
+        setAction(tag.getString("RigAction"));
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        tag.putString("RigAction", rigAction());
     }
 
     /**

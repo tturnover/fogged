@@ -16,7 +16,8 @@ import net.minecraft.world.phys.Vec3;
  *
  * <ol>
  * <li>The body takes the average: the planted feet's offsets, weighted by how planted each is, set the
- * height of the body bones. Bones named {@code *_tilt} also lean with the plane through them.
+ * height of the body bones. Bones named {@code *_tilt} also lean with the plane through them, and
+ * bones named {@code *_level} inside them turn that lean back, so a head stays level on a slope.
  * <li>Each leg takes what is left. A jointed leg bends its upper and lower bones, in the plane the
  * animation already bends them in; a pillar leg slides straight up or down.
  * </ol>
@@ -28,6 +29,9 @@ import net.minecraft.world.phys.Vec3;
  * still reaches down for whatever is below (as far as the leg goes, straight if it has to, looking
  * {@code reach_down} further), but it doesn't pull the body over the edge after it. Ground taller than
  * {@code max_step} is left to the animation.
+ *
+ * <p>What the fit finally does to the pose, body height, lean and each leg's correction, eases at
+ * {@code ease}, so nothing pops when a foot loses its ground or the {@code ground} bone switches.
  *
  * <p>A {@code contact_<id>}'s scale picks what its foot does: 2 is the fit above, 1 (the default) is
  * the fit and also never lets the sole below the ground, lifted or not, and 0 leaves the foot to the
@@ -110,33 +114,49 @@ final class GroundRig {
         // lift enough for its own: a resting leg folds up to let a floating one down. Where both can't
         // hold, putting the floating foot down wins. With no foot down it keeps its last height above
         // the entity, so a fall carries it along.
+        if (layout.tiltBones.length > 0) {
+            tilt(legs, contact, bodyWeight, ground, state, t, dt);
+        }
         float lift = weightSum > 1e-3f ? heightSum / weightSum : state.bodyLift * 16;
         float lowest = Float.NEGATIVE_INFINITY, highest = Float.POSITIVE_INFINITY;
         for (int i = 0; i < legs.length; i++) {
             if (weight[i] < 0.5f || !found[i]) {
                 continue; // lifted, or nothing under it (a cliff edge: reach down, but don't crouch for it)
             }
+            // A lean already carries each hip part of the way to its ground, so that part needn't move the body.
+            float leaned = 0;
+            if (layout.tiltBones.length > 0) {
+                Vector3f pivot = g.bones[layout.tiltBones[0]].pivot;
+                leaned = (state.slopeX * (contact[i].x - pivot.x) + state.slopeZ * (contact[i].z - pivot.z)) * strength;
+            }
             float[] reach = reach(g, pose, legs[i], contact[i], maxStep);
-            lowest = Math.max(lowest, ground[i] - reach[0]);
-            highest = Math.min(highest, ground[i] + reach[1]);
+            lowest = Math.max(lowest, ground[i] - leaned - reach[0]);
+            highest = Math.min(highest, ground[i] - leaned + reach[1]);
         }
         lift = lowest <= highest ? Math.max(lowest, Math.min(highest, lift)) : highest;
         state.bodyLift = lift / 16;
         double bodyTarget = origin.y + state.bodyLift;
         state.bodyY = Double.isNaN(state.bodyY) || Math.abs(bodyTarget - state.bodyY) > SNAP ? bodyTarget
                 : state.bodyY + (bodyTarget - state.bodyY) * rate(t.bodySmoothing(), dt);
+        float ease = rate(t.ease(), dt);
         float body = (float) Math.max(-depth, Math.min(maxStep, state.bodyY - origin.y)) * 16 * strength;
+        state.bodyShift += (body - state.bodyShift) * ease;
         for (int bone : layout.bodyBones) {
-            pose.addPositionY(bone, body);
+            pose.addPositionY(bone, state.bodyShift);
         }
 
         if (layout.tiltBones.length > 0) {
-            tilt(legs, contact, bodyWeight, ground, state, t, dt);
             pose.solve(g);
             Vector3f normal = new Vector3f(-state.slopeX, 1, -state.slopeZ).normalize();
-            Quaternionf lean = new Quaternionf().slerp(new Quaternionf().rotationTo(new Vector3f(0, 1, 0), normal), strength);
+            state.lean.slerp(new Quaternionf().slerp(new Quaternionf().rotationTo(new Vector3f(0, 1, 0), normal), strength), ease);
+            Quaternionf lean = new Quaternionf(state.lean);
             for (int bone : layout.tiltBones) {
                 pose.rotateInModelSpace(g, bone, lean);
+                pose.solve(g);
+            }
+            Quaternionf back = new Quaternionf(lean).conjugate();
+            for (int bone : layout.levelBones) {
+                pose.rotateInModelSpace(g, bone, back);
                 pose.solve(g);
             }
         }
@@ -147,9 +167,6 @@ final class GroundRig {
         for (int i = 0; i < legs.length; i++) {
             float fit = weight[i] * strength;
             float stop = guard[i] * strength;
-            if (fit <= 0 && stop <= 0) {
-                continue;
-            }
             RigLayout.Leg leg = legs[i];
             Vector3f now = pose.pivotOf(g, leg.contact());
             // The leg's reach bones, where it has them, bound how high and low the sole may go. A pillar
@@ -158,8 +175,16 @@ final class GroundRig {
             float y = now.y;
             if (fit > 0) {
                 float low = leg.down() >= 0 ? pose.pivotOf(g, leg.down()).y : leg.pillar() ? now.y - maxStep * 16 : Float.NEGATIVE_INFINITY;
+                if (leg.pillar() && leg.down() >= 0) {
+                    low = Math.max(low, now.y - slideLeft(g, pose, leg));
+                }
                 y += (contact[i].y + ground[i] - y) * fit;
                 y = Math.max(Math.min(low, high), Math.min(high, y));
+            }
+            state.legShift[i] += (y - now.y - state.legShift[i]) * ease;
+            y = now.y + state.legShift[i];
+            if (state.legShift[i] < 0 && leg.pillar() && leg.down() >= 0) {
+                y = Math.max(y, now.y - Math.max(0, slideLeft(g, pose, leg))); // easing doesn't pull it out of the body
             }
             if (y < ground[i]) {
                 y = Math.max(y, Math.min(high, y + (ground[i] - y) * stop)); // never pulls a raised foot back down
@@ -196,8 +221,21 @@ final class GroundRig {
         }
         if (leg.down() >= 0) {
             down = contact.y - pose.pivotOf(g, leg.down()).y;
+            if (leg.pillar()) {
+                down = Math.min(down, slideLeft(g, pose, leg));
+            }
         }
         return new float[] {up, down};
+    }
+
+    /**
+     * How much further a pillar may slide down, in pixels. The down bone's distance below the sole at
+     * rest is what the body hides, and a pillar's top doesn't rise when the leg swings out, so the sole
+     * alone would let a swung leg slide out of the body. Counts what the animation already slid it.
+     */
+    private static float slideLeft(RigGeometry g, RigPose pose, RigLayout.Leg leg) {
+        float hidden = g.bones[leg.contact()].pivot.y - g.bones[leg.down()].pivot.y;
+        return hidden + pose.position[leg.upper() * 3 + 1];
     }
 
     /**

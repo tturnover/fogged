@@ -1,0 +1,14 @@
+{
+	"walk_speed": 2.4,
+	"walk_threshold": 0.3,
+	"run_speed": 6,
+	"run_threshold": 3.8,
+	"blend_time": 0.3,
+	"body_smoothing": 10,
+	"foot_smoothing": 14,
+	"tilt_smoothing": 8,
+	"plant_low": 1.2,
+	"plant_high": 2.5,
+	"shadow_radius": 0.55,
+	"still_actions": ["sleep", "angry", "alert", "howl"]
+}

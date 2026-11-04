@@ -2,6 +2,7 @@ package com.fogged.registry;
 
 import com.fogged.Fogged;
 import com.fogged.entity.Plodder;
+import com.fogged.entity.SnapDog;
 import com.fogged.entity.Trudger;
 import com.fogged.rig.RigGameplay;
 
@@ -37,9 +38,17 @@ public final class ModEntities {
                     .clientTrackingRange(16)
                     .build("trudger"));
 
+    /** The rig's behaviour test; see {@link SnapDog}. */
+    public static final DeferredHolder<EntityType<?>, EntityType<SnapDog>> SNAP_DOG = ENTITY_TYPES.register("snap_dog",
+            () -> EntityType.Builder.of(SnapDog::new, MobCategory.CREATURE)
+                    .sized(0.9f, 0.9f)
+                    .clientTrackingRange(10)
+                    .build("snap_dog"));
+
     private static void onAttributes(EntityAttributeCreationEvent event) {
         event.put(PLODDER.get(), rigged(Plodder.createAttributes(), "plodder"));
         event.put(TRUDGER.get(), rigged(Trudger.createAttributes(), "trudger"));
+        event.put(SNAP_DOG.get(), rigged(SnapDog.createAttributes(), "snap_dog"));
     }
 
     /** A rigged mob's model can set its step height through its legs' reach_*_up bones (see RigGameplay). */

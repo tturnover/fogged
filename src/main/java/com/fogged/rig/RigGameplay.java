@@ -6,11 +6,15 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.fogged.Fogged;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -28,6 +32,8 @@ import net.minecraft.world.entity.ai.attributes.DefaultAttributes;
  * the rest pose. The legs then reach as high as the body can step, and the body steps (and pathfinds)
  * as high as the legs reach.
  * <li>Turning speed: {@code max_turn} in the model's tuning file, degrees per second.
+ * <li>Actions: every animation that isn't a movement one, and from {@code still_actions} in the tuning
+ * file which of them it stands still for.
  * </ul>
  *
  * <p>Read at startup on both sides: the files come from the mod's own jar (a dedicated server has no
@@ -37,6 +43,9 @@ import net.minecraft.world.entity.ai.attributes.DefaultAttributes;
 public final class RigGameplay {
 
     private static final Map<String, Float> MAX_TURN = new ConcurrentHashMap<>();
+    /** Animations the rig picks by itself; any other one in a model is an action. */
+    private static final Set<String> MOVEMENT = Set.of("idle", "walk", "run", "jump", "walk_back",
+            "strafe_left", "strafe_right", "turn_left", "turn_right");
 
     private RigGameplay() {}
 
@@ -62,6 +71,45 @@ public final class RigGameplay {
                 return 0f;
             }
         });
+    }
+
+    /** The actions in {@code fogged:<name>}'s animation file, in its order. Read fresh, so a new export shows. */
+    public static List<String> actions(String name) {
+        List<String> actions = new ArrayList<>();
+        String path = "assets/" + Fogged.MODID + "/animations/entity/" + name + ".animation.json";
+        String prefix = "animation." + name + ".";
+        try (Reader reader = open(path)) {
+            if (reader != null) {
+                for (String key : JsonParser.parseReader(reader).getAsJsonObject().getAsJsonObject("animations").keySet()) {
+                    if (key.startsWith(prefix) && !MOVEMENT.contains(key.substring(prefix.length()))) {
+                        actions.add(key.substring(prefix.length()));
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            Fogged.LOGGER.error("[rig] {}:{}: could not read actions from {}: {}", Fogged.MODID, name, path, ex.toString());
+        }
+        return actions;
+    }
+
+    /** Whether {@code still_actions} in the model's tuning file lists {@code action}. */
+    public static boolean standsStill(String name, String action) {
+        String path = "assets/" + Fogged.MODID + "/rigs/" + name + ".json";
+        try (Reader reader = open(path)) {
+            if (reader != null) {
+                JsonObject tuning = JsonParser.parseReader(reader).getAsJsonObject();
+                if (tuning.has("still_actions")) {
+                    for (JsonElement e : tuning.getAsJsonArray("still_actions")) {
+                        if (e.getAsString().equals(action)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            Fogged.LOGGER.error("[rig] {}:{}: could not read still_actions from {}: {}", Fogged.MODID, name, path, ex.toString());
+        }
+        return false;
     }
 
     /** Step height in blocks for the model {@code fogged:<name>}, or empty to keep the coded one. */

@@ -14,6 +14,12 @@ import net.minecraft.resources.ResourceLocation;
  * walk_back, strafe_left, strafe_right, turn_left, turn_right
  *                  the other movement animations, default animation.&lt;entity&gt;.&lt;key&gt;. All optional:
  *                  without walk_back the walk plays in reverse, without the others the walk plays
+ * run              fast forward animation, default animation.&lt;entity&gt;.run; without it the walk plays
+ * jump             animation while off the ground, default animation.&lt;entity&gt;.jump; without it the
+ *                  movement animation carries on
+ * run_speed        blocks per second the run cycle was animated for; 0 plays it at its own pace
+ * run_threshold    blocks per second above which it runs rather than walks (0 never runs)
+ * still_actions    list of actions the mob stands still for. Read by the game: see RigGameplay
  * turn_speed       degrees per second the turn animations were made for; they play faster or slower
  *                  with the real turning rate. 0 plays them at their own pace.
  * turn_threshold   degrees per second of turning on the spot above which it plays a turn
@@ -32,6 +38,8 @@ import net.minecraft.resources.ResourceLocation;
  * body_smoothing   how fast the body follows the feet (per second; higher is snappier)
  * foot_smoothing   how fast a foot follows the ground under it, e.g. over a block edge
  * tilt_smoothing   the same for bones named *_tilt
+ * ease             how fast the finished fit moves the pose (per second; higher is snappier, 0 is
+ *                  instant), so body, lean and legs never pop
  * plant_low        a contact this many pixels or less above its animation's floor is fully planted
  * plant_high       ... and from this height up it is in the air and left to the animation
  * shadow_radius    blocks
@@ -46,6 +54,10 @@ public record RigTuning(
         String strafeRight,
         String turnLeft,
         String turnRight,
+        String run,
+        String jump,
+        float runSpeed,
+        float runThreshold,
         float walkSpeed,
         float walkThreshold,
         float turnSpeed,
@@ -56,6 +68,7 @@ public record RigTuning(
         float bodySmoothing,
         float footSmoothing,
         float tiltSmoothing,
+        float ease,
         float plantLow,
         float plantHigh,
         float shadowRadius) {
@@ -72,6 +85,10 @@ public record RigTuning(
                 string(o, "strafe_right", "animation." + name + ".strafe_right"),
                 string(o, "turn_left", "animation." + name + ".turn_left"),
                 string(o, "turn_right", "animation." + name + ".turn_right"),
+                string(o, "run", "animation." + name + ".run"),
+                string(o, "jump", "animation." + name + ".jump"),
+                number(o, "run_speed", 0),
+                number(o, "run_threshold", 0),
                 number(o, "walk_speed", 0),
                 number(o, "walk_threshold", 0.3f),
                 number(o, "turn_speed", 0),
@@ -82,6 +99,7 @@ public record RigTuning(
                 number(o, "body_smoothing", 8),
                 number(o, "foot_smoothing", 12),
                 number(o, "tilt_smoothing", 6),
+                number(o, "ease", 8),
                 number(o, "plant_low", 0.5f),
                 number(o, "plant_high", 3),
                 number(o, "shadow_radius", 0.8f));
@@ -89,8 +107,8 @@ public record RigTuning(
 
     RigTuning withTexture(ResourceLocation texture) {
         return new RigTuning(texture, idle, walk, walkBack, strafeLeft, strafeRight, turnLeft, turnRight,
-                walkSpeed, walkThreshold, turnSpeed, turnThreshold, blendTime, maxStep, reachDown,
-                bodySmoothing, footSmoothing, tiltSmoothing, plantLow, plantHigh, shadowRadius);
+                run, jump, runSpeed, runThreshold, walkSpeed, walkThreshold, turnSpeed, turnThreshold, blendTime, maxStep, reachDown,
+                bodySmoothing, footSmoothing, tiltSmoothing, ease, plantLow, plantHigh, shadowRadius);
     }
 
     private static String string(JsonObject o, String key, String fallback) {

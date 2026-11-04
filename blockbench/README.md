@@ -51,6 +51,7 @@ an ordinary bone that just animates.
 | `contact_<id>` | per leg | Empty bone at the sole, inside the leg (the lower bone of a jointed one). The point that is put on the ground. |
 | `reach_<id>_up`, `reach_<id>_down` | no | Empty bones **beside** a leg (in `root` or the body, not inside the leg), placed at the highest / lowest the sole may be moved to meet the ground. Either can be left out. |
 | `*_tilt` | no | Any bone whose name ends in `_tilt` leans with the slope under the planted feet. No such bone, no tilt. |
+| `*_level` | no | A bone inside a `*_tilt` bone whose name ends in `_level` stays level while the tilt leans it, keeping its own animation: the snap dog's head on a slope. Legs inside a `*_tilt` bone do this by themselves, so they stay upright or as animated. |
 | `ground` | no | Empty control bone; its scale switches the whole ground fit (below). |
 
 - `<id>` is any name (`fl`, `fr`, `l1`, ...); any number of legs works, and
@@ -61,9 +62,14 @@ an ordinary bone that just animates.
   be keyframed like any bone. Without them a pillar's limit is `max_step` and a
   jointed leg's is its own length.
   - **Up sets the step height.** The mob's real step height (how high it
-    walks up, and pathfinds up) is the lowest `reach_<id>_up` above its sole in
+    walks up without jumping) is the lowest `reach_<id>_up` above its sole in
     the rest pose, across all legs that have one. Read at startup from the
     model, so a change needs a restart. No up bones: the step height in code.
+    Under a block is fine: it still pathfinds up one full block, jumping onto
+    anything taller than its step (the snap dog steps 0.5).
+  - **Down keeps a pillar in the body.** Its distance below the sole at rest
+    is the most a pillar slides down, animation included, even swung out. Set
+    it to how much of the leg's top the body hides.
   - **Down sets the search depth.** A leg with `reach_<id>_down` looks for
     ground no deeper than it; `reach_down` in the tuning is only for legs
     without one.
@@ -98,6 +104,8 @@ what is drawn, since the bone is empty.
 |---|---|---|
 | `animation.<entity>.idle` | standing still | required |
 | `animation.<entity>.walk` | moving mostly forward | required |
+| `animation.<entity>.run` | moving forward faster than `run_threshold` | the walk |
+| `animation.<entity>.jump` | off the ground for over 0.1 s | the movement animation carries on |
 | `animation.<entity>.walk_back` | moving mostly backward | the walk, played in reverse |
 | `animation.<entity>.strafe_left` / `strafe_right` | moving mostly sideways (to its own left / right) | the walk |
 | `animation.<entity>.turn_left` / `turn_right` | standing but turning faster than `turn_threshold` | the walk |
@@ -105,9 +113,17 @@ what is drawn, since the bone is empty.
 "Moving" is faster than `walk_threshold`; which way is judged against the way
 the body faces, with a little hysteresis so it doesn't flicker at the
 diagonals. Moving animations play at the real speed over `walk_speed`, turns
-at the real turning rate over `turn_speed` (0.25x to 4x).
+at the real turning rate over `turn_speed` (0.25x to 4x), and the run at the
+real speed over `run_speed`.
 
-- Switching crossfades over `blend_time`.
+**Actions.** Any other animation in the file, `animation.<entity>.<action>`, is
+an action: nothing picks it by itself, and once set (see Circling) it plays
+over everything else, at its own pace, until cleared. `still_actions` in the
+tuning lists the ones the mob stands still for. Key `ground` scale to 0 in an
+action that lies down or leaves the floor.
+
+- Switching crossfades over `blend_time`, from whatever pose was showing, even
+  if that was already a crossfade.
 - Loop modes: *loop*, *play once* (holds the last frame) and *hold on last frame*.
 - Linear, smooth (Catmull-Rom), step and bezier keyframes play as in
   Blockbench (bezier is baked into linear keys by the exporter).
@@ -160,8 +176,12 @@ can be missing; it reloads with **F3+T**.
 | `body_smoothing` | `8` | 1/s | How fast the body height follows the feet. Higher is snappier, `0` is instant. |
 | `foot_smoothing` | `12` | 1/s | How fast a foot follows the ground under it (block edges, ground appearing or vanishing). |
 | `tilt_smoothing` | `6` | 1/s | How fast `*_tilt` bones follow the slope. |
+| `ease` | `8` | 1/s | How fast the finished fit moves the pose: body height, lean and each leg's correction. Stops pops when a foot loses its ground or `ground` switches. `0` is instant. |
 | `plant_low` | `0.5` | pixels | A contact this high or lower above the animation's floor is fully planted. |
 | `plant_high` | `3` | pixels | From this height up a contact is in the air and left to the animation. |
+| `run_speed` | `0` | blocks/s | Ground speed the run cycle was animated for. `0` plays it at its own pace. |
+| `run_threshold` | `0` | blocks/s | Above this it runs rather than walks. `0` never runs. |
+| `still_actions` | none | list | Actions the mob stands still for, read by the game. |
 | `shadow_radius` | `0.8` | blocks | Shadow under the entity. |
 
 Example (the plodder's):
@@ -197,13 +217,35 @@ for anything half-made: a leg missing a bone, a contact outside its leg, a
 `ground` bone with something in it, an animation naming a bone the model
 doesn't have, or a missing idle/walk.
 
-Two test creatures are working examples; open their `.geo.json` in Blockbench
+Three test creatures are working examples; open their `.geo.json` in Blockbench
 to see the setup:
 
 - `plodder` (`/summon fogged:plodder`): small, four long legs, trotting gait.
 - `trudger` (`/summon fogged:trudger`): sauropod scale, about four blocks to the
   hip, one-bone pillar legs, long neck and tail, and a slow vanilla-style walk
   (legs swing from the hip) that always keeps three feet down.
+- `snap_dog` (`/summon fogged:snap_dog`): pillar legs inside a tilting body with
+  a level head, and every animation: walk, run, jump, strafe, turn and the
+  actions `attack`, `sleep`, `angry`, `alert`, `howl`. Source in
+  `blockbench/entities/snap_dog.bbmodel`.
+
+### Circling from chat
+
+`/fogged animTest` (permission level 2) takes the mob you're looking at, or the
+nearest one, and makes it the only one circling: any other circling mob is let
+go. Chat then shows clickable buttons for it, which set the same tag as below:
+
+| Button | Effect |
+|---|---|
+| Left / Right | Way round the circle. |
+| Face | Face the player and step sideways, or walk facing ahead. |
+| Walk / Run | Gait, `_run` in the tag (1.6 x speed). |
+| Jump | Hops as it goes, `_jump` in the tag. |
+| Stay | Stays in place, `_stay` in the tag, keeping every other setting. Jump, Face and actions still work, to look at one up close. |
+| one per action | Plays that action; click again to clear it. Lists whatever the model has, so a new animation shows up by itself. |
+| Stop | Lets the mob go and clears its action. |
+
+An action is only the animation: `attack` doesn't hurt anyone yet.
 
 ### Circling (entity tags)
 
@@ -215,7 +257,8 @@ when it carries a circle tag in its `Tags` list:
 /tag @e[type=fogged:plodder,limit=1,sort=nearest] add fogged.circle_l
 ```
 
-The tag is `fogged.circle`, then optionally `_l` or `_r`, then optionally `_f`:
+The tag is `fogged.circle`, then optionally `_l` or `_r`, then optionally `_f`,
+`_run`, `_jump` and `_stay`, in that order:
 
 | Part | Meaning |
 |---|---|

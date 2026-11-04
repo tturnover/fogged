@@ -1,6 +1,7 @@
 package com.fogged.entity;
 
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -15,6 +16,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.pathfinder.NodeEvaluator;
 import net.minecraft.world.level.pathfinder.PathType;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -23,7 +25,9 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 /**
  * Circles the nearest player, for a mob carrying a circle tag in its {@code Tags} list (set when
  * summoning, or with {@code /tag}). One tag says it all: {@code fogged.circle}, then {@code _l} or
- * {@code _r} for the direction, then {@code _f} to face the player.
+ * {@code _r} for the direction, {@code _f} to face the player, {@code _run} to go at a run,
+ * {@code _jump} to hop as it goes and {@code _stay} to stay in place. {@code /fogged animTest} sets all of
+ * this from chat ({@link AnimTestControl}).
  *
  * <pre>
  * /summon fogged:plodder ~ ~ ~ {Tags:["fogged.circle_l_f"]}
@@ -52,10 +56,15 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 @EventBusSubscriber(modid = Fogged.MODID)
 public class CirclePlayerGoal extends Goal {
 
-    private static final Pattern TAG = Pattern.compile("fogged\\.circle(?:_([lr]))?(_f)?");
+    private static final Pattern TAG = Pattern.compile("fogged\\.circle(?:_([lr]))?(_f)?(_run)?(_jump)?(_stay)?");
 
-    /** What a circle tag asks for: a fixed direction (null lets the mob choose) and whether it faces the player. */
-    record Mode(Boolean right, boolean facing) {}
+    /** What a circle tag asks for: a fixed direction (null lets the mob choose), facing the player, the gait. */
+    record Mode(Boolean right, boolean facing, boolean run, boolean jump, boolean stay) {
+        String tag() {
+            return "fogged.circle" + (right == null ? "" : right ? "_r" : "_l") + (facing ? "_f" : "")
+                    + (run ? "_run" : "") + (jump ? "_jump" : "") + (stay ? "_stay" : "");
+        }
+    }
 
     static final int PRIORITY = 4;
 
@@ -65,6 +74,13 @@ public class CirclePlayerGoal extends Goal {
     /** A mob following a stick holds on further, so a player can lead it at a run. */
     private static final double FOLLOW_LOSE_RANGE = 48;
     private static final double WALK_SPEED = 1.0;
+    /** Speed a mob tagged {@code _run} goes at, walking or side-stepping. */
+    private static final double RUN_SPEED = 1.6;
+    /** A mob tagged {@code _jump} hops again after this many ticks on the ground. */
+    private static final int HOP_TICKS = 12;
+    /** How far ahead a walker checks for something to jump onto, and the highest top a jump clears. */
+    private static final double JUMP_LOOK = 0.4;
+    private static final double JUMP_RISE = 1.1;
     /** Speed a follower uses to catch up once it is this many blocks out of place. */
     private static final double CATCH_UP_SPEED = 1.5;
     private static final double CATCH_UP_DISTANCE = 4;
@@ -93,6 +109,7 @@ public class CirclePlayerGoal extends Goal {
     /** Where it holds relative to the player while they hold a stick; null while circling. */
     private Vec3 offset;
     private int repath;
+    private int hop;
 
     public CirclePlayerGoal(PathfinderMob mob) {
         this.mob = mob;
@@ -114,10 +131,23 @@ public class CirclePlayerGoal extends Goal {
         for (String tag : tags) {
             Matcher m = TAG.matcher(tag);
             if (m.matches()) {
-                return new Mode(m.group(1) == null ? null : m.group(1).equals("r"), m.group(2) != null);
+                return new Mode(m.group(1) == null ? null : m.group(1).equals("r"), m.group(2) != null,
+                        m.group(3) != null, m.group(4) != null, m.group(5) != null);
             }
         }
         return null;
+    }
+
+    /** Swaps a mob's circle tag for the one saying {@code mode}; null leaves it with none. */
+    static void setMode(PathfinderMob mob, Mode mode) {
+        for (String tag : List.copyOf(mob.getTags())) {
+            if (TAG.matcher(tag).matches()) {
+                mob.removeTag(tag);
+            }
+        }
+        if (mode != null) {
+            mob.addTag(mode.tag());
+        }
     }
 
     @Override
@@ -168,6 +198,20 @@ public class CirclePlayerGoal extends Goal {
         if (m.right() != null) {
             right = m.right();
         }
+        boolean acting = mob instanceof RiggedMob rigged && rigged.standingStill();
+        if (m.jump() && !acting && mob.onGround() && --hop <= 0) {
+            mob.getJumpControl().jump();
+            hop = HOP_TICKS;
+        }
+        if (acting || m.stay()) {
+            mob.getNavigation().stop();
+            mob.getMoveControl().setWantedPosition(mob.getX(), mob.getY(), mob.getZ(), 0);
+            detour = 0;
+            if (m.facing() && !acting) {
+                facePlayer();
+            }
+            return;
+        }
         if (player.isHolding(Items.STICK)) {
             follow(m);
             return;
@@ -188,7 +232,9 @@ public class CirclePlayerGoal extends Goal {
             mob.getNavigation().stop();
             facePlayer();
             float forward = (float) Math.max(-1, Math.min(1, (Math.sqrt(dx * dx + dz * dz) - radius) / 2));
-            strafe(forward, right ? -1 : 1, STRAFE_SPEED); // positive strafe is to the mob's left
+            double way = right ? 1 : -1;
+            jumpUp(dz * way, -dx * way);
+            strafe(forward, right ? -1 : 1, STRAFE_SPEED * speed(m)); // positive strafe is to the mob's left
             return;
         }
 
@@ -212,6 +258,7 @@ public class CirclePlayerGoal extends Goal {
         heading += Math.max(-MAX_TURN, Math.min(MAX_TURN, Math.IEEEremainder(wanted - heading, 2 * Math.PI)));
 
         double hx = Math.cos(heading), hz = Math.sin(heading);
+        jumpUp(hx, hz);
         stuck = mob.horizontalCollision ? stuck + 1 : 0;
         if (stuck > 10 || !safeAhead(hx, hz)) {
             stuck = 0;
@@ -219,7 +266,7 @@ public class CirclePlayerGoal extends Goal {
             return;
         }
         mob.getNavigation().stop();
-        mob.getMoveControl().setWantedPosition(mob.getX() + hx * 2, mob.getY(), mob.getZ() + hz * 2, WALK_SPEED);
+        mob.getMoveControl().setWantedPosition(mob.getX() + hx * 2, mob.getY(), mob.getZ() + hz * 2, speed(m));
     }
 
     /**
@@ -237,7 +284,7 @@ public class CirclePlayerGoal extends Goal {
         double wx = tx - mob.getX();
         double wz = tz - mob.getZ();
         double dist = Math.sqrt(wx * wx + wz * wz);
-        double speed = dist > CATCH_UP_DISTANCE ? CATCH_UP_SPEED : WALK_SPEED;
+        double speed = dist > CATCH_UP_DISTANCE ? Math.max(CATCH_UP_SPEED, speed(m)) : speed(m);
         if (m.facing()) {
             facePlayer();
         }
@@ -255,6 +302,7 @@ public class CirclePlayerGoal extends Goal {
             return;
         }
         double ease = Math.min(1, dist / 1.5); // slow down over the last block and a half
+        jumpUp(wx, wz);
         if (m.facing()) {
             // Turn the way to its place into the mob's own forward/left, as it faces the player.
             double yaw = Math.toRadians(mob.getYRot());
@@ -265,6 +313,28 @@ public class CirclePlayerGoal extends Goal {
         } else {
             mob.getMoveControl().setWantedPosition(tx, mob.getY(), tz, speed * ease);
         }
+    }
+
+    /**
+     * Jumps when something ahead is too tall to step onto but low enough to land on. Pathfinding plans
+     * for that and vanilla's move control jumps along a path; steering in a straight line has to ask.
+     */
+    private void jumpUp(double dirX, double dirZ) {
+        double length = Math.sqrt(dirX * dirX + dirZ * dirZ);
+        if (!mob.onGround() || length < 1e-3) {
+            return;
+        }
+        double x = dirX / length * JUMP_LOOK, z = dirZ / length * JUMP_LOOK;
+        AABB box = mob.getBoundingBox();
+        if (!mob.level().noCollision(mob, box.move(x, mob.maxUpStep() + 0.01, z))
+                && mob.level().noCollision(mob, box.move(0, JUMP_RISE, 0))
+                && mob.level().noCollision(mob, box.move(x, JUMP_RISE, z))) {
+            mob.getJumpControl().jump();
+        }
+    }
+
+    private static double speed(Mode m) {
+        return m.run() ? RUN_SPEED : WALK_SPEED;
     }
 
     private void facePlayer() {
@@ -281,7 +351,7 @@ public class CirclePlayerGoal extends Goal {
     private void startDetour(double dx, double dz, double radius, Mode m) {
         double angle = Math.atan2(dz, dx) + (right ? -1 : 1) * DETOUR_LEAD / radius;
         boolean found = mob.getNavigation().moveTo(player.getX() + Math.cos(angle) * radius, mob.getY(),
-                player.getZ() + Math.sin(angle) * radius, WALK_SPEED);
+                player.getZ() + Math.sin(angle) * radius, speed(m));
         if (found) {
             detour = DETOUR_TICKS;
             failedDetours = 0;

@@ -49,6 +49,8 @@ public class FoggedClient {
                 ctx -> new RiggedRenderer<>(ctx, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "plodder")));
         event.registerEntityRenderer(ModEntities.TRUDGER.get(),
                 ctx -> new RiggedRenderer<>(ctx, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "trudger")));
+        event.registerEntityRenderer(ModEntities.SNAP_DOG.get(),
+                ctx -> new RiggedRenderer<>(ctx, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "snap_dog")));
     }
 
     // Rig models, animations and tuning load with the resources, so F3+T picks up a new export.
