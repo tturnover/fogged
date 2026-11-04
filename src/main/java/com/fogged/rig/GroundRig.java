@@ -28,6 +28,10 @@ import net.minecraft.world.phys.Vec3;
  * still reaches down for whatever is below (as far as the leg goes, straight if it has to, looking
  * {@code reach_down} further), but it doesn't pull the body over the edge after it. Ground taller than
  * {@code max_step} is left to the animation.
+ *
+ * <p>A {@code contact_<id>}'s scale picks what its foot does: 2 is the fit above, 1 (the default) is
+ * the fit and also never lets the sole below the ground, lifted or not, and 0 leaves the foot to the
+ * animation. Values between fade from one to the next.
  */
 final class GroundRig {
 
@@ -60,6 +64,7 @@ final class GroundRig {
         Vector3f[] contact = new Vector3f[legs.length];
         float[] weight = new float[legs.length];
         float[] bodyWeight = new float[legs.length];
+        float[] guard = new float[legs.length]; // how firmly the sole is kept out of the ground
         boolean[] found = new boolean[legs.length]; // real ground under it, not just the end of the search
         float[] ground = new float[legs.length]; // pixels, relative to the animation's floor
         float weightSum = 0;
@@ -69,7 +74,8 @@ final class GroundRig {
             Vector3f c = pose.pivotOf(g, legs[i].contact());
             contact[i] = c;
             float plant = 1 - clamp01((c.y - t.plantLow()) / Math.max(1e-3f, t.plantHigh() - t.plantLow()));
-            plant *= clamp01(pose.scale[legs[i].contact() * 3]); // a contact's own scale switches its foot
+            float mode = pose.scale[legs[i].contact() * 3]; // 0 off, 1 fitted and kept out of blocks, 2 fitted
+            plant *= clamp01(mode);
 
             // Probed every frame, lifted feet too, so a foot comes down already knowing the ground. A leg
             // with a reach_<id>_down bone looks as deep as that bone plus a step, the most the body may
@@ -94,6 +100,7 @@ final class GroundRig {
             ground[i] = (float) (state.footY[i] - origin.y) * 16;
             weight[i] = plant * state.footReach[i];
             bodyWeight[i] = plant * state.footBody[i];
+            guard[i] = clamp01(1 - Math.abs(mode - 1));
             weightSum += bodyWeight[i];
             heightSum += bodyWeight[i] * ground[i];
         }
@@ -135,25 +142,36 @@ final class GroundRig {
         }
         pose.solve(g);
 
-        // 3. Each planted leg bends to put its contact on the ground.
+        // 3. Each planted leg bends to put its contact on the ground, and a guarded foot, lifted or not,
+        // comes up out of it.
         for (int i = 0; i < legs.length; i++) {
-            if (weight[i] * strength <= 0) {
+            float fit = weight[i] * strength;
+            float stop = guard[i] * strength;
+            if (fit <= 0 && stop <= 0) {
                 continue;
             }
             RigLayout.Leg leg = legs[i];
             Vector3f now = pose.pivotOf(g, leg.contact());
-            Vector3f target = new Vector3f(now.x, contact[i].y + ground[i], now.z);
-            now.lerp(target, weight[i] * strength, target);
             // The leg's reach bones, where it has them, bound how high and low the sole may go. A pillar
             // without one never slides further than a step, so one modelled to hide that much never gaps.
             float high = leg.up() >= 0 ? pose.pivotOf(g, leg.up()).y : leg.pillar() ? now.y + maxStep * 16 : Float.POSITIVE_INFINITY;
-            float low = leg.down() >= 0 ? pose.pivotOf(g, leg.down()).y : leg.pillar() ? now.y - maxStep * 16 : Float.NEGATIVE_INFINITY;
-            target.y = Math.max(Math.min(low, high), Math.min(high, target.y));
+            float y = now.y;
+            if (fit > 0) {
+                float low = leg.down() >= 0 ? pose.pivotOf(g, leg.down()).y : leg.pillar() ? now.y - maxStep * 16 : Float.NEGATIVE_INFINITY;
+                y += (contact[i].y + ground[i] - y) * fit;
+                y = Math.max(Math.min(low, high), Math.min(high, y));
+            }
+            if (y < ground[i]) {
+                y = Math.max(y, Math.min(high, y + (ground[i] - y) * stop)); // never pulls a raised foot back down
+            }
+            if (y == now.y) {
+                continue;
+            }
             if (leg.pillar()) {
-                pose.moveInModelSpace(g, leg.upper(), new Vector3f(0, target.y - now.y, 0));
+                pose.moveInModelSpace(g, leg.upper(), new Vector3f(0, y - now.y, 0));
                 pose.solve(g);
             } else {
-                reach(g, pose, leg, target);
+                reach(g, pose, leg, new Vector3f(now.x, y, now.z));
             }
         }
     }

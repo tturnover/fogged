@@ -19,8 +19,9 @@ import java.util.regex.Pattern;
  * it), at the highest and lowest the sole may be moved to meet the ground. Either can be left out.
  * <li>{@code *_tilt}: leans with the slope under the planted feet. No such bone, no tilt.
  * <li>{@code ground}: an empty control bone; its animated scale fades the whole ground fit (1, the
- * default, is full; 0 is off). A {@code contact_<id>}'s own scale does the same for that one foot.
- * Both are keyframes like any other, so they can switch it off for part of an animation and blend.
+ * default, is full; 0 is off). A {@code contact_<id>}'s own scale picks that foot's mode: 0 off,
+ * 1 (the default) fitted and kept out of blocks, 2 fitted only. Both are keyframes like any other, so
+ * they can change for part of an animation and blend.
  * </ul>
  *
  * Anything that looks like part of a leg but doesn't make a whole one is reported, not guessed at.

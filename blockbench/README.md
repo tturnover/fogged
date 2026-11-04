@@ -81,13 +81,16 @@ Bedrock animations only have rotation, position and scale (outliner
 visibility is not exported), so the rig's switches are **scale keyframes on
 empty bones**. Only the X component is read; uniform scale is fine.
 
-| Keyframe | 1 (default) | 0 | Between |
-|---|---|---|---|
-| `ground` scale | full ground fit | off: no body height, tilt or leg correction | partial |
-| `contact_<id>` scale | that foot is fitted | that foot follows the animation only | partial |
+| Keyframe | 0 | 1 (default) | 2 | Between |
+|---|---|---|---|---|
+| `ground` scale | off: no body height, tilt, leg correction or block check | full ground fit | same as 1 | partial |
+| `contact_<id>` scale | that foot follows the animation only | that foot is fitted, and its sole never goes below the ground, even while lifted | that foot is fitted, and a lifted foot may pass through blocks | fades between the two |
 
 They blend through crossfades like any keyframe, so easing one from 1 to 0
 over a few frames switches the fit off for part of an animation without a pop.
+The block check looks at the ground under the sole, as far up as `max_step`:
+a wall taller than that doesn't stop a foot. A contact's scale doesn't change
+what is drawn, since the bone is empty.
 
 ### Animations
 
