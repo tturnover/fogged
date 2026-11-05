@@ -232,6 +232,12 @@ public class FogPlaneRenderer {
             s = mc.options.getEffectiveRenderDistance() * 16.0F + 32.0F;
             fadeStart = reach * 0.8F;
             fadeEnd = reach;
+        } else if (DistantHorizonsCompatibility.lodsThisFrame()) {
+            // Vanilla's world ends about here, so the quad's only job past it is done, and it stops. Its
+            // colour has been DH's own since lodStart (see the shader), so there is no edge to soften.
+            fadeStart = DistantHorizonsCompatibility.farInner();
+            fadeEnd = fadeStart + 0.05F;
+            s = fadeEnd;
         } else {
             float depthFar = mc.gameRenderer.getDepthFar();
             fadeStart = Math.min(Math.max(reach, lastFogEnd), depthFar * 0.7F);
@@ -277,41 +283,10 @@ public class FogPlaneRenderer {
         ShaderInstance shader = FogShaders.FOG_PLANE;
         if (shader != null) {
             RenderSystem.setShader(() -> shader);
-            // Anchor world-space coords to a large tile near the camera (see NOISE_ANCHOR): the shader
-            // floors worldXZ onto a pixel grid, and full world coords far from spawn lose float32
-            // precision, so the snapped noise/foam boils and flickers as the camera moves sub-block.
-            // Both WorldOffset and WaterlineOrigin shift by the same anchor, so foam UVs stay exact.
-            // Round (not floor) so the anchor tiles are centred on the origin: their seams fall at
-            // +/-NOISE_ANCHOR/2, NOT at 0. A floor here put a seam exactly on x=0 / z=0, so crossing
-            // spawn flipped the anchor and made the snapped noise jump. Rounding keeps the whole
-            // -2048..2048 spawn region on one tile.
-            double ax = Math.rint(cam.x / NOISE_ANCHOR) * NOISE_ANCHOR;
-            double az = Math.rint(cam.z / NOISE_ANCHOR) * NOISE_ANCHOR;
-            shader.safeGetUniform("WorldOffset").set((float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
-            shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
-            shader.safeGetUniform("DebugView").set(Config.DEBUG_VIEW.get().ordinal());
-            // The baked noise fields, for the surface spots (see NoiseField).
-            RenderSystem.setShaderTexture(1, NoiseField.textureId());
-            setNoiseUniforms(shader, ax, az);
-            float[] foam = Config.foamColor();
-            shader.safeGetUniform("FoamColor").set(foam[0], foam[1], foam[2], foam[3]);
-            // Where the waterline map sits in the world, and how its stored distance is scaled.
-            shader.safeGetUniform("WaterlineOrigin").set((float) (WaterlineMap.originX() - ax), (float) (WaterlineMap.originZ() - az));
-            shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
-            shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
-            // Foam/spot pixel-snap grid must match the map's actual resolution (Config.waterlineCellsPerBlock).
-            shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
-            shader.safeGetUniform("PlaneFadeStart").set(fadeStart);
-            shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
-            // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
-            shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
-            shader.safeGetUniform("DepthValid").set(depthValid);
-            // Dissolve holes only on the fogged side: from the dry side they'd be a clear window down
-            // through the murk. On the fogged side the revealed content is hidden by the murk fog.
-            shader.safeGetUniform("HolesActive").set(below ? 1.0F : 0.0F);
-            shader.safeGetUniform("FoamFog").set(below ? 0.0F : 1.0F);
+            setSurfaceUniforms(shader, mc, cam, fadeStart, fadeEnd, depthValid, below ? 1.0F : 0.0F, below ? 0.0F : 1.0F);
             shader.safeGetUniform("EntityHoleCount").set(holes);
             shader.safeGetUniform("EntityHoles").set(entityHoleBuf);
+            shader.safeGetUniform("FarInner").set(0.0F);
             // Near-camera dither (see the shader), as the pack path gets it too.
             float[] nd = nearDither();
             shader.safeGetUniform("NearDither").set(nd[0], nd[1], nd[2], nd[3]);
@@ -333,6 +308,11 @@ public class FogPlaneRenderer {
             RenderSystem.setShaderFogStart(0.0F);
             RenderSystem.setShaderFogEnd(far * 0.15F);
             RenderSystem.setShaderFogColor(r, g, b, 1.0F); // plane colour, like the fog beneath it
+        } else if (DistantHorizonsCompatibility.lodsThisFrame()) {
+            // The far pass is unfogged where it meets the quad, DH's fog starting far beyond, so the
+            // quad has to be too or the two end in different colours whenever vanilla fog is on.
+            RenderSystem.setShaderFogStart(Float.MAX_VALUE / 2.0F);
+            RenderSystem.setShaderFogEnd(Float.MAX_VALUE);
         } else if (frameClearValid) {
             // The backdrop's colour, not the scene fog's -- see frameClearColor.
             RenderSystem.setShaderFogColor(frameClearColor[0], frameClearColor[1], frameClearColor[2], 1.0F);
@@ -346,6 +326,15 @@ public class FogPlaneRenderer {
         RenderSystem.applyModelViewMatrix();
 
         drawQuad(s, relY, r, g, b);
+        if (shader != null && DistantHorizonsCompatibility.lodsThisFrame()
+                && DhFarPass.beginFadeMask(mc.getMainRenderTarget().getDepthTextureId())) {
+            // The same quad again through the same vertex maths, so it lands on its own depth exactly.
+            shader.safeGetUniform("MaskPass").set(1.0F);
+            drawQuad(s, relY, r, g, b);
+            shader.safeGetUniform("MaskPass").set(0.0F);
+            DhFarPass.endFadeMask();
+            RenderSystem.enableBlend();
+        }
 
         mvStack.popMatrix();
         RenderSystem.applyModelViewMatrix();
@@ -365,6 +354,81 @@ public class FogPlaneRenderer {
         if (hud) {
             gpu.end();
         }
+    }
+
+    // What the surface shader needs whichever pass is drawing it: the quad here, or the far pass.
+    private static void setSurfaceUniforms(ShaderInstance shader, Minecraft mc, Vec3 cam, float fadeStart, float fadeEnd,
+            float depthValid, float holesActive, float foamFog) {
+        double ax = Math.rint(cam.x / NOISE_ANCHOR) * NOISE_ANCHOR;
+        double az = Math.rint(cam.z / NOISE_ANCHOR) * NOISE_ANCHOR;
+        // Anchor world-space coords to a large tile near the camera (see NOISE_ANCHOR): the shader
+        // floors worldXZ onto a pixel grid, and full world coords far from spawn lose float32
+        // precision, so the snapped noise/foam boils and flickers as the camera moves sub-block.
+        // Both WorldOffset and WaterlineOrigin shift by the same anchor, so foam UVs stay exact.
+        // Round (not floor) so the anchor tiles are centred on the origin: their seams fall at
+        // +/-NOISE_ANCHOR/2, NOT at 0. A floor here put a seam exactly on x=0 / z=0, so crossing
+        // spawn flipped the anchor and made the snapped noise jump. Rounding keeps the whole
+        // -2048..2048 spawn region on one tile.
+        shader.safeGetUniform("WorldOffset").set((float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
+        shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
+        shader.safeGetUniform("DebugView").set(Config.DEBUG_VIEW.get().ordinal());
+        // The baked noise fields, for the surface spots (see NoiseField).
+        RenderSystem.setShaderTexture(1, NoiseField.textureId());
+        setNoiseUniforms(shader, ax, az);
+        float[] foam = Config.foamColor();
+        shader.safeGetUniform("FoamColor").set(foam[0], foam[1], foam[2], foam[3]);
+        // Where the waterline map sits in the world, and how its stored distance is scaled.
+        shader.safeGetUniform("WaterlineOrigin").set((float) (WaterlineMap.originX() - ax), (float) (WaterlineMap.originZ() - az));
+        shader.safeGetUniform("WaterlineSize").set((float) WaterlineMap.size());
+        shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
+        // Foam/spot pixel-snap grid must match the map's actual resolution (Config.waterlineCellsPerBlock).
+        shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
+        shader.safeGetUniform("PlaneFadeStart").set(fadeStart);
+        shader.safeGetUniform("PlaneFadeEnd").set(fadeEnd);
+        // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
+        shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
+        shader.safeGetUniform("DepthValid").set(depthValid);
+        // Dissolve holes only on the fogged side: from the dry side they'd be a clear window down
+        // through the murk. On the fogged side the revealed content is hidden by the murk fog.
+        shader.safeGetUniform("HolesActive").set(holesActive);
+        shader.safeGetUniform("FoamFog").set(foamFog);
+        DistantHorizonsCompatibility.applyUniforms(shader);
+    }
+
+    // The surface from where LODs begin, into DH's buffers (see DhFarPass, which has set the
+    // matrices and leaves the depth function as DH had it). It is opaque, like the quad, and written
+    // to depth so DH's fog takes it as terrain; the foam is the LOD foam, the map being a long way
+    // behind. There is nothing here to dissolve against and no fog of its own, DH's coming after.
+    static void drawFar(Minecraft mc, Vec3 cam, float inner, float outer) {
+        ShaderInstance shader = FogShaders.FOG_PLANE;
+        if (shader == null) {
+            return;
+        }
+        double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
+        float[] plane = Config.planeColor();
+
+        RenderSystem.disableBlend();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
+        RenderSystem.disableCull();
+        RenderSystem.setShaderTexture(0, WaterlineMap.textureId());
+        RenderSystem.setShaderTexture(3, SceneDepth.SCENE.depthTextureId());
+        RenderSystem.setShader(() -> shader);
+
+        // Its rim only matters with DH's own fade off, where it keeps the sheet from ending in a line.
+        setSurfaceUniforms(shader, mc, cam, outer * 0.9F, outer, 0.0F, 0.0F, 0.0F);
+        shader.safeGetUniform("EntityHoleCount").set(0);
+        shader.safeGetUniform("NearDither").set(0.0F, 1.0F, 0.0F, 0.0F);
+        shader.safeGetUniform("DitherPixelSize").set((float) Config.DITHER_PIXEL_SIZE.getAsInt());
+        shader.safeGetUniform("FarInner").set(inner);
+
+        float savedFogStart = RenderSystem.getShaderFogStart();
+        float savedFogEnd = RenderSystem.getShaderFogEnd();
+        RenderSystem.setShaderFogStart(Float.MAX_VALUE / 2.0F); // DH's fog, not ours, and later
+        RenderSystem.setShaderFogEnd(Float.MAX_VALUE);
+        drawQuad(outer, (float) (surfaceY - cam.y), plane[0], plane[1], plane[2]);
+        RenderSystem.setShaderFogStart(savedFogStart);
+        RenderSystem.setShaderFogEnd(savedFogEnd);
     }
 
     // One camera-centred quad at the boundary height, opaque (see the note on config alpha above).

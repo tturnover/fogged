@@ -69,6 +69,8 @@
   "fogged.configuration.itemTransforms.tooltip": "\"from=to\" swaps for dropped items, by item id. All of them are listed in JEI.",
   "fogged.configuration.layout": "Where They Stand",
   "fogged.configuration.layout.tooltip": "Where the groups stand and how often you meet them.",
+  "fogged.configuration.distantHorizons": "Murk Over Distant Horizons",
+  "fogged.configuration.distantHorizons.tooltip": "Carry the surface, its foam and the mist out over Distant Horizons' LODs, and hide them while in the murk. Needs Distant Horizons 3.3.0 or newer, and no shader pack.",
   "fogged.configuration.logRenderCompatWarnings": "Log Compatibility Warnings",
   "fogged.configuration.logRenderCompatWarnings.tooltip": "Log once when this mod detects it cannot work with the current rendering setup.",
   "fogged.configuration.mobEscape": "Mobs Flee The Murk",

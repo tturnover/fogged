@@ -37,6 +37,7 @@ public class FoggedClient {
         modEventBus.addListener(FoggedClient::modifyBakingResult);
         modEventBus.addListener(FoggedClient::registerRenderers);
         modEventBus.addListener(FoggedClient::registerReloadListeners);
+        DistantHorizonsCompatibility.register();
         if (RigAssets.live()) {
             // Dev client only (see RigAssets): picks up a new Blockbench export without F3+T.
             NeoForge.EVENT_BUS.addListener(RigAssets::onClientTick);

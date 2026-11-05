@@ -33,6 +33,10 @@ uniform float PlaneFadeEnd;     // distance at which it is fully gone
 uniform mat4 ProjMat;           // reused to linearise depth for the soft-occlusion fade
 uniform vec2 ScreenSize;        // framebuffer size in pixels, to map gl_FragCoord into the depth sampler
 uniform float DepthValid;       // 0 if the scene-depth snapshot is unavailable/disabled this frame (see SceneDepth)
+// Distant Horizons. LodActive means the mist is measured by plain distance, which is where LODs begin.
+// FarFadeIn is set on the far pass only: the distances over which that copy of the mist fades in.
+uniform float LodActive;
+uniform vec2 FarFadeIn;
 
 in vec4 vertexColor;
 in vec2 worldXZ;
@@ -100,7 +104,11 @@ void main() {
     // Fade the far rim by max(horizontal radius, vertical drop), matching the plane: full render-
     // distance radius at any height, but the whole layer fades once the camera climbs farther above
     // the surface than it can see, so it doesn't hang in the void after the world below fogs out.
-    a *= 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, max(length(relPos.xz), abs(relPos.y)));
+    float rimDist = LodActive > 0.5 ? length(relPos) : max(length(relPos.xz), abs(relPos.y));
+    a *= 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, rimDist);
+    if (FarFadeIn.y > 0.0) {
+        a *= smoothstep(FarFadeIn.x, FarFadeIn.y, length(relPos));
+    }
 
     // Thin out over foam. Mist and foam are both "the surface is disturbed here", and stacking them
     // buries the foam's shape under a wash of grey exactly where it is most worth seeing -- against

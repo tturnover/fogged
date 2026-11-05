@@ -64,6 +64,9 @@ public final class FogDebugOverlay {
                         ? "scene depth: captured" : "scene depth: UNAVAILABLE",
                         FogPlaneRenderer.lastDepthValid ? OK : BAD)
                 : new Line("scene depth: off (planeSoftOcclusion)", PLAIN));
+        if (DistantHorizonsCompatibility.lodsThisFrame()) {
+            lines.add(new Line(String.format("LODs: far plane from %.0f", DistantHorizonsCompatibility.farInner()), OK));
+        }
         lines.add(new Line("entity holes " + FogPlaneRenderer.lastHoles + "/32  water boxes "
                 + FogPlaneRenderer.lastWaterBoxes + " of " + WaterlineMap.flowingColumnCount() + " columns", PLAIN));
         lines.add(new Line(String.format("cpu plane stage %.2f ms = map %.2f + depth copy %.2f + water boxes %.2f + rest",

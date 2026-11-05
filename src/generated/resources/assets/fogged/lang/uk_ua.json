@@ -69,6 +69,8 @@
   "fogged.configuration.itemTransforms.tooltip": "Заміни \"з=на\" для кинутих предметів, за ідентифікатором. Усі показані в JEI.",
   "fogged.configuration.layout": "Де вони стоять",
   "fogged.configuration.layout.tooltip": "Де стоять групи і як часто вони трапляються.",
+  "fogged.configuration.distantHorizons": "Каламуть над Distant Horizons",
+  "fogged.configuration.distantHorizons.tooltip": "Продовжує поверхню, її піну й імлу над LOD-ами Distant Horizons і ховає їх, поки камера в каламуті. Потрібен Distant Horizons 3.3.0 або новіший і жодного шейдерпаку.",
   "fogged.configuration.logRenderCompatWarnings": "Логувати попередження сумісності",
   "fogged.configuration.logRenderCompatWarnings.tooltip": "Один раз записати в лог, коли мод не може працювати з поточним налаштуванням рендера.",
   "fogged.configuration.mobEscape": "Моби тікають із каламуті",
