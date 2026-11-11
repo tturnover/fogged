@@ -54,6 +54,7 @@ final class YaclCompatibility {
                 .title(Component.translatable("fogged.configuration.title"))
                 .category(boundary())
                 .category(suffocation())
+                .category(compressor())
                 .category(datapacks())
                 .category(compat())
                 .category(pillars())
@@ -114,6 +115,19 @@ final class YaclCompatibility {
                 .option(integer("mobSuffocateDelaySeconds", Config.MOB_SUFFOCATE_DELAY, 0, 600, 1))
                 .option(dbl("mobSuffocateDamage", Config.MOB_SUFFOCATE_DAMAGE, 0.0, 40.0, 0.5))
                 .group(strings("allowedMobs", Config.ALLOWED_MOBS))
+                .build();
+    }
+
+    private static ConfigCategory compressor() {
+        return ConfigCategory.createBuilder()
+                .name(Component.translatable(KEY + "compressor"))
+                .tooltip(Component.translatable(KEY + "compressor.tooltip"))
+                .option(integer("compressorVolumePerFace", Config.COMPRESSOR_VOLUME, 8, 20_000, 8))
+                .option(integer("compressorFillRate", Config.COMPRESSOR_FILL_RATE, 1, 2_000, 1))
+                .option(integer("compressorEnergyPerTick", Config.COMPRESSOR_ENERGY_PER_TICK, 0, 1_000, 1))
+                .option(integer("compressorEnergyCapacity", Config.COMPRESSOR_ENERGY_CAPACITY, 1, 1_000_000, 1_000))
+                .option(integer("compressorFullSpeed", Config.COMPRESSOR_FULL_SPEED, 1, 256, 1))
+                .option(dbl("airtightGraceSeconds", Config.AIRTIGHT_GRACE, 0.0, 10.0, 0.25))
                 .build();
     }
 

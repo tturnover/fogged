@@ -3,6 +3,7 @@ package com.fogged.data;
 import java.util.List;
 
 import com.fogged.Fogged;
+import com.fogged.block.AirCompressorBlock;
 import com.fogged.block.FogDetectorBlock;
 import com.fogged.block.NozzleFilterBlock;
 import com.fogged.registry.ModBlocks;
@@ -34,7 +35,9 @@ public class ModBlockStateProvider extends BlockStateProvider {
     private static final List<DeferredBlock<?>> CUSTOM = List.of(
             ModBlocks.FOG_DETECTOR,
             ModBlocks.FOG_DETECTOR_EXTENSION,
-            ModBlocks.NOZZLE_FILTER);
+            ModBlocks.NOZZLE_FILTER,
+            ModBlocks.AIR_COMPRESSOR,
+            ModBlocks.AIR_DUCT);
 
     @Override
     protected void registerStatesAndModels() {
@@ -46,6 +49,16 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // Nozzle filter: single supplied model rotated by FACING (matching Create's own nozzle
         // blockstate orientations). No item model -- it has no BlockItem.
         nozzleFilter();
+
+        // Air compressor: the hand-made casing (outlet authored facing north) turned onto FACING. The
+        // item shows the casing with its fan in, which in the world the block entity renderer spins.
+        airCompressor();
+        itemModels().withExistingParent("air_compressor", modLoc("block/air_compressor_item"));
+
+        // Air duct: a log-style column, vent at the ends, ribbed steel down the sides.
+        axisBlock(ModBlocks.AIR_DUCT.get(), modLoc("block/air_compressor/duct_side"),
+                modLoc("block/air_compressor/duct_end"));
+        itemModels().withExistingParent("air_duct", modLoc("block/air_duct"));
 
         // Everything else: auto cube_all, blockstate + block model + item model.
         ModBlocks.BLOCKS.getEntries().forEach(holder -> {
@@ -77,6 +90,16 @@ public class ModBlockStateProvider extends BlockStateProvider {
                         .setModels(new ConfiguredModel(model, rot[0], rot[1], false));
             }
         }
+    }
+
+    private void airCompressor() {
+        ModelFile model = models().getExistingFile(modLoc("block/air_compressor"));
+        getVariantBuilder(ModBlocks.AIR_COMPRESSOR.get()).forAllStates(state -> {
+            Direction facing = state.getValue(AirCompressorBlock.FACING);
+            int x = facing == Direction.UP ? 270 : facing == Direction.DOWN ? 90 : 0;
+            int y = facing.getAxis().isHorizontal() ? ((int) facing.toYRot() + 180) % 360 : 0;
+            return ConfiguredModel.builder().modelFile(model).rotationX(x).rotationY(y).build();
+        });
     }
 
     // {x, y} rotation that points the UP-authored nozzle filter model along `facing`, matching Create's nozzle.

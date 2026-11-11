@@ -47,6 +47,13 @@ public final class ModTags {
     /** Fire-burning devices the murk puts out -- the default of {@code snuffedDevices}. */
     public static final TagKey<Block> SNUFFED_DEVICES = blockTag("snuffed_devices");
 
+    /**
+     * Blocks that never seal an airtight room, whatever their collision says: solid to walk into but
+     * full of gaps -- leaves, fences and their gates, iron bars, scaffolding. Everything else seals by
+     * its collision shape (see {@link com.fogged.AirFill}).
+     */
+    public static final TagKey<Block> LETS_AIR_THROUGH = blockTag("lets_air_through");
+
     /** Blocks that hold a hull up in the murk -- the default of {@code sableFloatBlocks}. */
     public static final TagKey<Block> FLOATS = blockTag("floats");
 

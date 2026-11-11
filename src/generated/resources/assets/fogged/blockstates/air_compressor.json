@@ -1,0 +1,27 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "fogged:block/air_compressor",
+      "x": 90
+    },
+    "facing=east": {
+      "model": "fogged:block/air_compressor",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "fogged:block/air_compressor"
+    },
+    "facing=south": {
+      "model": "fogged:block/air_compressor",
+      "y": 180
+    },
+    "facing=up": {
+      "model": "fogged:block/air_compressor",
+      "x": 270
+    },
+    "facing=west": {
+      "model": "fogged:block/air_compressor",
+      "y": 270
+    }
+  }
+}

@@ -149,6 +149,33 @@ final class SableCompatibility {
                 .transformPosition(new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
     }
 
+    // Whether pos lies in a sub-level's plot (a block riding a ship / contraption).
+    static boolean inPlot(Level level, BlockPos pos) {
+        return subLevelAt(level, pos) != null;
+    }
+
+    // A world-space point mapped into the plot of the sub-level that holds anchor, or null when anchor
+    // is not in a plot. What an airtight room on a ship needs: its cells are plot coordinates, while
+    // the rider asking about them stands in the world.
+    static Vec3 toPlot(Level level, BlockPos anchor, Vec3 world) {
+        SubLevel sub = subLevelAt(level, anchor);
+        if (sub == null) {
+            return null;
+        }
+        Vector3d dst = new Vector3d();
+        sub.logicalPose().transformPositionInverse(new Vector3d(world.x, world.y, world.z), dst);
+        return new Vec3(dst.x, dst.y, dst.z);
+    }
+
+    private static SubLevel subLevelAt(Level level, BlockPos pos) {
+        SubLevelContainer container = SubLevelContainer.getContainer(level);
+        if (container == null || !container.inBounds(pos)) {
+            return null;
+        }
+        LevelPlot plot = container.getPlot(new ChunkPos(pos));
+        return plot == null ? null : plot.getSubLevel();
+    }
+
     // Whether a world-space point sits inside a solid block of any sub-level. Sub-level blocks live in
     // their far-off plot, so the main level reports air at the point however solid the hull there is.
     static boolean insideHull(Level level, double x, double y, double z) {

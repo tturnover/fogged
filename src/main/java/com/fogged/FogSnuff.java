@@ -279,7 +279,7 @@ public final class FogSnuff {
         if (!listed(level.getBlockState(pos))) {
             return false;
         }
-        if (BreatheSpheres.shelters(level, pos)) {
+        if (Shelter.shelters(level, pos)) {
             return false; // a filter's air keeps a device lit, and its redstone with it
         }
         // World-space height, so a device riding a Sable sub-level is judged where it actually floats.

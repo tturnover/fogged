@@ -39,6 +39,12 @@ public final class FoggedTooltips {
         } else if (stack.is(ModBlocks.FOG_DETECTOR.get().asItem())) {
             FoggedTooltip.appendShiftSection(event.getToolTip(), id, false,
                     "fogged.tooltip.fog_detector.desc1", "fogged.tooltip.fog_detector.desc2");
+        } else if (stack.is(ModBlocks.AIR_COMPRESSOR.get().asItem())) {
+            FoggedTooltip.appendShiftSection(event.getToolTip(), id, false,
+                    "fogged.tooltip.air_compressor.desc1", "fogged.tooltip.air_compressor.desc2");
+        } else if (stack.is(ModBlocks.AIR_DUCT.get().asItem())) {
+            FoggedTooltip.appendShiftSection(event.getToolTip(), id, false,
+                    "fogged.tooltip.air_duct.desc1", "fogged.tooltip.air_duct.desc2");
         }
     }
 

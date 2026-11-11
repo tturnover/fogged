@@ -45,7 +45,7 @@ public class BreathHandler {
                 || MobEffectUtil.hasWaterBreathing(player)
                 || player.isEyeInFluid(FluidTags.WATER)
                 || !Config.eyesUnderSurface(player.level(), player.getEyeY())
-                || BreatheSpheres.isBreathable(player.level(), player.getEyePosition()); // nozzle-filter sphere
+                || Shelter.breathes(player); // filter sphere or sealed room
         if (handledElsewhere) {
             return;
         }

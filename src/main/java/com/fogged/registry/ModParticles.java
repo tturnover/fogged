@@ -52,6 +52,23 @@ public final class ModParticles {
                 }
             });
 
+    /**
+     * A speck of clean air from an air compressor: small, slow and long-lived, so it can be followed
+     * through a room as it pressurizes, or down the path to a leak. See {@code AirParticle}.
+     */
+    public static final DeferredHolder<ParticleType<?>, ParticleType<ColorParticleOption>> AIR =
+            PARTICLE_TYPES.register("air", () -> new ParticleType<ColorParticleOption>(false) {
+                @Override
+                public MapCodec<ColorParticleOption> codec() {
+                    return ColorParticleOption.codec(this);
+                }
+
+                @Override
+                public StreamCodec<? super RegistryFriendlyByteBuf, ColorParticleOption> streamCodec() {
+                    return ColorParticleOption.streamCodec(this);
+                }
+            });
+
     public static void register(IEventBus modEventBus) {
         PARTICLE_TYPES.register(modEventBus);
     }

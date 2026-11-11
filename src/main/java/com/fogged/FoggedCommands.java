@@ -31,6 +31,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code /fogged pillars} -- why the towers near you came out as they did.</li>
  *   <li>{@code /fogged locate pillars|ridge|isle} -- the nearest karst tower of that kind, as a
  *       clickable position.</li>
+ *   <li>{@code /fogged airtight} -- show or hide the airtight rooms near you (see {@link AirtightDebug}).</li>
  *   <li>{@code /fogged animTest} -- pick the one mob that circles you, and steer it from clickable
  *       chat buttons (see {@link AnimTestControl}).</li>
  * </ul>
@@ -56,6 +57,7 @@ public final class FoggedCommands {
                                 .executes(ctx -> depth(ctx, EntityArgument.getPlayer(ctx, "player")))))
                 .then(Commands.literal("pillars")
                         .executes(FoggedCommands::pillarReport))
+                .then(AirtightDebug.command())
                 .then(Commands.literal("locate")
                         .then(Commands.literal("pillars")
                                 .executes(ctx -> locatePillars(ctx, KarstPillarsFeature.Layout.ANY)))

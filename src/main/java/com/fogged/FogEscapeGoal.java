@@ -91,7 +91,7 @@ public class FogEscapeGoal extends Goal {
                 && Config.MOB_ESCAPE.get()
                 && Config.fogged(level, mob.getEyeY())
                 && !Config.mobAllowedUnderFog(mob.getType())
-                && !BreatheSpheres.isBreathable(level, mob.getEyePosition());
+                && !Shelter.breathes(mob);
     }
 
     // Head straight for a shelter if the mob can actually path there; otherwise take a reachable step in

@@ -4,6 +4,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import com.fogged.Fogged;
+import com.fogged.block.AirCompressorBlock;
+import com.fogged.block.AirDuctBlock;
 import com.fogged.block.FogDetectorBlock;
 import com.fogged.block.FogDetectorExtensionBlock;
 import com.fogged.block.NozzleFilterBlock;
@@ -63,6 +65,25 @@ public final class ModBlocks {
                     .strength(2.0F)
                     .sound(SoundType.NETHERITE_BLOCK)
                     .noOcclusion());
+
+    // Air compressor: set into a room's wall, it pumps the murk out and holds the room airtight. Runs
+    // on FE, or a Create shaft turned into its side; same-facing neighbours join into 2x2 / 3x3 units.
+    // See AirCompressorBlock / AirCompressorBlockEntity.
+    public static final DeferredBlock<AirCompressorBlock> AIR_COMPRESSOR =
+            register("air_compressor", AirCompressorBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(3.5F, 6.0F)
+                    .requiresCorrectToolForDrops()
+                    .sound(SoundType.METAL));
+
+    // Air duct: carries a compressor's air away to come out of the network's open ends. Placed like a
+    // log; ducts that point at each other connect, so a network can branch. See AirDuctBlock.
+    public static final DeferredBlock<AirDuctBlock> AIR_DUCT =
+            register("air_duct", AirDuctBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(2.5F, 6.0F)
+                    .requiresCorrectToolForDrops()
+                    .sound(SoundType.METAL));
 
     // ------------------------------------------------------------------------
 

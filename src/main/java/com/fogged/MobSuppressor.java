@@ -44,7 +44,7 @@ public class MobSuppressor {
         // A sphere is breathable air, so it spawns like anywhere above the boundary -- the mob only
         // starts suffocating if it wanders out.
         if (Config.MOB_SPAWNS_IN_SPHERES.get()
-                && BreatheSpheres.isBreathable(level, new Vec3(event.getX(), event.getY(), event.getZ()))) {
+                && Shelter.isBreathable(level, new Vec3(event.getX(), event.getY(), event.getZ()))) {
             return;
         }
         event.setSpawnCancelled(true);
@@ -80,7 +80,7 @@ public class MobSuppressor {
         Level level = mob.level();
         boolean inMurk = Config.fogged(level, mob.getEyeY())
                 && !Config.mobAllowedUnderFog(mob.getType())
-                && !BreatheSpheres.isBreathable(level, mob.getEyePosition()); // nozzle-filter sphere shelters mobs too
+                && !Shelter.breathes(mob); // a filter sphere or sealed room shelters mobs too
         if (!inMurk) {
             if (mob.getPersistentData().contains(SUBMERGED_TICKS)) {
                 mob.getPersistentData().remove(SUBMERGED_TICKS);

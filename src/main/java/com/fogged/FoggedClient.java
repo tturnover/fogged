@@ -1,5 +1,6 @@
 package com.fogged;
 
+import com.fogged.registry.ModBlockEntities;
 import com.fogged.registry.ModEntities;
 import com.fogged.registry.ModParticles;
 import com.fogged.rig.RigAssets;
@@ -37,6 +38,7 @@ public class FoggedClient {
         modEventBus.addListener(FoggedClient::modifyBakingResult);
         modEventBus.addListener(FoggedClient::registerRenderers);
         modEventBus.addListener(FoggedClient::registerReloadListeners);
+        AirtightDebugRenderer.init(); // hooks the airtight payloads up to the client
         if (RigAssets.live()) {
             // Dev client only (see RigAssets): picks up a new Blockbench export without F3+T.
             NeoForge.EVENT_BUS.addListener(RigAssets::onClientTick);
@@ -45,6 +47,7 @@ public class FoggedClient {
 
     // Rigged entities: one line each, naming the model under assets/fogged/geo/entity/.
     private static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(ModBlockEntities.AIR_COMPRESSOR.get(), AirCompressorRenderer::new);
         event.registerEntityRenderer(ModEntities.PLODDER.get(),
                 ctx -> new RiggedRenderer<>(ctx, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "plodder")));
         event.registerEntityRenderer(ModEntities.TRUDGER.get(),
@@ -76,6 +79,7 @@ public class FoggedClient {
     private static void registerParticleProviders(RegisterParticleProvidersEvent event) {
         event.registerSpriteSet(ModParticles.PUFF.get(), PuffParticle.Provider::new);
         event.registerSpriteSet(ModParticles.FOAM.get(), FoamParticle.Provider::new);
+        event.registerSpriteSet(ModParticles.AIR.get(), AirParticle.Provider::new);
     }
 
     // Wrap the fog-detector / extension models so their pole retextures to the column's chosen log.

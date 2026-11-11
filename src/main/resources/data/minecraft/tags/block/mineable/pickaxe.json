@@ -2,6 +2,8 @@
   "replace": false,
   "values": [
     "fogged:fog_detector",
-    "fogged:fog_detector_extension"
+    "fogged:fog_detector_extension",
+    "fogged:air_compressor",
+    "fogged:air_duct"
   ]
 }

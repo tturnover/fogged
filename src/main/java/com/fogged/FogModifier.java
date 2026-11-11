@@ -36,8 +36,10 @@ public class FogModifier {
         // fogged in that biome's colour with the murk nowhere in it. Above the boundary every other
         // mod's fog is untouched.
         float far = Config.FOG_DISTANCE.getAsInt();
-        event.setNearPlaneDistance(far * 0.25F);
-        event.setFarPlaneDistance(far);
+        // In a sealed room the murk starts past its walls rather than at the camera (AirtightView).
+        float clear = AirtightView.clearRadius(event.getCamera().getPosition());
+        event.setNearPlaneDistance(far * 0.25F + clear);
+        event.setFarPlaneDistance(far + clear);
         // The shape too, and SPHERE on purpose. Vanilla hands the terrain fog CYLINDER
         // (FogRenderer.setupFog), whose distance is max(length(xz), abs(y)) -- so a line of sight
         // running down at 45 degrees only reaches fogDistance after 1.41 * fogDistance of actual
@@ -82,9 +84,10 @@ public class FogModifier {
             return;
         }
         float murkEnd = Config.FOG_DISTANCE.getAsInt();
+        float clear = AirtightView.clearRadius(mc.gameRenderer.getMainCamera().getPosition());
         float[] c = Config.planeColor();
-        RenderSystem.setShaderFogStart(murkEnd * 0.25F);
-        RenderSystem.setShaderFogEnd(murkEnd);
+        RenderSystem.setShaderFogStart(murkEnd * 0.25F + clear);
+        RenderSystem.setShaderFogEnd(murkEnd + clear);
         RenderSystem.setShaderFogShape(FogShape.SPHERE); // as the event sets it; see there for why
         RenderSystem.setShaderFogColor(c[0], c[1], c[2], 1.0F);
     }

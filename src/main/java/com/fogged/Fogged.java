@@ -40,6 +40,8 @@ public class Fogged {
         ModParticles.register(modEventBus);
         ModRecipes.register(modEventBus);
         FoggedDatapacks.register(modEventBus);
+        modEventBus.addListener(AirtightDebug::registerPayloads);
+        modEventBus.addListener(AirtightSync::registerPayloads);
         ModFeatures.register(modEventBus);
         ModStructures.register(modEventBus);
         ModStructurePieces.register(modEventBus);

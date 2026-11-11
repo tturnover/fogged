@@ -84,6 +84,9 @@ public final class MurkMotes {
             if (!level.getBlockState(at).isAir()) {
                 continue; // inside a block, or in water, which has its own murk
             }
+            if (AirtightView.inRoom(at)) {
+                continue; // a sealed room's air is clean
+            }
             // Mostly sideways, sinking a little: the murk settles rather than boils (the vapour layer
             // is what boils -- see FogVapor).
             level.addParticle(mote, x, y, z,

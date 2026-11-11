@@ -40,6 +40,11 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.tooltip.fog_detector.desc1", "Emits a _redstone signal_ by how deep it sits under the fog.");
         add("fogged.tooltip.fog_detector.desc2", "Right-click with _another_ to stack it taller.");
 
+        add("fogged.tooltip.air_compressor.desc1", "Set into a _sealed room's wall_, intake out and outlet in, it pumps the _murk_ out.");
+        add("fogged.tooltip.air_compressor.desc2", "Runs on _FE_ or a _turning shaft_. Join them _2x2_ or _3x3_ to hold bigger rooms.");
+        add("fogged.tooltip.air_duct.desc1", "Set on a _compressor's outlet_ and the air comes out of its _open ends_.");
+        add("fogged.tooltip.air_duct.desc2", "Placed like a _log_; ducts that _point at each other_ connect, and branch.");
+
         // Custom death messages (keyed by each damage type's message_id).
         // JEI category for the murk's block conversions (see FoggedJeiPlugin); only shown when JEI is in.
         add("fogged.jei.murk_transform", "Murk Conversion");
@@ -131,6 +136,20 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.group.murkActions", "What The Murk Does");
         add("fogged.configuration.boundary.tooltip", "Where the boundary sits, how the murk behaves at it, and what it does to the world underneath. Shared by the server and its clients: gameplay, not looks.");
         add("fogged.configuration.suffocation.tooltip", "What the murk does to the things breathing in it -- players and mobs -- and how much worse that gets with depth.");
+        add("fogged.configuration.compressor", "Air Compressors");
+        add("fogged.configuration.compressor.tooltip", "Air compressors and the sealed rooms they hold: how much room a compressor keeps, how fast it fills it, and what it runs on.");
+        cfg("compressorVolumePerFace", "Room Per Compressor Face",
+                "Blocks of room one compressor face holds at full power. A 2x2 holds four times this, a 3x3 nine. Bigger rooms count as leaking.");
+        cfg("compressorFillRate", "Fill Rate Per Face",
+                "Blocks per second one compressor face pressurizes, at full power. The air is breathable wherever it has reached.");
+        cfg("compressorEnergyPerTick", "FE Per Tick Per Face",
+                "FE one compressor face draws each tick at full power. 0 runs every compressor on nothing.");
+        cfg("compressorEnergyCapacity", "FE Storage Per Face",
+                "FE one compressor face can store.");
+        cfg("compressorFullSpeed", "Full-Power Shaft Speed",
+                "Create shaft RPM at which a compressor runs at full power; slower runs at that share.");
+        cfg("airtightGraceSeconds", "Air Carried Out Of A Room",
+                "Seconds a player keeps breathing a sealed room's air after leaving it. It fades out, so doorways and swinging doors don't flicker the air bar. 0 = none.");
         add("fogged.configuration.compat.tooltip", "What the murk does inside other mods: to the survival mods that measure a player, and to Sable's ships and contraptions -- whether it floats them, how heavily it carries them, and how it marks where they cut the surface. Each value is read only when its mod is installed.");
         cfg("sableBuoyancy", "Float Ships On The Murk",
                 "Ships and contraptions float on the murk as they would on water: every float block under "

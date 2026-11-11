@@ -523,6 +523,49 @@ public class Config {
 
     static { COMMON.pop(); }   // [suffocation]
 
+    // ==== common [compressor] : air compressors and the sealed rooms they hold ====
+    static {
+        COMMON.comment("Air compressors: set one into the wall of a sealed room, intake to the outside and",
+                "outlet in, and it pumps the murk out. The room fills from the outlet outward and is",
+                "breathable wherever the air has reached; a leak, or a room too big to hold, floods it.",
+                "A wall seals where a block's collision shape covers the whole face between two cells.");
+        COMMON.push("compressor");
+    }
+
+    public static final ModConfigSpec.IntValue COMPRESSOR_VOLUME = COMMON
+            .comment("Blocks of room one compressor face holds at full power. A 2x2 compressor holds four",
+                    "times this, a 3x3 nine times; at part power (a slow shaft) it holds that share of it.",
+                    "A room bigger than the compressor holds counts as leaking.")
+            .defineInRange("compressorVolumePerFace", 1000, 8, 1_000_000);
+
+    public static final ModConfigSpec.IntValue COMPRESSOR_FILL_RATE = COMMON
+            .comment("Blocks of room one compressor face pressurizes per second, scaled by power like the",
+                    "volume. The room is breathable wherever the air has reached so far.")
+            .defineInRange("compressorFillRate", 80, 1, 100_000);
+
+    public static final ModConfigSpec.IntValue COMPRESSOR_ENERGY_PER_TICK = COMMON
+            .comment("FE one compressor face draws per tick to run at full power. 0 runs it on nothing",
+                    "at all, so every compressor is always at full power.")
+            .defineInRange("compressorEnergyPerTick", 20, 0, 1_000_000);
+
+    public static final ModConfigSpec.IntValue COMPRESSOR_ENERGY_CAPACITY = COMMON
+            .comment("FE one compressor face can store.")
+            .defineInRange("compressorEnergyCapacity", 20_000, 1, 100_000_000);
+
+    public static final ModConfigSpec.IntValue COMPRESSOR_FULL_SPEED = COMMON
+            .comment("Create shaft speed (RPM) at which a compressor runs at full power; slower runs at",
+                    "that share of it. A shaft and FE together run at whichever gives more. Only matters",
+                    "with Create installed.")
+            .defineInRange("compressorFullSpeed", 128, 1, 256);
+
+    public static final ModConfigSpec.DoubleValue AIRTIGHT_GRACE = COMMON
+            .comment("Seconds a player keeps breathing a sealed room's air after leaving it -- out of the",
+                    "door, or the room flooding round them. It fades out exponentially, so a doorway or",
+                    "a door swinging does not flicker the air bar. 0 = the murk bites the moment they leave.")
+            .defineInRange("airtightGraceSeconds", 2.0, 0.0, 60.0);
+
+    static { COMMON.pop(); }   // [compressor]
+
     // ==== common [pillars] : karst towers standing out of the murk ====
     static {
         COMMON.comment("Stone karst towers -- the Ha Long Bay kind -- raised from bedrock up to around the",

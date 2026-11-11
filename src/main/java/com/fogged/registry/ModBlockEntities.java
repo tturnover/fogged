@@ -1,12 +1,15 @@
 package com.fogged.registry;
 
 import com.fogged.Fogged;
+import com.fogged.block.AirCompressorBlockEntity;
 import com.fogged.block.FogDetectorBlockEntity;
 import com.fogged.block.NozzleFilterBlockEntity;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -30,8 +33,20 @@ public final class ModBlockEntities {
                     .of(NozzleFilterBlockEntity::new, ModBlocks.NOZZLE_FILTER.get())
                     .build(null));
 
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AirCompressorBlockEntity>> AIR_COMPRESSOR =
+            BLOCK_ENTITIES.register("air_compressor", () -> BlockEntityType.Builder
+                    .of(AirCompressorBlockEntity::new, ModBlocks.AIR_COMPRESSOR.get())
+                    .build(null));
+
     public static void register(IEventBus modEventBus) {
         BLOCK_ENTITIES.register(modEventBus);
+        modEventBus.addListener(ModBlockEntities::registerCapabilities);
+    }
+
+    // Every member of a compressor unit takes FE into the one store its controller keeps.
+    private static void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, AIR_COMPRESSOR.get(),
+                (be, side) -> be.energyStorage());
     }
 
     private ModBlockEntities() {}
