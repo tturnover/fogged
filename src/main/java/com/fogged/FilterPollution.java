@@ -22,7 +22,8 @@ import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 /**
  * A used intake filter's pollution ({@link ModDataComponents#POLLUTION}) out of the intake: it stacks
  * with filters as dirty, and dropped onto a stack of the same filter at another step the two merge at
- * the average of the two, rounded up; it shows as a bar that fills in the slot, in the grime colour, and as a tooltip line.
+ * the average of the two, rounded up; set down as a block it keeps its pollution there, and breaks back
+ * out as dirty; it shows as a bar that fills in the slot, in the grime colour, and as a tooltip line.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class FilterPollution {
@@ -70,6 +71,72 @@ public final class FilterPollution {
         SlotAccess cursor = event.getCarriedSlotAccess();
         cursor.set(carried.copyWithCount(carried.getCount() - move));
         event.setCanceled(true);
+    }
+
+    // --- Set down as a block, a polluted filter keeps its pollution in the chunk (ModAttachments) -------
+
+    private static java.util.Map<Long, Integer> placed(net.minecraft.world.level.LevelAccessor level,
+            net.minecraft.core.BlockPos pos) {
+        return level.getChunk(pos) instanceof net.minecraft.world.level.chunk.LevelChunk chunk
+                ? chunk.getData(com.fogged.registry.ModAttachments.PLACED_POLLUTION) : null;
+    }
+
+    private static void changed(net.minecraft.world.level.LevelAccessor level, net.minecraft.core.BlockPos pos) {
+        if (level.getChunk(pos) instanceof net.minecraft.world.level.chunk.LevelChunk chunk) {
+            chunk.setUnsaved(true);
+        }
+    }
+
+    // Placed by a player (or a Deployer's): the hand still holds the stack as it was when the event fires,
+    // so its step is read off whichever hand holds this block's item. Anything else placed here clears
+    // whatever an earlier filter left.
+    @SubscribeEvent
+    static void onPlace(net.neoforged.neoforge.event.level.BlockEvent.EntityPlaceEvent event) {
+        if (event.getLevel().isClientSide()) {
+            return;
+        }
+        java.util.Map<Long, Integer> map = placed(event.getLevel(), event.getPos());
+        if (map == null) {
+            return;
+        }
+        int step = 0;
+        if (event.getEntity() instanceof net.minecraft.world.entity.LivingEntity living) {
+            net.minecraft.world.item.Item item = event.getPlacedBlock().getBlock().asItem();
+            for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
+                ItemStack held = living.getItemInHand(hand);
+                if (held.is(item) && step(held) > 0) {
+                    step = step(held);
+                    break;
+                }
+            }
+        }
+        long key = event.getPos().asLong();
+        if (step > 0) {
+            map.put(key, step);
+            changed(event.getLevel(), event.getPos());
+        } else if (map.remove(key) != null) {
+            changed(event.getLevel(), event.getPos());
+        }
+    }
+
+    // Broken: what it drops of itself comes back as polluted as it was set down.
+    @SubscribeEvent
+    static void onDrops(net.neoforged.neoforge.event.level.BlockDropsEvent event) {
+        java.util.Map<Long, Integer> map = placed(event.getLevel(), event.getPos());
+        Integer step = map == null ? null : map.remove(event.getPos().asLong());
+        if (step == null) {
+            return;
+        }
+        changed(event.getLevel(), event.getPos());
+        net.minecraft.world.item.Item item = event.getState().getBlock().asItem();
+        for (net.minecraft.world.entity.item.ItemEntity drop : event.getDrops()) {
+            ItemStack stack = drop.getItem();
+            if (stack.is(item)) {
+                ItemStack dirty = stack.copy();
+                dirty.set(ModDataComponents.POLLUTION.get(), step);
+                drop.setItem(dirty);
+            }
+        }
     }
 
     /** Client side: the tooltip line. */
