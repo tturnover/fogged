@@ -298,6 +298,7 @@
   "fogged.goggles.state.oversize": "Приміщення завелике",
   "fogged.goggles.state.pressurizing": "Нагнітання",
   "fogged.goggles.state.sealed": "Герметично",
+  "fogged.goggles.state.shared": "Спільне приміщення",
   "fogged.goggles.state.stopped": "Зупинено редстоуном",
   "fogged.goggles.state.unfiltered": "Забір тягне каламуть: потрібен фільтр",
   "fogged.goggles.status": "Стан:",

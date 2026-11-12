@@ -54,6 +54,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.state.unfiltered", "Intake draws murk: fit a filter");
         add("fogged.goggles.state.clogged", "Intake filters clogged: change them");
         add("fogged.goggles.state.stopped", "Stopped by redstone");
+        add("fogged.goggles.state.shared", "Sharing a room");
         // Create Display Link sources on a compressor or an intake (AirCompressorDisplaySources).
         add("fogged.display_source.air_compressor_status", "Compressor Status");
         add("fogged.display_source.air_room_fill", "Room Air");

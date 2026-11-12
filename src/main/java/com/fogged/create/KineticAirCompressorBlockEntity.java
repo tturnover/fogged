@@ -92,9 +92,10 @@ public class KineticAirCompressorBlockEntity extends KineticBlockEntity implemen
         }
         float perBlock = (float) (double) Config.KINETIC_STRESS_PER_BLOCK.get();
         boolean client = level != null && level.isClientSide;
-        boolean filling = client ? controller.shownPressurizing() : controller.pressurizing();
-        int volume = client ? controller.shownVolume() : controller.roomVolume();
-        int held = client ? controller.shownHeld() : controller.heldBlocks();
+        // Server side, its share of the room it holds or shares with other units (AirCompressorCore#loadHeld).
+        boolean filling = client ? controller.shownPressurizing() : controller.holder().pressurizing();
+        int volume = client ? controller.shownVolume() : controller.loadVolume();
+        int held = client ? controller.shownHeld() : controller.loadHeld();
         return filling ? perBlock * FILTER_FACTOR * volume : perBlock * held;
     }
 

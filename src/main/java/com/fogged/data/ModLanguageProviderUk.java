@@ -58,6 +58,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.state.unfiltered", "Забір тягне каламуть: потрібен фільтр");
         add("fogged.goggles.state.clogged", "Фільтри заборів забиті: замініть їх");
         add("fogged.goggles.state.stopped", "Зупинено редстоуном");
+        add("fogged.goggles.state.shared", "Спільне приміщення");
         add("fogged.display_source.air_compressor_status", "Стан компресора");
         add("fogged.display_source.air_room_fill", "Повітря в приміщенні");
         add("fogged.display_source.air_held", "Утримане повітря");

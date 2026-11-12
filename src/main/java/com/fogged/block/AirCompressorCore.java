@@ -70,7 +70,9 @@ public final class AirCompressorCore {
         /** Every intake that could feed it has a clogged filter: change them. */
         CLOGGED,
         /** A redstone signal has it stopped. */
-        STOPPED;
+        STOPPED,
+        /** Its outlets open into a room another unit holds: it works that room with it. */
+        SHARED;
 
         static State of(int ordinal) {
             return ordinal >= 0 && ordinal < values().length ? values()[ordinal] : OFF;
@@ -162,6 +164,22 @@ public final class AirCompressorCore {
     private double drainCarry;   // the part of a block owed from earlier ticks
     private boolean stopped;     // a redstone signal into the unit
     private int filterSignal;    // the comparator reading, see updateSignal
+
+    // --- Sharing a room: units whose outlets open into the same room work it as one (see elect). The
+    // one lowest in the world leads: it holds the room, with the group's capacity together, fills it out
+    // of every member's outlets as fast as they push and their intakes supply, and wears their filters.
+    // The rest follow: each keeps its own power, intakes and outlets current for it, and pays its share.
+    private BlockPos leaderPos;                       // the unit holding the room this one shares; null alone
+    private List<BlockPos> group = List.of();         // the leader's: the other units sharing its room
+    private double share = 1.0;                       // this unit's part of the room's holding cost
+    private int roomCapacity;                         // the leader's: the group's capacity together
+    private double groupPush;                         // the leader's: blocks/s the group pushes
+    private double groupFlow;                         // the leader's: blocks/s the group's intakes supply
+    private List<AirFill.Seed> ownSeeds = List.of();  // where this unit's own air comes out
+    private Set<BlockPos> outletDucts = Set.of();     // the ducts it goes out through
+    // Per level, the cell each unit's air comes out into -> that unit: a fill reaching one has found it.
+    private static final java.util.Map<Level, it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<BlockPos>> SEED_OWNERS =
+            new java.util.WeakHashMap<>();
 
     // --- Lifecycle ---
     private boolean fresh = true;  // placed, not loaded from disk: joins its neighbours once in the level
@@ -411,30 +429,56 @@ public final class AirCompressorCore {
         }
         updatePower(members);
         capacity = (int) (Config.COMPRESSOR_VOLUME.getAsInt() * area * power);
-        // Capacity drifts with power; it only matters once it crosses the room: a held room that no
-        // longer fits, or a room too big that might fit now.
-        boolean capacityCrossed = ((state == State.SEALED || state == State.PRESSURIZING) && capacity < roomVolume)
-                || (state == State.OVERSIZE && capacity > checkedCapacity);
-        // A room that is not holding is looked at every second, so shutting the hole (a door swung to)
-        // seals it quickly even where no block-change event says so -- as on a Sable ship, whose blocks
-        // can change without one; a ship's room is checked that often throughout, for the same reason.
-        int every = state == State.SEALED && !space.onShip() ? RECHECK_INTERVAL : FAST_RECHECK;
-        boolean recheck = space.takeDirty() || capacityCrossed
-                || level.getGameTime() % every == Math.floorMod(pos().asLong(), every);
-        if (retryIn > 0) {
-            recheck = --retryIn == 0;
-        }
-
-        if (intakes == null || recheck
+        boolean dirty = space.takeDirty();
+        if (intakes == null || dirty
                 || level.getGameTime() % FAST_RECHECK == Math.floorMod(pos().asLong(), FAST_RECHECK)) {
             findIntakes(level, members, facing);
         }
         State supply = supply(level);
         updateSignal(level, members);
-        if (stopped) {
-            starve(level, members, facing, area, State.STOPPED, recheck);
-        } else if (power < RUNNING) {
-            settle(State.OFF);
+
+        // Sharing a room another unit holds: keep this unit's part current for it, and no more.
+        if (leaderPos != null) {
+            AirCompressorCore lead = coreAt(level, leaderPos);
+            if (lead != null && lead != this && lead.isController() && lead.group.contains(pos())) {
+                followerTick(level, members, facing);
+                return;
+            }
+            leaderPos = null; // on its own again: look at the room straight away
+            share = 1.0;
+            setState(State.OFF);
+        }
+        List<AirCompressorCore> mates = mates(level);
+        gather(mates, area);
+
+        // Capacity drifts with power; it only matters once it crosses the room: a held room that no
+        // longer fits, or a room too big that might fit now.
+        boolean capacityCrossed = ((state == State.SEALED || state == State.PRESSURIZING) && roomCapacity < roomVolume)
+                || (state == State.OVERSIZE && roomCapacity > checkedCapacity);
+        // A room that is not holding is looked at every second, so shutting the hole (a door swung to)
+        // seals it quickly even where no block-change event says so -- as on a Sable ship, whose blocks
+        // can change without one; a ship's room is checked that often throughout, for the same reason.
+        int every = state == State.SEALED && !space.onShip() ? RECHECK_INTERVAL : FAST_RECHECK;
+        boolean recheck = dirty || capacityCrossed
+                || level.getGameTime() % every == Math.floorMod(pos().asLong(), every);
+        if (retryIn > 0) {
+            recheck = --retryIn == 0;
+        }
+
+        // The group runs while any of it does, and has air while any of its intakes give clean air.
+        boolean runs = contributes();
+        for (AirCompressorCore m : mates) {
+            runs |= m.contributes();
+            if (m.contributes() && m.supplyFlow > 0.0) {
+                supply = State.PRESSURIZING;
+            }
+        }
+        if (!runs) {
+            if (stopped) {
+                starve(level, members, facing, area, State.STOPPED, recheck);
+            } else {
+                settle(State.OFF);
+            }
         } else if (supply == null) {
             // An intake's mouth is in a chunk not loaded yet: wait for it rather than call it shut.
         } else if (supply != State.PRESSURIZING) {
@@ -446,15 +490,220 @@ public final class AirCompressorCore {
         }
 
         if (state == State.PRESSURIZING) {
-            pressurize(level, area);
+            pressurize(level, mates);
         }
         emit(level);
         // A draining room is still a sealed room: saved with the world, to go on draining after a load.
-        space.report(state.ordinal(), state == State.SEALED || draining, roomVolume, capacity, leakPath);
+        space.report(state.ordinal(), state == State.SEALED || draining, roomVolume, roomCapacity, leakPath);
         // Keep the goggles' readout current: the room and the drive change all the time.
         if (level.getGameTime() % READOUT_INTERVAL == Math.floorMod(pos().asLong(), READOUT_INTERVAL)) {
             host.syncToClient();
         }
+    }
+
+    // Whether this unit adds to its room: running, and not stopped by redstone.
+    private boolean contributes() {
+        return !stopped && power >= RUNNING;
+    }
+
+    // A unit sharing a room another holds: its outlets current for the leader's fill, its own air given
+    // over, and nothing else -- the leader reads its power, capacity and intakes.
+    private void followerTick(ServerLevel level, List<BlockPos> members, Direction facing) {
+        if (ownSeeds.isEmpty() || level.getGameTime() % FAST_RECHECK == Math.floorMod(pos().asLong(), FAST_RECHECK)) {
+            Set<BlockPos> ducts = new HashSet<>();
+            registerSeeds(level, computeSeeds(level, members, facing, ducts));
+            outletDucts = ducts;
+        }
+        space.cells().clear();
+        draining = false;
+        pending = new LongArrayList();
+        cursor = 0;
+        roomVolume = 0;
+        roomCapacity = capacity;
+        leakPath = new long[0];
+        setState(State.SHARED);
+        space.report(state.ordinal(), false, 0, capacity, leakPath);
+        if (level.getGameTime() % READOUT_INTERVAL == Math.floorMod(pos().asLong(), READOUT_INTERVAL)) {
+            host.syncToClient();
+        }
+    }
+
+    // The leader's live group: the units still following it. Any gone or gone their own way drop out.
+    private List<AirCompressorCore> mates(Level level) {
+        if (group.isEmpty()) {
+            return List.of();
+        }
+        List<AirCompressorCore> out = new ArrayList<>(group.size());
+        List<BlockPos> still = new ArrayList<>(group.size());
+        for (BlockPos p : group) {
+            AirCompressorCore m = coreAt(level, p);
+            if (m != null && m != this && m.isController() && pos().equals(m.leaderPos)) {
+                out.add(m);
+                still.add(p);
+            }
+        }
+        if (still.size() != group.size()) {
+            group = still;
+            if (space != null) {
+                space.markDirty(); // smaller now: look again
+            }
+        }
+        return out;
+    }
+
+    // The group's capacity, push and supply together, and each member's share of the holding.
+    private void gather(List<AirCompressorCore> mates, int area) {
+        roomCapacity = capacity;
+        groupPush = contributes() ? Config.COMPRESSOR_FILL_RATE.getAsInt() * area * power : 0.0;
+        groupFlow = contributes() ? supplyFlow : 0.0;
+        for (AirCompressorCore m : mates) {
+            roomCapacity += m.capacity;
+            if (m.contributes()) {
+                groupPush += Config.COMPRESSOR_FILL_RATE.getAsInt() * m.size * m.size * m.power;
+                groupFlow += m.supplyFlow;
+            }
+        }
+        share = roomCapacity > 0 ? capacity / (double) roomCapacity : 1.0;
+        for (AirCompressorCore m : mates) {
+            m.share = roomCapacity > 0 ? m.capacity / (double) roomCapacity : 0.0;
+        }
+    }
+
+    // Where this unit's air comes out: out of each outlet face -- or, where an air duct is set on it, out
+    // of the duct network's open ends instead (AirDuctBlock.ends), the ducts walked going to `ducts`.
+    private List<AirFill.Seed> computeSeeds(Level level, List<BlockPos> members, Direction facing, Set<BlockPos> ducts) {
+        List<AirFill.Seed> seeds = new ArrayList<>(members.size());
+        for (BlockPos m : members) {
+            BlockPos out = m.relative(facing);
+            List<AirFill.Seed> ends = AirDuctBlock.ends(level, out, facing, ducts);
+            if (ends.isEmpty() && !(level.getBlockState(out).getBlock() instanceof AirDuctBlock)) {
+                seeds.add(new AirFill.Seed(out, facing));
+            } else {
+                seeds.addAll(ends); // a duct with no open end (all capped) lets nothing out
+            }
+        }
+        return seeds;
+    }
+
+    // Record where this unit's air comes out, so a fill reaching there knows it is in the same room.
+    private void registerSeeds(Level level, List<AirFill.Seed> seeds) {
+        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<BlockPos> owners =
+                SEED_OWNERS.computeIfAbsent(level, l -> new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>());
+        for (AirFill.Seed seed : ownSeeds) {
+            owners.remove(seed.pos().asLong(), pos());
+        }
+        ownSeeds = seeds;
+        for (AirFill.Seed seed : seeds) {
+            owners.put(seed.pos().asLong(), pos().immutable());
+        }
+    }
+
+    private void unregisterSeeds(Level level) {
+        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<BlockPos> owners = SEED_OWNERS.get(level);
+        if (owners != null) {
+            for (AirFill.Seed seed : ownSeeds) {
+                owners.remove(seed.pos().asLong(), pos());
+            }
+        }
+        ownSeeds = List.of();
+    }
+
+    /**
+     * After a fill: the other units whose air comes out into what it reached share this room. The one
+     * lowest in the world leads it. True when that is another, which this unit now follows -- its air
+     * handed to the leader, so the room does not lose a breath on the way.
+     */
+    private boolean elect(ServerLevel level, AirFill result) {
+        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<BlockPos> owners = SEED_OWNERS.get(level);
+        Set<BlockPos> found = new java.util.LinkedHashSet<>();
+        if (owners != null) {
+            LongArrayList order = result.order();
+            for (int i = 0; i < order.size(); i++) {
+                BlockPos owner = owners.get(order.getLong(i));
+                if (owner != null && !owner.equals(pos())) {
+                    AirCompressorCore other = coreAt(level, owner);
+                    if (other != null && other.isController()) {
+                        found.add(owner);
+                    }
+                }
+            }
+        }
+        BlockPos lead = pos();
+        for (BlockPos o : found) {
+            if (o.compareTo(lead) < 0) {
+                lead = o;
+            }
+        }
+        if (!lead.equals(pos())) {
+            AirCompressorCore leader = coreAt(level, lead);
+            if (leader.space != null && space != null) {
+                leader.space.cells().addAll(space.cells());
+            }
+            if (!leader.group.contains(pos())) {
+                List<BlockPos> grown = new ArrayList<>(leader.group);
+                grown.add(pos().immutable());
+                leader.group = grown;
+            }
+            if (leader.space != null) {
+                leader.space.markDirty();
+            }
+            follow(lead);
+            return true;
+        }
+        boolean grew = false;
+        for (BlockPos o : found) {
+            AirCompressorCore other = coreAt(level, o);
+            if (!pos().equals(other.leaderPos)) {
+                if (other.space != null && space != null) {
+                    space.cells().addAll(other.space.cells());
+                }
+                other.follow(pos());
+                grew = true;
+            }
+        }
+        group = new ArrayList<>(found);
+        if (grew) {
+            space.markDirty(); // with their capacity and outlets, look again
+        }
+        return false;
+    }
+
+    // Follow the unit at `lead`: its room is held there now.
+    private void follow(BlockPos lead) {
+        leaderPos = lead.immutable();
+        group = List.of();
+        if (space != null) {
+            space.cells().clear();
+        }
+        draining = false;
+        roomOrder = new LongArrayList();
+        pending = new LongArrayList();
+        cursor = 0;
+        roomVolume = 0;
+        setState(State.SHARED);
+    }
+
+    /** The unit holding this unit's room: its leader when it shares one, itself otherwise. */
+    public AirCompressorCore holder() {
+        AirCompressorCore c = controller();
+        Level level = level();
+        if (c.leaderPos != null && level != null) {
+            AirCompressorCore lead = coreAt(level, c.leaderPos);
+            if (lead != null) {
+                return lead;
+            }
+        }
+        return c;
+    }
+
+    /** Blocks of room this unit pays to hold: its share of the room it holds or shares. */
+    public int loadHeld() {
+        return (int) Math.round(holder().heldBlocks() * controller().share);
+    }
+
+    /** Blocks of room this unit pays to fill: its share of the room's size. */
+    public int loadVolume() {
+        return (int) Math.round(holder().roomVolume() * controller().share);
     }
 
     // No clean air coming in (`why`: no intake, murk unfiltered, clogged filters, stopped by redstone):
@@ -594,7 +843,7 @@ public final class AirCompressorCore {
     }
 
     private void updatePower(List<BlockPos> members) {
-        int held = space == null ? 0 : space.cells().size();
+        int held = loadHeld();
         // Up at once, down slowly: a unit coming on holds its room straight away, and one starved for a
         // moment (a supply a little short of the draw, a shaft network still loading) rides it out.
         // Stopped by redstone, it asks nothing of its drive: no FE spent, no stress.
@@ -677,12 +926,16 @@ public final class AirCompressorCore {
 
     // Whether every clean intake draws from inside the room the outlet fills: the unit would breathe
     // its own air back in. One intake drawing from outside is enough.
-    private boolean intakesInside(LongArrayList room) {
-        if (liveMouths.isEmpty()) {
+    private boolean intakesInside(LongArrayList room, List<AirCompressorCore> mates) {
+        List<BlockPos> mouths = new ArrayList<>(liveMouths);
+        for (AirCompressorCore m : mates) {
+            mouths.addAll(m.liveMouths);
+        }
+        if (mouths.isEmpty()) {
             return false; // nothing drawing at all: that is the supply's to say, not this
         }
         LongOpenHashSet cells = new LongOpenHashSet(room);
-        for (BlockPos mouth : liveMouths) {
+        for (BlockPos mouth : mouths) {
             if (!cells.contains(mouth.asLong())) {
                 return false;
             }
@@ -691,27 +944,25 @@ public final class AirCompressorCore {
     }
 
     private void check(ServerLevel level, List<BlockPos> members, Direction facing) {
-        // Out of each outlet face -- or, where an air duct is set on it, out of the duct network's
-        // open ends instead (AirDuctBlock.ends).
-        List<AirFill.Seed> seeds = new ArrayList<>(members.size());
+        // Out of this unit's outlets and every member's of its group.
         Set<BlockPos> ducts = new HashSet<>();
-        for (BlockPos m : members) {
-            BlockPos out = m.relative(facing);
-            List<AirFill.Seed> ends = AirDuctBlock.ends(level, out, facing, ducts);
-            if (ends.isEmpty() && !(level.getBlockState(out).getBlock() instanceof AirDuctBlock)) {
-                seeds.add(new AirFill.Seed(out, facing));
-            } else {
-                seeds.addAll(ends); // a duct with no open end (all capped) lets nothing out
-            }
-        }
-        lastSeeds = seeds;
-        // The ducts are full of air too, outlet side and intake side alike: they count as room, first
-        // to fill, and leave the less for the room itself.
+        registerSeeds(level, computeSeeds(level, members, facing, ducts));
+        outletDucts = ducts;
+        List<AirCompressorCore> mates = mates(level);
+        List<AirFill.Seed> seeds = new ArrayList<>(ownSeeds);
+        // The ducts are full of air too, outlet side and intake side alike, the group's as well: they
+        // count as room, first to fill, and leave the less for the room itself.
         Set<BlockPos> allDucts = new java.util.LinkedHashSet<>(ducts);
         allDucts.addAll(intakeDucts);
+        for (AirCompressorCore m : mates) {
+            seeds.addAll(m.ownSeeds);
+            allDucts.addAll(m.outletDucts);
+            allDucts.addAll(m.intakeDucts);
+        }
+        lastSeeds = seeds;
         // A draining room is only looked at for a leak: whatever the power has wound down to, it is not
         // too big for what it already holds.
-        int limit = draining ? Math.max(capacity, roomVolume) : capacity;
+        int limit = draining ? Math.max(roomCapacity, roomVolume) : roomCapacity;
         AirFill result = AirFill.run(level, seeds, Math.max(1, limit - allDucts.size()));
         if (result.result() == AirFill.Result.UNLOADED) {
             // The room runs into a chunk still loading -- usually just after a world loads. Leave the
@@ -719,8 +970,12 @@ public final class AirCompressorCore {
             retryIn = 10;
             return;
         }
+        if (elect(level, result)) {
+            return; // another unit holds this room: this one follows it now
+        }
+        mates = mates(level);
         fill = result;
-        checkedCapacity = capacity;
+        checkedCapacity = roomCapacity;
         // Watch the intakes and what is in front of them as well, wherever the ducts run to.
         List<BlockPos> watched = new ArrayList<>(allDucts);
         watched.addAll(intakes.keySet());
@@ -728,7 +983,7 @@ public final class AirCompressorCore {
         space.watch(result, watched);
         switch (result.result()) {
             case SEALED -> {
-                if (intakesInside(result.order())) {
+                if (intakesInside(result.order(), mates)) {
                     flood(State.NO_INTAKE); // drawing the room's own air back in: nothing clean comes in
                     return;
                 }
@@ -778,9 +1033,9 @@ public final class AirCompressorCore {
 
     // Spread the air on through the next stretch of the room, as far as the fill rate and the drive's
     // filtering allow, a speck here and there along the flow.
-    private void pressurize(ServerLevel level, int area) {
-        // As fast as the unit pushes, or its intakes supply, whichever is less.
-        double perTick = Math.min(Config.COMPRESSOR_FILL_RATE.getAsInt() * area * power, supplyFlow) / 20.0;
+    private void pressurize(ServerLevel level, List<AirCompressorCore> mates) {
+        // As fast as the group pushes, or its intakes supply, whichever is less.
+        double perTick = Math.min(groupPush, groupFlow) / 20.0;
         int want = (int) perTick + (level.random.nextDouble() < perTick - (int) perTick ? 1 : 0);
         if (want <= 0) {
             return;
@@ -791,9 +1046,20 @@ public final class AirCompressorCore {
         }
         // The air drawn comes in through the intakes by their share of the flow; through a filter, it
         // wears it.
-        for (Live in : live) {
-            if (in.filtered() && supplyFlow > 0.0) {
-                AirCompressorIntakeBlock.wear(level, in.pos(), budget * in.flow() / supplyFlow);
+        List<AirCompressorCore> drawing = new ArrayList<>(mates.size() + 1);
+        if (contributes()) {
+            drawing.add(this);
+        }
+        for (AirCompressorCore m : mates) {
+            if (m.contributes()) {
+                drawing.add(m);
+            }
+        }
+        for (AirCompressorCore d : drawing) {
+            for (Live in : d.live) {
+                if (in.filtered() && groupFlow > 0.0) {
+                    AirCompressorIntakeBlock.wear(level, in.pos(), budget * in.flow() / groupFlow);
+                }
             }
         }
         LongOpenHashSet cells = space.cells();
@@ -875,6 +1141,12 @@ public final class AirCompressorCore {
         if (space != null && level() != null) {
             AirtightRooms.close(level(), pos());
         }
+        if (level() != null) {
+            unregisterSeeds(level());
+        }
+        leaderPos = null;
+        group = List.of();
+        share = 1.0;
         space = null;
         fill = null;
         state = State.OFF;
@@ -1001,7 +1273,7 @@ public final class AirCompressorCore {
         tag.putInt("State", state.ordinal());
         tag.putInt("Held", heldBlocks());
         tag.putInt("Volume", roomVolume);
-        tag.putInt("Capacity", capacity);
+        tag.putInt("Capacity", leaderPos == null ? roomCapacity : capacity);
         tag.putDouble("Flow", supplyFlow);
         tag.putInt("Need", Config.COMPRESSOR_FILL_RATE.getAsInt() * size * size);
     }

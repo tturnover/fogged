@@ -298,6 +298,7 @@
   "fogged.goggles.state.oversize": "Room too big to hold",
   "fogged.goggles.state.pressurizing": "Pressurizing",
   "fogged.goggles.state.sealed": "Sealed",
+  "fogged.goggles.state.shared": "Sharing a room",
   "fogged.goggles.state.stopped": "Stopped by redstone",
   "fogged.goggles.state.unfiltered": "Intake draws murk: fit a filter",
   "fogged.goggles.status": "Status:",

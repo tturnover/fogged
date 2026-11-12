@@ -82,8 +82,8 @@ public final class AirCompressorDisplaySources {
             if (c == null) {
                 return null;
             }
-            int volume = c.controller().roomVolume();
-            return volume <= 0 ? 0.0F : Math.min(1.0F, c.controller().heldBlocks() / (float) volume);
+            int volume = c.holder().roomVolume();
+            return volume <= 0 ? 0.0F : Math.min(1.0F, c.holder().heldBlocks() / (float) volume);
         }
     }
 
@@ -105,7 +105,7 @@ public final class AirCompressorDisplaySources {
         @Override
         protected Double value(DisplayLinkContext context) {
             AirCompressorCore c = core(context);
-            return c == null ? null : (double) c.controller().heldBlocks();
+            return c == null ? null : (double) c.holder().heldBlocks();
         }
     }
 
