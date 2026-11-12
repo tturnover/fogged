@@ -20,6 +20,9 @@ import net.minecraft.world.level.block.state.BlockState;
 public class AirCompressorIntakeBlockEntity extends BlockEntity {
 
     private ItemStack filter = ItemStack.EMPTY;
+    /** Blocks of air the fitted filter has cleaned so far. */
+    private double wear;
+    private int syncedPercent;
 
     public AirCompressorIntakeBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.AIR_COMPRESSOR_INTAKE.get(), pos, state);
@@ -39,15 +42,35 @@ public class AirCompressorIntakeBlockEntity extends BlockEntity {
 
     void setFilter(ItemStack stack) {
         filter = stack;
+        wear = 0.0;
         changed();
     }
 
-    /** Take the filter out: returns it, leaving none. */
+    /** Take the filter out: returns it, leaving none. A worn filter comes out as it is, and a new one starts fresh. */
     public ItemStack takeFilter() {
         ItemStack out = filter;
         filter = ItemStack.EMPTY;
+        wear = 0.0;
         changed();
         return out;
+    }
+
+    /** Wear the filter by {@code blocks} of air cleaned, out of {@code life}; true once it is spent. */
+    boolean wear(double blocks, int life) {
+        wear += blocks;
+        setChanged();
+        int percent = (int) Math.min(100, wear * 100 / life);
+        if (percent != syncedPercent) {
+            syncedPercent = percent;
+            changed(); // the goggles read it
+        }
+        return wear >= life;
+    }
+
+    /** How much of the filter is used up, 0..1. Either side. */
+    public double worn() {
+        int life = com.fogged.Config.FILTER_LIFE.getAsInt();
+        return life <= 0 ? 0.0 : Math.min(1.0, wear / life);
     }
 
     private void changed() {
@@ -63,12 +86,14 @@ public class AirCompressorIntakeBlockEntity extends BlockEntity {
         if (!filter.isEmpty()) {
             tag.put("Filter", filter.save(registries));
         }
+        tag.putDouble("Wear", wear);
     }
 
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         filter = tag.contains("Filter") ? ItemStack.parseOptional(registries, tag.getCompound("Filter")) : ItemStack.EMPTY;
+        wear = tag.getDouble("Wear");
     }
 
     @Override

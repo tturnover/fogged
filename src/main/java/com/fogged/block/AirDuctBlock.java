@@ -283,11 +283,13 @@ public class AirDuctBlock extends Block {
 
     /**
      * The intakes feeding the duct network that starts at {@code start}, entered from a compressor's
-     * back going {@code from}. Every duct cell walked is added to {@code walked}.
+     * back going {@code from}, each with the ducts the air crosses from it to the compressor (the
+     * fewest, by the shortest way). Every duct cell walked is added to {@code walked}.
      */
-    public static List<BlockPos> intakes(Level level, BlockPos start, Direction from, Set<BlockPos> walked) {
-        List<BlockPos> out = new ArrayList<>();
-        List<BlockPos> network = network(level, start, from);
+    public static Map<BlockPos, Integer> intakes(Level level, BlockPos start, Direction from, Set<BlockPos> walked) {
+        Map<BlockPos, Integer> out = new java.util.LinkedHashMap<>();
+        Map<BlockPos, Integer> depth = new HashMap<>();
+        List<BlockPos> network = network(level, start, from, depth);
         for (BlockPos at : network) {
             BlockState here = level.getBlockState(at);
             for (Direction d : Direction.values()) {
@@ -298,7 +300,7 @@ public class AirDuctBlock extends Block {
                 BlockState there = level.getBlockState(next);
                 if (there.getBlock() instanceof AirCompressorIntakeBlock
                         && there.getValue(AirCompressorIntakeBlock.FACING) == d.getOpposite()) {
-                    out.add(next.immutable());
+                    out.merge(next.immutable(), depth.get(at), Math::min);
                 }
             }
         }
@@ -306,9 +308,14 @@ public class AirDuctBlock extends Block {
         return out;
     }
 
-    // Every duct cell joined to `start`, which a compressor face going `from` enters; empty when
-    // `start` is no duct open that way.
     private static List<BlockPos> network(Level level, BlockPos start, Direction from) {
+        return network(level, start, from, new HashMap<>());
+    }
+
+    // Every duct cell joined to `start`, which a compressor face going `from` enters, nearest first;
+    // empty when `start` is no duct open that way. `depth` gets each cell's count of ducts from the
+    // compressor, `start` being 1.
+    private static List<BlockPos> network(Level level, BlockPos start, Direction from, Map<BlockPos, Integer> depth) {
         List<BlockPos> queue = new ArrayList<>();
         BlockState first = level.getBlockState(start);
         if (!(first.getBlock() instanceof AirDuctBlock) || !isOpen(first, from.getOpposite())) {
@@ -317,6 +324,7 @@ public class AirDuctBlock extends Block {
         Set<BlockPos> seen = new HashSet<>();
         queue.add(start.immutable());
         seen.add(start.immutable());
+        depth.put(start.immutable(), 1);
         for (int i = 0; i < queue.size(); i++) {
             BlockPos at = queue.get(i);
             BlockState here = level.getBlockState(at);
@@ -329,6 +337,7 @@ public class AirDuctBlock extends Block {
                         && level.getBlockState(next).getBlock() instanceof AirDuctBlock) {
                     seen.add(next.immutable());
                     queue.add(next.immutable());
+                    depth.put(next.immutable(), depth.get(at) + 1);
                 }
             }
         }

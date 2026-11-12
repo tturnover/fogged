@@ -546,6 +546,24 @@ public class Config {
                     "volume. The room is breathable wherever the air has reached so far.")
             .defineInRange("compressorFillRate", 80, 1, 100_000);
 
+    public static final ModConfigSpec.IntValue INTAKE_FLOW = COMMON
+            .comment("Blocks of air one air intake supplies per second. A compressor fills only as fast as",
+                    "its intakes supply: at the default a face's worth each, so a 2x2 wants four intakes and",
+                    "a 3x3 nine to fill at full speed. Less for ducts between (intakeDuctLossPercent) and,",
+                    "through a filter, for depth under the murk (depthScalingPercent).")
+            .defineInRange("intakeFlow", 80, 1, 100_000);
+
+    public static final ModConfigSpec.DoubleValue INTAKE_DUCT_LOSS = COMMON
+            .comment("Percent of an intake's flow lost for every air duct between it and its compressor.",
+                    "Compounds: 20 ducts at 2 percent leave two thirds of it.")
+            .defineInRange("intakeDuctLossPercent", 2.0, 0.0, 100.0);
+
+    public static final ModConfigSpec.IntValue FILTER_LIFE = COMMON
+            .comment("Blocks of air an intake's filter cleans of the murk before it is spent and gone. The",
+                    "air a compressor draws is shared among its intakes by their flow; an intake drawing",
+                    "clean air out of the murk wears no filter. 0 = filters never wear out.")
+            .defineInRange("intakeFilterLife", 2000, 0, 10_000_000);
+
     public static final ModConfigSpec.DoubleValue COMPRESSOR_HOLD_FE = COMMON
             .comment("FE an FE compressor spends per tick for every block of room it holds. A room of",
                     "1000 blocks at 0.5 costs 500 FE a tick. One that cannot be paid in full holds that share",

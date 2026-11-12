@@ -133,6 +133,49 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         return state.getValue(FILTERED) ? Supply.FILTERED : Supply.MURK;
     }
 
+    /**
+     * Blocks of air per second the intake at {@code pos} supplies its compressor through {@code ducts}
+     * ducts, drawing {@code supply}: {@link Config#INTAKE_FLOW}, less {@link Config#INTAKE_DUCT_LOSS}
+     * a duct, and through a filter less again for depth under the murk, as a nozzle filter's sphere
+     * shrinks ({@link Config#depthRadiusFactor}). None for air it cannot use.
+     */
+    public static double flow(Level level, BlockPos pos, BlockState state, Supply supply, int ducts) {
+        if (!supply.clean()) {
+            return 0.0;
+        }
+        double flow = Config.INTAKE_FLOW.getAsInt()
+                * Math.pow(Math.max(0.0, 1.0 - Config.INTAKE_DUCT_LOSS.get() / 100.0), ducts);
+        if (supply == Supply.FILTERED) {
+            flow *= Config.depthRadiusFactor(level, PlaneSensor.worldY(level, mouth(pos, state)));
+        }
+        return flow;
+    }
+
+    /**
+     * Wear the filter of the intake at {@code pos} by {@code blocks} blocks of air cleaned. Spent
+     * ({@link Config#FILTER_LIFE}), it falls apart and is gone, and the intake draws murk again.
+     */
+    public static void wear(Level level, BlockPos pos, double blocks) {
+        int life = Config.FILTER_LIFE.getAsInt();
+        BlockState state = level.getBlockState(pos);
+        if (life <= 0 || !(state.getBlock() instanceof AirCompressorIntakeBlock) || !state.getValue(FILTERED)
+                || !(level.getBlockEntity(pos) instanceof AirCompressorIntakeBlockEntity be)) {
+            return;
+        }
+        if (!be.wear(blocks, life)) {
+            return;
+        }
+        ItemStack spent = be.takeFilter();
+        level.setBlock(pos, state.setValue(FILTERED, false), 3);
+        level.playSound(null, pos, SoundEvents.WOOL_BREAK, SoundSource.BLOCKS, 1.0F, 0.8F);
+        if (level instanceof net.minecraft.server.level.ServerLevel server && !spent.isEmpty()) {
+            net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atCenterOf(mouth(pos, state))
+                    .add(net.minecraft.world.phys.Vec3.atCenterOf(pos)).scale(0.5);
+            server.sendParticles(new net.minecraft.core.particles.ItemParticleOption(
+                    net.minecraft.core.particles.ParticleTypes.ITEM, spent), at.x, at.y, at.z, 12, 0.2, 0.2, 0.2, 0.05);
+        }
+    }
+
     // --- The filter ---------------------------------------------------------------------------------
 
     @Override

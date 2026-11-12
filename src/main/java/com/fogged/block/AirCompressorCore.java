@@ -143,9 +143,13 @@ public final class AirCompressorCore {
     private List<AirFill.Seed> lastSeeds = List.of(); // where the air last came in: outlets, duct ends
     // The intakes feeding the unit, and the ducts between them and its back; looked up again on a
     // re-check and every FAST_RECHECK ticks.
-    private List<BlockPos> intakes;
+    private java.util.Map<BlockPos, Integer> intakes; // each with the ducts between it and the unit
     private Set<BlockPos> intakeDucts = Set.of();
     private final List<BlockPos> liveMouths = new ArrayList<>(); // mouths of the intakes giving clean air
+    // The intakes giving clean air, with what each supplies (blocks/s) and whether through a filter.
+    private record Live(BlockPos pos, double flow, boolean filtered) {}
+    private final List<Live> live = new ArrayList<>();
+    private double supplyFlow; // blocks/s, all the live intakes together
 
     // --- Lifecycle ---
     private boolean fresh = true;  // placed, not loaded from disk: joins its neighbours once in the level
@@ -159,6 +163,8 @@ public final class AirCompressorCore {
     private int shownHeld;
     private int shownVolume;
     private int shownCapacity;
+    private double shownFlow;
+    private int shownNeed;
     /** Ticks between keeping the client's readout current. */
     private static final int READOUT_INTERVAL = 10;
 
@@ -462,19 +468,20 @@ public final class AirCompressorCore {
     // The intakes feeding the unit: one set right behind a member, feeding it, or one feeding a duct
     // network that runs from a member's back.
     private void findIntakes(Level level, List<BlockPos> members, Direction facing) {
-        Set<BlockPos> found = new java.util.LinkedHashSet<>();
+        java.util.Map<BlockPos, Integer> found = new java.util.LinkedHashMap<>();
         Set<BlockPos> ducts = new HashSet<>();
         for (BlockPos m : members) {
             BlockPos back = m.relative(facing.getOpposite());
             BlockState there = level.getBlockState(back);
             if (there.getBlock() instanceof AirCompressorIntakeBlock
                     && there.getValue(AirCompressorIntakeBlock.FACING) == facing) {
-                found.add(back.immutable());
+                found.merge(back.immutable(), 0, Math::min);
             } else {
-                found.addAll(AirDuctBlock.intakes(level, back, facing.getOpposite(), ducts));
+                AirDuctBlock.intakes(level, back, facing.getOpposite(), ducts)
+                        .forEach((in, n) -> found.merge(in, n, Math::min));
             }
         }
-        intakes = new ArrayList<>(found);
+        intakes = found;
         intakeDucts = ducts;
     }
 
@@ -484,17 +491,26 @@ public final class AirCompressorCore {
     // loaded yet and nothing else is drawing.
     private State supply(Level level) {
         liveMouths.clear();
+        live.clear();
+        supplyFlow = 0.0;
         boolean unknown = false;
         boolean murk = false;
         boolean gone = false;
-        for (BlockPos in : intakes) {
+        for (java.util.Map.Entry<BlockPos, Integer> entry : intakes.entrySet()) {
+            BlockPos in = entry.getKey();
             BlockState s = level.getBlockState(in);
             if (!(s.getBlock() instanceof AirCompressorIntakeBlock)) {
                 gone = true;
                 continue;
             }
-            switch (AirCompressorIntakeBlock.supply(level, in, s)) {
-                case CLEAN, FILTERED -> liveMouths.add(AirCompressorIntakeBlock.mouth(in, s));
+            AirCompressorIntakeBlock.Supply supply = AirCompressorIntakeBlock.supply(level, in, s);
+            switch (supply) {
+                case CLEAN, FILTERED -> {
+                    liveMouths.add(AirCompressorIntakeBlock.mouth(in, s));
+                    double flow = AirCompressorIntakeBlock.flow(level, in, s, supply, entry.getValue());
+                    live.add(new Live(in, flow, supply == AirCompressorIntakeBlock.Supply.FILTERED));
+                    supplyFlow += flow;
+                }
                 case MURK -> murk = true;
                 case UNKNOWN -> unknown = true;
                 case BLOCKED -> {
@@ -503,8 +519,8 @@ public final class AirCompressorCore {
         }
         if (gone) {
             // Broken or replaced: drop it now; the next look (a re-check, or soon) finds any new one.
-            intakes = new ArrayList<>(intakes);
-            intakes.removeIf(in -> !(level.getBlockState(in).getBlock() instanceof AirCompressorIntakeBlock));
+            intakes = new java.util.LinkedHashMap<>(intakes);
+            intakes.keySet().removeIf(in -> !(level.getBlockState(in).getBlock() instanceof AirCompressorIntakeBlock));
         }
         if (!liveMouths.isEmpty()) {
             return State.PRESSURIZING;
@@ -557,7 +573,7 @@ public final class AirCompressorCore {
         checkedCapacity = capacity;
         // Watch the intakes and what is in front of them as well, wherever the ducts run to.
         List<BlockPos> watched = new ArrayList<>(allDucts);
-        watched.addAll(intakes);
+        watched.addAll(intakes.keySet());
         watched.addAll(liveMouths);
         space.watch(result, watched);
         switch (result.result()) {
@@ -611,11 +627,22 @@ public final class AirCompressorCore {
     // Spread the air on through the next stretch of the room, as far as the fill rate and the drive's
     // filtering allow, a speck here and there along the flow.
     private void pressurize(ServerLevel level, int area) {
-        double perTick = Config.COMPRESSOR_FILL_RATE.getAsInt() * area * power / 20.0;
-        int want = Math.max(1, (int) perTick + (level.random.nextDouble() < perTick - (int) perTick ? 1 : 0));
+        // As fast as the unit pushes, or its intakes supply, whichever is less.
+        double perTick = Math.min(Config.COMPRESSOR_FILL_RATE.getAsInt() * area * power, supplyFlow) / 20.0;
+        int want = (int) perTick + (level.random.nextDouble() < perTick - (int) perTick ? 1 : 0);
+        if (want <= 0) {
+            return;
+        }
         int budget = unitDrive(members()).filter(Math.min(want, pending.size() - cursor));
         if (budget <= 0) {
             return;
+        }
+        // The air drawn comes in through the intakes by their share of the flow; through a filter, it
+        // wears it.
+        for (Live in : live) {
+            if (in.filtered() && supplyFlow > 0.0) {
+                AirCompressorIntakeBlock.wear(level, in.pos(), budget * in.flow() / supplyFlow);
+            }
         }
         LongOpenHashSet cells = space.cells();
         int end = Math.min(pending.size(), cursor + budget);
@@ -795,6 +822,8 @@ public final class AirCompressorCore {
         tag.putInt("Held", heldBlocks());
         tag.putInt("Volume", roomVolume);
         tag.putInt("Capacity", capacity);
+        tag.putDouble("Flow", supplyFlow);
+        tag.putInt("Need", Config.COMPRESSOR_FILL_RATE.getAsInt() * size * size);
     }
 
     /** Read what {@link #writeClient} wrote. */
@@ -805,6 +834,8 @@ public final class AirCompressorCore {
         shownHeld = tag.getInt("Held");
         shownVolume = tag.getInt("Volume");
         shownCapacity = tag.getInt("Capacity");
+        shownFlow = tag.getDouble("Flow");
+        shownNeed = tag.getInt("Need");
     }
 
     /**
@@ -836,6 +867,13 @@ public final class AirCompressorCore {
                 .withStyle(net.minecraft.ChatFormatting.GRAY)));
         tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.blocks",
                 amount(c.shownCapacity)).withStyle(net.minecraft.ChatFormatting.AQUA)));
+        // What the intakes supply against what the unit can push: short, it fills only that fast.
+        tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.air_in")
+                .withStyle(net.minecraft.ChatFormatting.GRAY)));
+        tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.per_second",
+                amount(c.shownFlow), amount(c.shownNeed))
+                .withStyle(c.shownFlow + 0.5 >= c.shownNeed ? net.minecraft.ChatFormatting.AQUA
+                        : net.minecraft.ChatFormatting.GOLD)));
         // What the unit is spending, from whatever drives it -- the same from every block of it.
         for (net.minecraft.network.chat.Component spend : c.unitDrive(c.members()).readout()) {
             tooltip.add(line(spend));
