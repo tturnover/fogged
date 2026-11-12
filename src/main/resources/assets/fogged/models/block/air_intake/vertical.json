@@ -1,0 +1,369 @@
+{
+  "parent": "minecraft:block/block",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "intake_back": "fogged:block/air_intake/intake_back",
+    "intake_base": "fogged:block/air_intake/intake_base",
+    "intake_open": "fogged:block/air_intake/intake_open",
+    "intake_sides": "fogged:block/air_intake/intake_sides",
+    "intake_vertical_frame": "fogged:block/air_intake/intake_vertical_frame",
+    "particle": "fogged:block/air_intake/air_casing"
+  },
+  "elements": [
+    {
+      "from": [
+        0.95,
+        5,
+        2
+      ],
+      "to": [
+        1.95,
+        10,
+        14
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            12,
+            0,
+            14.5,
+            6
+          ],
+          "texture": "#intake_base",
+          "rotation": 90
+        }
+      },
+      "rotation": {
+        "angle": 22.5,
+        "axis": "z",
+        "origin": [
+          1.95,
+          10,
+          8
+        ]
+      }
+    },
+    {
+      "from": [
+        14.05,
+        5,
+        2
+      ],
+      "to": [
+        15.05,
+        10,
+        14
+      ],
+      "faces": {
+        "west": {
+          "uv": [
+            12,
+            0,
+            14.5,
+            6
+          ],
+          "texture": "#intake_base",
+          "rotation": 90
+        }
+      },
+      "rotation": {
+        "angle": -22.5,
+        "axis": "z",
+        "origin": [
+          14.05,
+          10,
+          8
+        ]
+      }
+    },
+    {
+      "from": [
+        2,
+        5,
+        14.05
+      ],
+      "to": [
+        14,
+        10,
+        15.05
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            12,
+            0,
+            14.5,
+            6
+          ],
+          "texture": "#intake_base",
+          "rotation": 90
+        }
+      },
+      "rotation": {
+        "angle": 22.5,
+        "axis": "x",
+        "origin": [
+          8,
+          10,
+          14.05
+        ]
+      }
+    },
+    {
+      "from": [
+        2,
+        5,
+        0.95
+      ],
+      "to": [
+        14,
+        10,
+        1.95
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            12,
+            0,
+            14.5,
+            6
+          ],
+          "texture": "#intake_base",
+          "rotation": 90
+        }
+      },
+      "rotation": {
+        "angle": -22.5,
+        "axis": "x",
+        "origin": [
+          8,
+          10,
+          1.95
+        ]
+      }
+    },
+    {
+      "from": [
+        3,
+        5,
+        3
+      ],
+      "to": [
+        13,
+        6.3,
+        13
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            3,
+            3,
+            13,
+            13
+          ],
+          "texture": "#intake_open"
+        }
+      }
+    },
+    {
+      "from": [
+        1.925,
+        -1.95,
+        1.925
+      ],
+      "to": [
+        14.075,
+        2,
+        14.075
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            9,
+            9,
+            11,
+            15
+          ],
+          "texture": "#intake_base",
+          "rotation": 270
+        },
+        "east": {
+          "uv": [
+            9,
+            9,
+            11,
+            15
+          ],
+          "texture": "#intake_base",
+          "rotation": 270
+        },
+        "south": {
+          "uv": [
+            9,
+            9,
+            11,
+            15
+          ],
+          "texture": "#intake_base",
+          "rotation": 270
+        },
+        "west": {
+          "uv": [
+            9,
+            9,
+            11,
+            15
+          ],
+          "texture": "#intake_base",
+          "rotation": 270
+        },
+        "down": {
+          "uv": [
+            6,
+            0,
+            12,
+            6
+          ],
+          "texture": "#intake_base",
+          "rotation": 180
+        }
+      }
+    },
+    {
+      "from": [
+        1,
+        1,
+        1
+      ],
+      "to": [
+        15,
+        4,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0.5,
+            3.5,
+            6.5,
+            5
+          ],
+          "texture": "#intake_back",
+          "rotation": 180
+        },
+        "east": {
+          "uv": [
+            0.5,
+            3.5,
+            6.5,
+            5
+          ],
+          "texture": "#intake_back",
+          "rotation": 180
+        },
+        "south": {
+          "uv": [
+            0.5,
+            3.5,
+            6.5,
+            5
+          ],
+          "texture": "#intake_back",
+          "rotation": 180
+        },
+        "west": {
+          "uv": [
+            0.5,
+            3.5,
+            6.5,
+            5
+          ],
+          "texture": "#intake_back",
+          "rotation": 180
+        },
+        "down": {
+          "uv": [
+            1,
+            1,
+            15,
+            15
+          ],
+          "texture": "#intake_vertical_frame",
+          "rotation": 270
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        4,
+        0
+      ],
+      "to": [
+        16,
+        10,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            11,
+            8,
+            14,
+            16
+          ],
+          "texture": "#intake_sides",
+          "rotation": 90
+        },
+        "east": {
+          "uv": [
+            11,
+            8,
+            14,
+            16
+          ],
+          "texture": "#intake_sides",
+          "rotation": 90
+        },
+        "south": {
+          "uv": [
+            11,
+            8,
+            14,
+            16
+          ],
+          "texture": "#intake_sides",
+          "rotation": 90
+        },
+        "west": {
+          "uv": [
+            11,
+            8,
+            14,
+            16
+          ],
+          "texture": "#intake_sides",
+          "rotation": 90
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#intake_vertical_frame"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#intake_vertical_frame"
+        }
+      }
+    }
+  ]
+}

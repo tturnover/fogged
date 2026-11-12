@@ -57,7 +57,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
         airCompressor();
         itemModels().withExistingParent("air_compressor", modLoc("block/air_compressor_item"));
         airIntake();
-        itemModels().withExistingParent("air_compressor_intake", modLoc("block/air_compressor_intake"));
+        itemModels().withExistingParent("air_compressor_intake", modLoc("block/air_intake/vertical"));
 
         // Air duct: a hand-made multipart (assets/fogged/blockstates/air_duct.json) -- a core, a collar
         // per joined side, a vent on a dead end -- which a generated blockstate cannot express. Item only.
@@ -99,19 +99,25 @@ public class ModBlockStateProvider extends BlockStateProvider {
         facingLikeCompressor(ModBlocks.AIR_COMPRESSOR.get(), "air_compressor");
     }
 
-    // The intake, turned like the compressor; a fitted filter plugs its mouth with wool.
+    // The intake (models hand-made from the Blockbench sources, under resources): fed sideways it is a
+    // hood on the wall, authored feeding south; fed up or down it is a frame, authored feeding down. A
+    // fitted filter adds its net, a model of its own turned the same way.
     private void airIntake() {
-        ModelFile open = models().getExistingFile(modLoc("block/air_compressor_intake"));
-        ModelFile filtered = models()
-                .withExistingParent("air_compressor_intake_filtered", modLoc("block/air_compressor_intake"))
-                .texture("intake", mcLoc("block/white_wool"));
-        getVariantBuilder(ModBlocks.AIR_COMPRESSOR_INTAKE.get()).forAllStates(state -> {
-            Direction facing = state.getValue(AirCompressorIntakeBlock.FACING);
-            int x = facing == Direction.UP ? 270 : facing == Direction.DOWN ? 90 : 0;
-            int y = facing.getAxis().isHorizontal() ? ((int) facing.toYRot() + 180) % 360 : 0;
-            return ConfiguredModel.builder().modelFile(state.getValue(AirCompressorIntakeBlock.FILTERED) ? filtered : open)
-                    .rotationX(x).rotationY(y).build();
-        });
+        ModelFile hood = models().getExistingFile(modLoc("block/air_intake/horizontal"));
+        ModelFile hoodNet = models().getExistingFile(modLoc("block/air_intake/horizontal_net"));
+        ModelFile frame = models().getExistingFile(modLoc("block/air_intake/vertical"));
+        ModelFile frameNet = models().getExistingFile(modLoc("block/air_intake/vertical_net"));
+        var builder = getMultipartBuilder(ModBlocks.AIR_COMPRESSOR_INTAKE.get());
+        for (Direction feeds : Direction.values()) {
+            boolean vertical = feeds.getAxis() == Direction.Axis.Y;
+            int x = feeds == Direction.UP ? 180 : 0;
+            int y = vertical ? 0 : ((int) feeds.toYRot()) % 360; // south 0, west 90, north 180, east 270
+            builder.part().modelFile(vertical ? frame : hood).rotationX(x).rotationY(y).addModel()
+                    .condition(AirCompressorIntakeBlock.FACING, feeds).end();
+            builder.part().modelFile(vertical ? frameNet : hoodNet).rotationX(x).rotationY(y).addModel()
+                    .condition(AirCompressorIntakeBlock.FACING, feeds)
+                    .condition(AirCompressorIntakeBlock.FILTERED, true).end();
+        }
     }
 
     // block/<name>, authored facing north, turned onto the block's FACING the way the compressor is.

@@ -1,50 +1,114 @@
 {
-  "variants": {
-    "facing=down,filtered=false": {
-      "model": "fogged:block/air_compressor_intake",
-      "x": 90
+  "multipart": [
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/vertical"
+      },
+      "when": {
+        "facing": "down"
+      }
     },
-    "facing=down,filtered=true": {
-      "model": "fogged:block/air_compressor_intake_filtered",
-      "x": 90
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/vertical_net"
+      },
+      "when": {
+        "facing": "down",
+        "filtered": "true"
+      }
     },
-    "facing=east,filtered=false": {
-      "model": "fogged:block/air_compressor_intake",
-      "y": 90
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/vertical",
+        "x": 180
+      },
+      "when": {
+        "facing": "up"
+      }
     },
-    "facing=east,filtered=true": {
-      "model": "fogged:block/air_compressor_intake_filtered",
-      "y": 90
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/vertical_net",
+        "x": 180
+      },
+      "when": {
+        "facing": "up",
+        "filtered": "true"
+      }
     },
-    "facing=north,filtered=false": {
-      "model": "fogged:block/air_compressor_intake"
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/horizontal",
+        "y": 180
+      },
+      "when": {
+        "facing": "north"
+      }
     },
-    "facing=north,filtered=true": {
-      "model": "fogged:block/air_compressor_intake_filtered"
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/horizontal_net",
+        "y": 180
+      },
+      "when": {
+        "facing": "north",
+        "filtered": "true"
+      }
     },
-    "facing=south,filtered=false": {
-      "model": "fogged:block/air_compressor_intake",
-      "y": 180
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/horizontal"
+      },
+      "when": {
+        "facing": "south"
+      }
     },
-    "facing=south,filtered=true": {
-      "model": "fogged:block/air_compressor_intake_filtered",
-      "y": 180
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/horizontal_net"
+      },
+      "when": {
+        "facing": "south",
+        "filtered": "true"
+      }
     },
-    "facing=up,filtered=false": {
-      "model": "fogged:block/air_compressor_intake",
-      "x": 270
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/horizontal",
+        "y": 90
+      },
+      "when": {
+        "facing": "west"
+      }
     },
-    "facing=up,filtered=true": {
-      "model": "fogged:block/air_compressor_intake_filtered",
-      "x": 270
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/horizontal_net",
+        "y": 90
+      },
+      "when": {
+        "facing": "west",
+        "filtered": "true"
+      }
     },
-    "facing=west,filtered=false": {
-      "model": "fogged:block/air_compressor_intake",
-      "y": 270
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/horizontal",
+        "y": 270
+      },
+      "when": {
+        "facing": "east"
+      }
     },
-    "facing=west,filtered=true": {
-      "model": "fogged:block/air_compressor_intake_filtered",
-      "y": 270
+    {
+      "apply": {
+        "model": "fogged:block/air_intake/horizontal_net",
+        "y": 270
+      },
+      "when": {
+        "facing": "east",
+        "filtered": "true"
+      }
     }
-  }
+  ]
 }

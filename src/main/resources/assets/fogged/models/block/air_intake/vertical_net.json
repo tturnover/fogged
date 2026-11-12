@@ -1,0 +1,32 @@
+{
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "net": "fogged:block/air_intake/net",
+    "particle": "fogged:block/air_intake/net"
+  },
+  "elements": [
+    {
+      "from": [
+        2.1,
+        8,
+        2.1
+      ],
+      "to": [
+        13.9,
+        9.3,
+        13.9
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            2.1,
+            2.1,
+            13.9,
+            13.9
+          ],
+          "texture": "#net"
+        }
+      }
+    }
+  ]
+}

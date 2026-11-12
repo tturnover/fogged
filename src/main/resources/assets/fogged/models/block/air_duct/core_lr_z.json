@@ -1,0 +1,40 @@
+{
+  "textures": {
+    "connected": "fogged:block/air_duct/pipes_connected",
+    "particle": "fogged:block/air_duct/pipes"
+  },
+  "elements": [
+    {
+      "from": [
+        1,
+        1,
+        1
+      ],
+      "to": [
+        15,
+        15,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            8,
+            7.5,
+            11.5
+          ],
+          "texture": "#connected"
+        },
+        "south": {
+          "uv": [
+            7.5,
+            8,
+            4,
+            11.5
+          ],
+          "texture": "#connected"
+        }
+      }
+    }
+  ]
+}

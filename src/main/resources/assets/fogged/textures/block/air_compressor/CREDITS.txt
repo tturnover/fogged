@@ -2,5 +2,7 @@ The fan faces (fan*.png) and the casing side (side.png) are taken from Factory B
 ConvexBurrito5 and slainlight (https://github.com/matthewperiut/factory_blocks), published on
 Modrinth under CC0-1.0. The red outlet lamp is added on top for this mod.
 
-The air duct's textures (duct_*.png) are drawn for this mod in the palette of Create's industrial iron
-block; side_shaft.png and side_recess.png are drawn over the casing side.
+side_shaft.png and side_recess.png are drawn over the casing side.
+
+The air duct (textures/block/air_duct) and air intake (textures/block/air_intake) textures and models
+are drawn for this mod; the duct's follow the layout of Create's fluid pipe textures.

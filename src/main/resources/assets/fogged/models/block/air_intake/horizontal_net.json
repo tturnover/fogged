@@ -1,0 +1,41 @@
+{
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "net": "fogged:block/air_intake/net",
+    "particle": "fogged:block/air_intake/net"
+  },
+  "elements": [
+    {
+      "from": [
+        1.9,
+        0,
+        13
+      ],
+      "to": [
+        14.1,
+        14.4,
+        13
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0.9,
+            14,
+            12.1,
+            1.4
+          ],
+          "texture": "#net"
+        }
+      },
+      "rotation": {
+        "angle": -22.5,
+        "axis": "x",
+        "origin": [
+          8,
+          0,
+          13
+        ]
+      }
+    }
+  ]
+}

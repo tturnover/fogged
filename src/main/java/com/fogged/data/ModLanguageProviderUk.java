@@ -77,8 +77,8 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.blocks", " %s блоків");
         add("fogged.goggles.energy_usage", "Споживання енергії:");
         add("fogged.goggles.too_slow", "Вал надто повільний: потрібна середня швидкість");
-        add("fogged.tooltip.air_duct.desc1", "Прокладений від _виходу компресора_, несе повітря до своїх _глухих кінців_; від його _спини_ підводить повітря із _забору_.");
-        add("fogged.tooltip.air_duct.desc2", "Сам з'єднується з _сусідами_, як _труба для рідин_; розгалужуйте як завгодно.");
+        add("fogged.tooltip.air_duct.desc1", "Прокладений від _виходу компресора_, несе повітря до своїх _відкритих кінців_; від його _спини_ підводить повітря із _забору_.");
+        add("fogged.tooltip.air_duct.desc2", "Сам з'єднується з _сусідами_ й тягнеться прямо, точнісінько як _труба для рідин_.");
 
         // Категорія JEI для перетворень блоків каламуттю (див. FoggedJeiPlugin).
         add("fogged.jei.murk_transform", "Перетворення каламуттю");

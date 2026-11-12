@@ -69,14 +69,15 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         }
     }
 
-    // The half of its cell on the FACING side, where it meets what it feeds. Authored facing NORTH.
+    // What it takes up of its cell, against what it feeds: the hood reaches 10 pixels out from the wall,
+    // the frame stands 10 pixels tall. A whole wall across the cell, so it seals like the half-block did.
     private static final Map<Direction, VoxelShape> SHAPES = new EnumMap<>(Map.of(
-            Direction.NORTH, Block.box(0, 0, 0, 16, 16, 8),
-            Direction.SOUTH, Block.box(0, 0, 8, 16, 16, 16),
-            Direction.EAST, Block.box(8, 0, 0, 16, 16, 16),
-            Direction.WEST, Block.box(0, 0, 0, 8, 16, 16),
-            Direction.UP, Block.box(0, 8, 0, 16, 16, 16),
-            Direction.DOWN, Block.box(0, 0, 0, 16, 8, 16)));
+            Direction.NORTH, Block.box(0, 0, 0, 16, 16, 10),
+            Direction.SOUTH, Block.box(0, 0, 6, 16, 16, 16),
+            Direction.EAST, Block.box(6, 0, 0, 16, 16, 16),
+            Direction.WEST, Block.box(0, 0, 0, 10, 16, 16),
+            Direction.UP, Block.box(0, 6, 0, 16, 16, 16),
+            Direction.DOWN, Block.box(0, 0, 0, 16, 10, 16)));
 
     public AirCompressorIntakeBlock(Properties properties) {
         super(properties);

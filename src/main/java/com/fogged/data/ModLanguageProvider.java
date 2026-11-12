@@ -74,8 +74,8 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.blocks", " %s blocks");
         add("fogged.goggles.energy_usage", "Energy Usage:");
         add("fogged.goggles.too_slow", "Shaft too slow: needs medium speed");
-        add("fogged.tooltip.air_duct.desc1", "Laid from a _compressor's outlet_, it carries the air to its _dead ends_; from its _back_, it brings air from an _intake_.");
-        add("fogged.tooltip.air_duct.desc2", "Joins its _neighbours_ on its own, like a _fluid pipe_; branch it as you like.");
+        add("fogged.tooltip.air_duct.desc1", "Laid from a _compressor's outlet_, it carries the air out of its _open ends_; from its _back_, it brings air from an _intake_.");
+        add("fogged.tooltip.air_duct.desc2", "Joins its _neighbours_ on its own and runs on straight, just like a _fluid pipe_.");
 
         // Custom death messages (keyed by each damage type's message_id).
         // JEI category for the murk's block conversions (see FoggedJeiPlugin); only shown when JEI is in.
