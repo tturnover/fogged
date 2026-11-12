@@ -1,7 +1,5 @@
 package com.fogged.block;
 
-import java.util.EnumMap;
-import java.util.Map;
 
 import com.fogged.AirFill;
 import com.fogged.Config;
@@ -73,16 +71,6 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         }
     }
 
-    // What it takes up of its cell, against what it feeds: the hood reaches 10 pixels out from the wall,
-    // the frame stands 10 pixels tall. A whole wall across the cell, so it seals like the half-block did.
-    private static final Map<Direction, VoxelShape> SHAPES = new EnumMap<>(Map.of(
-            Direction.NORTH, Block.box(0, 0, 0, 16, 16, 10),
-            Direction.SOUTH, Block.box(0, 0, 6, 16, 16, 16),
-            Direction.EAST, Block.box(6, 0, 0, 16, 16, 16),
-            Direction.WEST, Block.box(0, 0, 0, 10, 16, 16),
-            Direction.UP, Block.box(0, 6, 0, 16, 16, 16),
-            Direction.DOWN, Block.box(0, 0, 0, 16, 10, 16)));
-
     public AirCompressorIntakeBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(FILTERED, false)
@@ -118,9 +106,11 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
+    // Stepped boxes following the model, hollow where the hood is, as a hopper's shape is; a pixel plate
+    // across the side it feeds keeps the cell sealed to air (see AirIntakeShapes).
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return SHAPES.get(state.getValue(FACING));
+        return AirIntakeShapes.SHAPES.get(state.getValue(FACING));
     }
 
     /** The cell the intake draws its air from, beyond its open end. */
