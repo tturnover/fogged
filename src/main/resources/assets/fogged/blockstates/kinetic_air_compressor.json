@@ -1,0 +1,231 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "facing": "north"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_base"
+      }
+    },
+    {
+      "when": {
+        "facing": "south"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_base",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "east"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_base",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_base",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "up"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_base",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "down"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_base",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west|east|down|up",
+        "axis": "z",
+        "negative": "true"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_socket_north"
+      }
+    },
+    {
+      "when": {
+        "facing": "west|east|down|up",
+        "axis": "z",
+        "negative": "false"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_north"
+      }
+    },
+    {
+      "when": {
+        "facing": "west|east|down|up",
+        "axis": "x|y"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_north"
+      }
+    },
+    {
+      "when": {
+        "facing": "west|east|down|up",
+        "axis": "z",
+        "positive": "true"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_socket_south"
+      }
+    },
+    {
+      "when": {
+        "facing": "west|east|down|up",
+        "axis": "z",
+        "positive": "false"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_south"
+      }
+    },
+    {
+      "when": {
+        "facing": "west|east|down|up",
+        "axis": "x|y"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_south"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|down|up",
+        "axis": "x",
+        "negative": "true"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_socket_west"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|down|up",
+        "axis": "x",
+        "negative": "false"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_west"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|down|up",
+        "axis": "y|z"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_west"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|down|up",
+        "axis": "x",
+        "positive": "true"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_socket_east"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|down|up",
+        "axis": "x",
+        "positive": "false"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_east"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|down|up",
+        "axis": "y|z"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_east"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|west|east",
+        "axis": "y",
+        "negative": "true"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_socket_down"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|west|east",
+        "axis": "y",
+        "negative": "false"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_down"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|west|east",
+        "axis": "x|z"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_down"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|west|east",
+        "axis": "y",
+        "positive": "true"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_socket_up"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|west|east",
+        "axis": "y",
+        "positive": "false"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_up"
+      }
+    },
+    {
+      "when": {
+        "facing": "north|south|west|east",
+        "axis": "x|z"
+      },
+      "apply": {
+        "model": "fogged:block/kinetic_air_compressor_side_up"
+      }
+    }
+  ]
+}

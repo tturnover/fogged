@@ -533,30 +533,33 @@ public class Config {
     }
 
     public static final ModConfigSpec.IntValue COMPRESSOR_VOLUME = COMMON
-            .comment("Blocks of room one compressor face holds at full power. A 2x2 compressor holds four",
-                    "times this, a 3x3 nine times; at part power (a slow shaft) it holds that share of it.",
-                    "A room bigger than the compressor holds counts as leaking.")
-            .defineInRange("compressorVolumePerFace", 1000, 8, 1_000_000);
+            .comment("Blocks of room one compressor face holds at full power: a 1x1 holds this, a 2x2 four",
+                    "times it, a 3x3 nine times (900 at the default). A room bigger than the compressor",
+                    "holds counts as leaking.")
+            .defineInRange("compressorVolumePerFace", 100, 8, 1_000_000);
 
     public static final ModConfigSpec.IntValue COMPRESSOR_FILL_RATE = COMMON
             .comment("Blocks of room one compressor face pressurizes per second, scaled by power like the",
                     "volume. The room is breathable wherever the air has reached so far.")
             .defineInRange("compressorFillRate", 80, 1, 100_000);
 
-    public static final ModConfigSpec.IntValue COMPRESSOR_ENERGY_PER_TICK = COMMON
-            .comment("FE one compressor face draws per tick to run at full power. 0 runs it on nothing",
-                    "at all, so every compressor is always at full power.")
-            .defineInRange("compressorEnergyPerTick", 20, 0, 1_000_000);
+    public static final ModConfigSpec.DoubleValue COMPRESSOR_HOLD_FE = COMMON
+            .comment("FE an FE compressor spends per tick for every block of room it holds. A room of",
+                    "1000 blocks at 0.5 costs 500 FE a tick. One that cannot be paid in full holds that share",
+                    "of its room, and lets the room go when it is too big for what is left.")
+            .defineInRange("compressorHoldFePerBlock", 0.5, 0.0, 1000.0);
 
-    public static final ModConfigSpec.IntValue COMPRESSOR_ENERGY_CAPACITY = COMMON
-            .comment("FE one compressor face can store.")
-            .defineInRange("compressorEnergyCapacity", 20_000, 1, 100_000_000);
+    public static final ModConfigSpec.DoubleValue COMPRESSOR_FILTER_FE = COMMON
+            .comment("FE an FE compressor spends, once, for every block of room it pumps the murk out of.",
+                    "Filling stops while it cannot pay, and carries on when it can.")
+            .defineInRange("compressorFilterFePerBlock", 2.0, 0.0, 100000.0);
 
-    public static final ModConfigSpec.IntValue COMPRESSOR_FULL_SPEED = COMMON
-            .comment("Create shaft speed (RPM) at which a compressor runs at full power; slower runs at",
-                    "that share of it. A shaft and FE together run at whichever gives more. Only matters",
-                    "with Create installed.")
-            .defineInRange("compressorFullSpeed", 128, 1, 256);
+    public static final ModConfigSpec.DoubleValue KINETIC_STRESS_PER_BLOCK = COMMON
+            .comment("Stress (SU) a kinetic air compressor puts on its network for every block of room it",
+                    "holds -- the same at any speed: a 1000-block room at 0.5 costs 500 SU. Filling a room",
+                    "costs four times holding it, so the load drops once the room is full. It runs at",
+                    "Create's medium speed or faster, and not at all below. Only with Create installed.")
+            .defineInRange("kineticStressPerBlock", 0.5, 0.0, 1000.0);
 
     public static final ModConfigSpec.DoubleValue AIRTIGHT_GRACE = COMMON
             .comment("Seconds a player keeps breathing a sealed room's air after leaving it -- out of the",

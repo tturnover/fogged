@@ -4,6 +4,11 @@
     "fogged:fog_detector",
     "fogged:fog_detector_extension",
     "fogged:air_compressor",
-    "fogged:air_duct"
+    "fogged:air_compressor_intake",
+    "fogged:air_duct",
+    {
+      "id": "fogged:kinetic_air_compressor",
+      "required": false
+    }
   ]
 }

@@ -7,7 +7,7 @@ import org.joml.Matrix4d;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
-import com.fogged.block.AirCompressorBlockEntity;
+import com.fogged.block.AirCompressorCore;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -126,8 +126,8 @@ public final class AirtightDebugRenderer {
     }
 
     private static int colour(int state) {
-        AirCompressorBlockEntity.State s = AirCompressorBlockEntity.State.values()[
-                Math.max(0, Math.min(state, AirCompressorBlockEntity.State.values().length - 1))];
+        AirCompressorCore.State s = AirCompressorCore.State.values()[
+                Math.max(0, Math.min(state, AirCompressorCore.State.values().length - 1))];
         return switch (s) {
             case SEALED -> 0x3040E060;       // green
             case PRESSURIZING -> 0x40E8D040; // yellow

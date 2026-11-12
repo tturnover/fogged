@@ -28,6 +28,15 @@ sourceSets.main.resources {
 
 repositories {
     // Add here additional repositories if required by some of the dependencies below.
+    // Create and the libraries its API names (Ponder, Flywheel), for the kinetic air compressor.
+    maven {
+        url = "https://maven.createmod.net"
+        content {
+            includeGroup "com.simibubi.create"
+            includeGroup "net.createmod.ponder"
+            includeGroup "dev.engine-room.flywheel"
+        }
+    }
 }
 
 base {
@@ -147,6 +156,14 @@ dependencies {
     // Cold Sweat, compile-time only. Optional at runtime: every Cold Sweat type is confined to
     // ColdSweatCompatibility and MurkTempModifier, neither of which is touched unless the mod is loaded.
     compileOnly files("libs/ColdSweat-2.4.2.jar")
+
+    // Create, compile-time only. Optional at runtime: its kinetic air compressor is registered only
+    // when Create is loaded (CreateBlocks), and only classes under com.fogged.create name Create's.
+    // Not transitive: Create's POM lists the mods it has compat for as runtime dependencies.
+    compileOnly("com.simibubi.create:create-1.21.1:6.0.10-281:slim") { transitive = false }
+    compileOnly("net.createmod.ponder:ponder-neoforge:1.0.82+mc1.21.1") { transitive = false }
+    compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-1.21.1:1.0.6-44") { transitive = false }
+    compileOnly("dev.engine-room.flywheel:flywheel-neoforge-1.21.1:1.0.6-44") { transitive = false }
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

@@ -56,6 +56,12 @@ public class Fogged {
             ColdSweatCompatibility.register(NeoForge.EVENT_BUS);
         }
 
+        // Create: the kinetic air compressor, whose classes (com.fogged.create) name Create's own, so
+        // they are only touched when it is installed.
+        if (ModList.get().isLoaded("create")) {
+            com.fogged.create.CreateContent.register(modEventBus);
+        }
+
         // Same isolation for Sable: only SableBuoyancy and SableCompatibility name its classes, and
         // neither is touched unless it is installed.
         if (ModList.get().isLoaded("sable")) {

@@ -37,6 +37,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
             ModBlocks.FOG_DETECTOR_EXTENSION,
             ModBlocks.NOZZLE_FILTER,
             ModBlocks.AIR_COMPRESSOR,
+            ModBlocks.AIR_COMPRESSOR_INTAKE,
             ModBlocks.AIR_DUCT);
 
     @Override
@@ -54,11 +55,11 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // item shows the casing with its fan in, which in the world the block entity renderer spins.
         airCompressor();
         itemModels().withExistingParent("air_compressor", modLoc("block/air_compressor_item"));
+        facingLikeCompressor(ModBlocks.AIR_COMPRESSOR_INTAKE.get(), "air_compressor_intake");
 
-        // Air duct: a log-style column, vent at the ends, ribbed steel down the sides.
-        axisBlock(ModBlocks.AIR_DUCT.get(), modLoc("block/air_compressor/duct_side"),
-                modLoc("block/air_compressor/duct_end"));
-        itemModels().withExistingParent("air_duct", modLoc("block/air_duct"));
+        // Air duct: a hand-made multipart (assets/fogged/blockstates/air_duct.json) -- a core, a collar
+        // per joined side, a vent on a dead end -- which a generated blockstate cannot express. Item only.
+        itemModels().withExistingParent("air_duct", modLoc("block/air_duct_item"));
 
         // Everything else: auto cube_all, blockstate + block model + item model.
         ModBlocks.BLOCKS.getEntries().forEach(holder -> {
@@ -93,8 +94,13 @@ public class ModBlockStateProvider extends BlockStateProvider {
     }
 
     private void airCompressor() {
-        ModelFile model = models().getExistingFile(modLoc("block/air_compressor"));
-        getVariantBuilder(ModBlocks.AIR_COMPRESSOR.get()).forAllStates(state -> {
+        facingLikeCompressor(ModBlocks.AIR_COMPRESSOR.get(), "air_compressor");
+    }
+
+    // block/<name>, authored facing north, turned onto the block's FACING the way the compressor is.
+    private void facingLikeCompressor(Block block, String name) {
+        ModelFile model = models().getExistingFile(modLoc("block/" + name));
+        getVariantBuilder(block).forAllStates(state -> {
             Direction facing = state.getValue(AirCompressorBlock.FACING);
             int x = facing == Direction.UP ? 270 : facing == Direction.DOWN ? 90 : 0;
             int y = facing.getAxis().isHorizontal() ? ((int) facing.toYRot() + 180) % 360 : 0;

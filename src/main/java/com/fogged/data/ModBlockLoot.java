@@ -37,6 +37,8 @@ public class ModBlockLoot extends BlockLootSubProvider {
             Block block = holder.get();
             if (block == ModBlocks.FOG_DETECTOR_EXTENSION.get()) {
                 add(block, createSingleItemTable(ModBlocks.FOG_DETECTOR.get()));
+            } else if (block == ModBlocks.AIR_COMPRESSOR_INTAKE.get()) {
+                add(block, noDrop()); // the compressor drops; its intake is part of it
             } else if (block == ModBlocks.NOZZLE_FILTER.get()) {
                 // Breaking a filter returns the wool that made it (the nozzle itself is gone). The wool's
                 // colour is stored in the block's COLOR state, so one pool per colour drops the match.

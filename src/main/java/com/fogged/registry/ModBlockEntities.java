@@ -2,6 +2,7 @@ package com.fogged.registry;
 
 import com.fogged.Fogged;
 import com.fogged.block.AirCompressorBlockEntity;
+import com.fogged.block.AirCompressorIntakeBlockEntity;
 import com.fogged.block.FogDetectorBlockEntity;
 import com.fogged.block.NozzleFilterBlockEntity;
 
@@ -35,7 +36,12 @@ public final class ModBlockEntities {
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AirCompressorBlockEntity>> AIR_COMPRESSOR =
             BLOCK_ENTITIES.register("air_compressor", () -> BlockEntityType.Builder
-                    .of(AirCompressorBlockEntity::new, ModBlocks.AIR_COMPRESSOR.get())
+                    .of(AirCompressorBlockEntity::create, ModBlocks.AIR_COMPRESSOR.get())
+                    .build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AirCompressorIntakeBlockEntity>> AIR_COMPRESSOR_INTAKE =
+            BLOCK_ENTITIES.register("air_compressor_intake", () -> BlockEntityType.Builder
+                    .of(AirCompressorIntakeBlockEntity::create, ModBlocks.AIR_COMPRESSOR_INTAKE.get())
                     .build(null));
 
     public static void register(IEventBus modEventBus) {
@@ -46,7 +52,7 @@ public final class ModBlockEntities {
     // Every member of a compressor unit takes FE into the one store its controller keeps.
     private static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, AIR_COMPRESSOR.get(),
-                (be, side) -> be.energyStorage());
+                (be, side) -> be.energyStorage(side));
     }
 
     private ModBlockEntities() {}

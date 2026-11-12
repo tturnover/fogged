@@ -48,6 +48,9 @@ public class FoggedClient {
     // Rigged entities: one line each, naming the model under assets/fogged/geo/entity/.
     private static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.AIR_COMPRESSOR.get(), AirCompressorRenderer::new);
+        if (ModList.get().isLoaded("create")) {
+            com.fogged.create.CreateClient.registerRenderers(event);
+        }
         event.registerEntityRenderer(ModEntities.PLODDER.get(),
                 ctx -> new RiggedRenderer<>(ctx, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "plodder")));
         event.registerEntityRenderer(ModEntities.TRUDGER.get(),

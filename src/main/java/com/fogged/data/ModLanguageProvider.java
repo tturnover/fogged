@@ -41,9 +41,27 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.tooltip.fog_detector.desc2", "Right-click with _another_ to stack it taller.");
 
         add("fogged.tooltip.air_compressor.desc1", "Set into a _sealed room's wall_, intake out and outlet in, it pumps the _murk_ out.");
-        add("fogged.tooltip.air_compressor.desc2", "Runs on _FE_ or a _turning shaft_. Join them _2x2_ or _3x3_ to hold bigger rooms.");
-        add("fogged.tooltip.air_duct.desc1", "Set on a _compressor's outlet_ and the air comes out of its _open ends_.");
-        add("fogged.tooltip.air_duct.desc2", "Placed like a _log_; ducts that _point at each other_ connect, and branch.");
+        add("fogged.tooltip.air_compressor.desc2", "Runs on _FE_ into its _sides_; with Create, a _Wrench_ on a side fits a _shaft socket_. Join _2x2_ or _3x3_.");
+        // The kinetic compressor is only registered with Create, so it is outside ModBlocks: named here.
+        add("block.fogged.kinetic_air_compressor", "Kinetic Air Compressor");
+        // Create goggles on an air compressor (AirCompressorCore#goggleLines).
+        add("fogged.goggles.compressor", "Air Compressor %sx%s:");
+        add("fogged.goggles.state.off", "No power");
+        add("fogged.goggles.state.no_intake", "Intake shut");
+        add("fogged.goggles.state.blocked", "Outlet walled off");
+        add("fogged.goggles.state.oversize", "Room too big to hold");
+        add("fogged.goggles.state.leak", "Leaking");
+        add("fogged.goggles.state.pressurizing", "Pressurizing");
+        add("fogged.goggles.state.sealed", "Sealed");
+        add("fogged.goggles.status", "Status:");
+        add("fogged.goggles.room", "Room:");
+        add("fogged.goggles.capacity", "Capacity:");
+        add("fogged.goggles.blocks_of", " %s / %s blocks");
+        add("fogged.goggles.blocks", " %s blocks");
+        add("fogged.goggles.energy_usage", "Energy Usage:");
+        add("fogged.goggles.too_slow", "Shaft too slow: needs medium speed");
+        add("fogged.tooltip.air_duct.desc1", "Laid from a _compressor's outlet_, it carries the air to its _dead ends_.");
+        add("fogged.tooltip.air_duct.desc2", "Joins its _neighbours_ on its own, like a _fluid pipe_; branch it as you like.");
 
         // Custom death messages (keyed by each damage type's message_id).
         // JEI category for the murk's block conversions (see FoggedJeiPlugin); only shown when JEI is in.
@@ -142,12 +160,12 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Blocks of room one compressor face holds at full power. A 2x2 holds four times this, a 3x3 nine. Bigger rooms count as leaking.");
         cfg("compressorFillRate", "Fill Rate Per Face",
                 "Blocks per second one compressor face pressurizes, at full power. The air is breathable wherever it has reached.");
-        cfg("compressorEnergyPerTick", "FE Per Tick Per Face",
-                "FE one compressor face draws each tick at full power. 0 runs every compressor on nothing.");
-        cfg("compressorEnergyCapacity", "FE Storage Per Face",
-                "FE one compressor face can store.");
-        cfg("compressorFullSpeed", "Full-Power Shaft Speed",
-                "Create shaft RPM at which a compressor runs at full power; slower runs at that share.");
+        cfg("compressorHoldFePerBlock", "FE To Hold, Per Block",
+                "FE an FE compressor spends per tick for each block of room it holds. Short of it, it holds that share.");
+        cfg("compressorFilterFePerBlock", "FE To Filter, Per Block",
+                "FE an FE compressor spends once for each block of room it pumps the murk out of.");
+        cfg("kineticStressPerBlock", "Stress Per Block",
+                "Stress (SU) a kinetic air compressor puts on its network per block of room it holds, at any speed. Filling costs four times as much.");
         cfg("airtightGraceSeconds", "Air Carried Out Of A Room",
                 "Seconds a player keeps breathing a sealed room's air after leaving it. It fades out, so doorways and swinging doors don't flicker the air bar. 0 = none.");
         add("fogged.configuration.compat.tooltip", "What the murk does inside other mods: to the survival mods that measure a player, and to Sable's ships and contraptions -- whether it floats them, how heavily it carries them, and how it marks where they cut the surface. Each value is read only when its mod is installed.");

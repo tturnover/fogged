@@ -1,0 +1,135 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "fogged:block/air_duct_core"
+      }
+    },
+    {
+      "when": {
+        "north": "true"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_arm_north"
+      }
+    },
+    {
+      "when": {
+        "south": "true"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_arm_south"
+      }
+    },
+    {
+      "when": {
+        "west": "true"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_arm_west"
+      }
+    },
+    {
+      "when": {
+        "east": "true"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_arm_east"
+      }
+    },
+    {
+      "when": {
+        "down": "true"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_arm_down"
+      }
+    },
+    {
+      "when": {
+        "up": "true"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_arm_up"
+      }
+    },
+    {
+      "when": {
+        "north": "false",
+        "south": "true",
+        "west": "false",
+        "east": "false",
+        "down": "false",
+        "up": "false"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_vent_north"
+      }
+    },
+    {
+      "when": {
+        "north": "true",
+        "south": "false",
+        "west": "false",
+        "east": "false",
+        "down": "false",
+        "up": "false"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_vent_south"
+      }
+    },
+    {
+      "when": {
+        "north": "false",
+        "south": "false",
+        "west": "false",
+        "east": "true",
+        "down": "false",
+        "up": "false"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_vent_west"
+      }
+    },
+    {
+      "when": {
+        "north": "false",
+        "south": "false",
+        "west": "true",
+        "east": "false",
+        "down": "false",
+        "up": "false"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_vent_east"
+      }
+    },
+    {
+      "when": {
+        "north": "false",
+        "south": "false",
+        "west": "false",
+        "east": "false",
+        "down": "false",
+        "up": "true"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_vent_down"
+      }
+    },
+    {
+      "when": {
+        "north": "false",
+        "south": "false",
+        "west": "false",
+        "east": "false",
+        "down": "true",
+        "up": "false"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct_vent_up"
+      }
+    }
+  ]
+}

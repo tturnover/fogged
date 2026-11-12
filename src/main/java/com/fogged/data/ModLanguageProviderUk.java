@@ -26,6 +26,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
             "nozzle_filter", "Фільтр туману",
             "air_compressor", "Повітряний компресор",
             "air_duct", "Повітропровід",
+            "air_compressor_intake", "Забір повітряного компресора",
             "plodder", "Тупцюн",
             "snap_dog", "Клацопес",
             "trudger", "Важкоступ");
@@ -45,9 +46,27 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.tooltip.fog_detector.desc2", "ПКМ _іншим таким же_, щоб зробити колону вищою.");
 
         add("fogged.tooltip.air_compressor.desc1", "Вбудуйте в _стіну герметичного приміщення_, забором назовні й виходом усередину, і він викачає _каламуть_.");
-        add("fogged.tooltip.air_compressor.desc2", "Працює від _FE_ або _вала, що обертається_. Поєднайте _2x2_ чи _3x3_ для більших приміщень.");
-        add("fogged.tooltip.air_duct.desc1", "Покладіть на _вихід компресора_, і повітря вийде з _відкритих кінців_.");
-        add("fogged.tooltip.air_duct.desc2", "Кладеться як _колода_; труби, що _дивляться одна на одну_, з'єднуються й розгалужуються.");
+        add("fogged.tooltip.air_compressor.desc2", "Працює від _FE_ у його _боки_; з Create _ключ_ на боці ставить _гніздо для вала_. Поєднайте _2x2_ чи _3x3_.");
+        // The kinetic compressor is only registered with Create, so it is outside ModBlocks: named here.
+        add("block.fogged.kinetic_air_compressor", "Кінетичний повітряний компресор");
+        // Create goggles on an air compressor (AirCompressorCore#goggleLines).
+        add("fogged.goggles.compressor", "Повітряний компресор %sx%s:");
+        add("fogged.goggles.state.off", "Немає живлення");
+        add("fogged.goggles.state.no_intake", "Забір перекрито");
+        add("fogged.goggles.state.blocked", "Вихід замуровано");
+        add("fogged.goggles.state.oversize", "Приміщення завелике");
+        add("fogged.goggles.state.leak", "Витік");
+        add("fogged.goggles.state.pressurizing", "Нагнітання");
+        add("fogged.goggles.state.sealed", "Герметично");
+        add("fogged.goggles.status", "Стан:");
+        add("fogged.goggles.room", "Приміщення:");
+        add("fogged.goggles.capacity", "Місткість:");
+        add("fogged.goggles.blocks_of", " %s / %s блоків");
+        add("fogged.goggles.blocks", " %s блоків");
+        add("fogged.goggles.energy_usage", "Споживання енергії:");
+        add("fogged.goggles.too_slow", "Вал надто повільний: потрібна середня швидкість");
+        add("fogged.tooltip.air_duct.desc1", "Прокладений від _виходу компресора_, несе повітря до своїх _глухих кінців_.");
+        add("fogged.tooltip.air_duct.desc2", "Сам з'єднується з _сусідами_, як _труба для рідин_; розгалужуйте як завгодно.");
 
         // Категорія JEI для перетворень блоків каламуттю (див. FoggedJeiPlugin).
         add("fogged.jei.murk_transform", "Перетворення каламуттю");
@@ -145,12 +164,12 @@ public class ModLanguageProviderUk extends LanguageProvider {
                 "Скільки блоків приміщення тримає одна грань компресора на повній потужності. 2x2 тримає вчетверо більше, 3x3 — вдев'ятеро. Більші приміщення вважаються дірявими.");
         cfg("compressorFillRate", "Швидкість наповнення на грань",
                 "Скільки блоків за секунду нагнітає одна грань компресора на повній потужності. Повітрям можна дихати всюди, куди воно дійшло.");
-        cfg("compressorEnergyPerTick", "FE за тік на грань",
-                "Скільки FE бере одна грань компресора за тік на повній потужності. 0 — усі компресори працюють задарма.");
-        cfg("compressorEnergyCapacity", "Запас FE на грань",
-                "Скільки FE може зберігати одна грань компресора.");
-        cfg("compressorFullSpeed", "Швидкість вала для повної потужності",
-                "Оберти вала Create, на яких компресор працює на повну; повільніше — відповідну частку.");
+        cfg("compressorHoldFePerBlock", "FE на утримання, на блок",
+                "Скільки FE за тік витрачає FE-компресор на кожен блок приміщення, яке тримає. Коли бракує — тримає відповідну частку.");
+        cfg("compressorFilterFePerBlock", "FE на фільтрацію, на блок",
+                "Скільки FE один раз витрачає FE-компресор на кожен блок приміщення, з якого викачує каламуть.");
+        cfg("kineticStressPerBlock", "Навантаження на блок",
+                "Навантаження (SU), яке кінетичний повітряний компресор дає мережі на кожен блок приміщення, за будь-якої швидкості. Наповнення коштує вчетверо більше.");
         cfg("airtightGraceSeconds", "Повітря, винесене з приміщення",
                 "Скільки секунд гравець ще дихає повітрям герметичного приміщення, вийшовши з нього. Воно згасає поступово, тож дверні отвори й двері не смикають шкалу повітря. 0 — ніскільки.");
         add("fogged.configuration.compat.tooltip", "Що каламуть робить усередині інших модів: із модами виживання, які міряють гравця, і з кораблями та машинами Sable -- чи тримає їх на собі, наскільки міцно несе і як позначає місце, де вони розрізають поверхню. Кожне значення читається лише тоді, коли той мод встановлено.");

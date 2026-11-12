@@ -4,6 +4,7 @@ import org.joml.Vector3f;
 
 import com.fogged.block.AirCompressorBlock;
 import com.fogged.block.AirCompressorBlockEntity;
+import com.fogged.block.AirCompressorCore;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
@@ -18,6 +19,7 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.AABB;
 
 /**
@@ -48,11 +50,17 @@ public class AirCompressorRenderer implements BlockEntityRenderer<AirCompressorB
     @Override
     public void render(AirCompressorBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers,
             int packedLight, int packedOverlay) {
-        if (!be.isController() || be.getLevel() == null) {
+        renderFans(be, be.core(), pose, buffers, packedOverlay);
+    }
+
+    /** The unit's two fan faces, drawn by its controller; shared with the kinetic compressor's renderer. */
+    public static void renderFans(BlockEntity be, AirCompressorCore core, PoseStack pose, MultiBufferSource buffers,
+            int packedOverlay) {
+        if (!core.isController() || be.getLevel() == null) {
             return;
         }
-        int size = be.size();
-        boolean running = be.running();
+        int size = core.size();
+        boolean running = core.running();
         if (size == 1 && !running) {
             return;
         }
@@ -67,7 +75,7 @@ public class AirCompressorRenderer implements BlockEntityRenderer<AirCompressorB
     }
 
     // One face of the unit, on its `normal` side and `out` blocks beyond it, lit by the cell in front.
-    private static void face(VertexConsumer vc, PoseStack pose, AirCompressorBlockEntity be, Direction normal,
+    private static void face(VertexConsumer vc, PoseStack pose, BlockEntity be, Direction normal,
             int size, float out, TextureAtlasSprite sprite, BlockPos lightAt) {
         int light = LevelRenderer.getLightColor(be.getLevel(), lightAt);
         Vector3f n = normal.step();
@@ -79,7 +87,7 @@ public class AirCompressorRenderer implements BlockEntityRenderer<AirCompressorB
         // the facing axis; the face sits on the `normal` side of that, lifted clear of the block.
         float[] lo = new float[3];
         float[] hi = {1, 1, 1};
-        for (Direction d : AirCompressorBlockEntity.plane(normal)) {
+        for (Direction d : AirCompressorCore.plane(normal)) {
             hi[d.getAxis().ordinal()] = size;
         }
         int ax = normal.getAxis().ordinal();
@@ -120,9 +128,14 @@ public class AirCompressorRenderer implements BlockEntityRenderer<AirCompressorB
 
     @Override
     public AABB getRenderBoundingBox(AirCompressorBlockEntity be) {
+        return unitBounds(be, be.core());
+    }
+
+    /** Everything a unit draws: its whole face and the housing beyond it. */
+    public static AABB unitBounds(BlockEntity be, AirCompressorCore core) {
         BlockPos pos = be.getBlockPos();
-        int n = be.size() - 1;
-        Direction[] uv = AirCompressorBlockEntity.plane(be.getBlockState().getValue(AirCompressorBlock.FACING));
+        int n = core.size() - 1;
+        Direction[] uv = AirCompressorCore.plane(be.getBlockState().getValue(AirCompressorBlock.FACING));
         return new AABB(pos).minmax(new AABB(pos.relative(uv[0], n).relative(uv[1], n))).inflate(0.6);
     }
 }

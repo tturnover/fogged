@@ -155,53 +155,6 @@ public final class CreateCompatibility {
         }
     }
 
-    // --- Shafts driving an air compressor ------------------------------------------------------
-
-    // getSpeed per kinetic BE class, or a miss marker when the class has none. Shafts, cogs, gearboxes
-    // and the encased variants are all KineticBlockEntity subclasses, so this resolves a handful of times.
-    private static final ClassValue<Method> KINETIC_SPEED = new ClassValue<>() {
-        @Override
-        protected Method computeValue(Class<?> type) {
-            try {
-                Method m = type.getMethod("getSpeed");
-                return m.getReturnType() == float.class ? m : null;
-            } catch (NoSuchMethodException e) {
-                return null;
-            }
-        }
-    };
-
-    /**
-     * RPM magnitude of a Create kinetic block at {@code pos} that turns on {@code axis} -- a shaft or
-     * cog pointing at whoever asks. A block with an {@code axis} property must lie along it; one with
-     * none (a gearbox) turns every way and always counts. Zero when Create is absent, the block is not
-     * Create's, or it is not turning.
-     */
-    public static float kineticSpeed(Level level, BlockPos pos, Direction.Axis axis) {
-        if (!CREATE || !level.isLoaded(pos)) {
-            return 0.0F;
-        }
-        BlockState state = level.getBlockState(pos);
-        if (!"create".equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace())) {
-            return 0.0F;
-        }
-        for (Property<?> property : state.getProperties()) {
-            if (property.getName().equals("axis") && state.getValue(property) instanceof Direction.Axis a && a != axis) {
-                return 0.0F;
-            }
-        }
-        BlockEntity be = level.getBlockEntity(pos);
-        Method speed = be == null ? null : KINETIC_SPEED.get(be.getClass());
-        if (speed == null) {
-            return 0.0F;
-        }
-        try {
-            return speed.invoke(be) instanceof Float f ? Math.abs(f) : 0.0F;
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            return 0.0F;
-        }
-    }
-
     // --- Backtank HUD overlay ------------------------------------------------------------------
 
     // Create registers this Integer component under "create:banktank_air" (its own spelling). It is

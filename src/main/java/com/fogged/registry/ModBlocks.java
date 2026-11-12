@@ -5,6 +5,7 @@ import java.util.function.Supplier;
 
 import com.fogged.Fogged;
 import com.fogged.block.AirCompressorBlock;
+import com.fogged.block.AirCompressorIntakeBlock;
 import com.fogged.block.AirDuctBlock;
 import com.fogged.block.FogDetectorBlock;
 import com.fogged.block.FogDetectorExtensionBlock;
@@ -16,6 +17,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -74,16 +76,29 @@ public final class ModBlocks {
                     .mapColor(MapColor.METAL)
                     .strength(3.5F, 6.0F)
                     .requiresCorrectToolForDrops()
-                    .sound(SoundType.METAL));
+                    .sound(SoundType.METAL)
+                    .pushReaction(PushReaction.BLOCK)); // it and its intake go together
 
-    // Air duct: carries a compressor's air away to come out of the network's open ends. Placed like a
-    // log; ducts that point at each other connect, so a network can branch. See AirDuctBlock.
+    // An air compressor's intake: the half-block behind it, set down and taken away with it. Never
+    // obtained; drops nothing. See AirCompressorIntakeBlock.
+    public static final DeferredBlock<AirCompressorIntakeBlock> AIR_COMPRESSOR_INTAKE =
+            registerNoItem("air_compressor_intake", AirCompressorIntakeBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(3.5F, 6.0F)
+                    .requiresCorrectToolForDrops()
+                    .sound(SoundType.METAL)
+                    .pushReaction(PushReaction.BLOCK)
+                    .noOcclusion());
+
+    // Air duct: carries a compressor's air away to vent from the network's dead ends. Joins its
+    // neighbours like a Create fluid pipe, so a network can branch. See AirDuctBlock.
     public static final DeferredBlock<AirDuctBlock> AIR_DUCT =
             register("air_duct", AirDuctBlock::new, BlockBehaviour.Properties.of()
                     .mapColor(MapColor.METAL)
                     .strength(2.5F, 6.0F)
                     .requiresCorrectToolForDrops()
-                    .sound(SoundType.METAL));
+                    .sound(SoundType.METAL)
+                    .noOcclusion()); // a tube, not a cube: neighbours must still draw their faces
 
     // ------------------------------------------------------------------------
 

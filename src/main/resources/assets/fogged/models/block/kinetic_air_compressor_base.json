@@ -1,0 +1,44 @@
+{
+  "textures": {
+    "side": "fogged:block/air_compressor/side",
+    "particle": "fogged:block/air_compressor/side",
+    "outlet": "fogged:block/air_compressor/fan_out_still",
+    "intake": "fogged:block/air_compressor/fan_still"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#outlet"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#side"
+        }
+      }
+    }
+  ],
+  "parent": "minecraft:block/block",
+  "render_type": "minecraft:cutout"
+}

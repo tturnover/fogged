@@ -1,0 +1,149 @@
+{
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "side": "fogged:block/air_compressor/side",
+    "socket": "fogged:block/air_compressor/side_shaft",
+    "recess": "fogged:block/air_compressor/side_recess",
+    "particle": "fogged:block/air_compressor/side"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#socket"
+        }
+      }
+    },
+    {
+      "from": [
+        14,
+        4.99,
+        5
+      ],
+      "to": [
+        16,
+        5,
+        11
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            5,
+            14,
+            11,
+            16
+          ],
+          "texture": "#recess"
+        }
+      }
+    },
+    {
+      "from": [
+        14,
+        11,
+        5
+      ],
+      "to": [
+        16,
+        11.01,
+        11
+      ],
+      "faces": {
+        "down": {
+          "uv": [
+            5,
+            14,
+            11,
+            16
+          ],
+          "texture": "#recess"
+        }
+      }
+    },
+    {
+      "from": [
+        14,
+        5,
+        4.99
+      ],
+      "to": [
+        16,
+        11,
+        5
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            5,
+            14,
+            11,
+            16
+          ],
+          "texture": "#recess"
+        }
+      }
+    },
+    {
+      "from": [
+        14,
+        5,
+        11
+      ],
+      "to": [
+        16,
+        11,
+        11.01
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            14,
+            11,
+            16
+          ],
+          "texture": "#recess"
+        }
+      }
+    },
+    {
+      "from": [
+        14,
+        5,
+        5
+      ],
+      "to": [
+        14,
+        11,
+        11
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#recess"
+        }
+      }
+    }
+  ]
+}
