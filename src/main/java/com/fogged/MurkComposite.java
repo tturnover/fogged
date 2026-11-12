@@ -148,7 +148,7 @@ public final class MurkComposite {
         if (Config.DEBUG_VIEW.get() != Config.DebugView.OFF) {
             c = new float[] { 1.0F, 0.0F, 1.0F, 1.0F };
         }
-        float far = Config.FOG_DISTANCE.getAsInt();
+        float far = Config.synced(Config.FOG_DISTANCE);
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -164,7 +164,7 @@ public final class MurkComposite {
         shader.safeGetUniform("MurkColor").set(c[0], c[1], c[2]);
         shader.safeGetUniform("MurkRange").set(far * 0.25F, far); // as FogModifier sets the vanilla fog
         shader.safeGetUniform("PlaneY").set(relY);
-        shader.safeGetUniform("MurkSide").set(Config.FLIP_FOG.getAsBoolean() ? -1.0F : 1.0F);
+        shader.safeGetUniform("MurkSide").set(Config.synced(Config.FLIP_FOG) ? -1.0F : 1.0F);
         shader.safeGetUniform("CameraInside").set(inside ? 1.0F : 0.0F);
         shader.safeGetUniform("FogInside").set(fogInside ? 1.0F : 0.0F);
         shader.safeGetUniform("Darkness").set(darkness);

@@ -38,7 +38,7 @@ public class BreathHandler {
         // handles it -- only force the underwater pipeline for a player standing in dry air below the
         // boundary. Touching any of these would wrongly drown a creative/spectator player, cancel a
         // water-breathing potion, or change how real-water drowning behaves.
-        boolean handledElsewhere = !Config.PLAYER_SUFFOCATION.get()
+        boolean handledElsewhere = !Config.synced(Config.PLAYER_SUFFOCATION)
                 || player.isCreative()
                 || player.isSpectator()
                 || player.canBreatheUnderwater()
@@ -60,7 +60,7 @@ public class BreathHandler {
     // Air is spent in whole units while the depth factor is continuous, so the leftover fraction is
     // rolled as a chance for one extra unit -- otherwise small factors round away to nothing.
     private static int airLoss(Player player) {
-        double loss = Config.AIR_LOSS_PER_TICK.getAsInt()
+        double loss = Config.synced(Config.AIR_LOSS_PER_TICK)
                 * Config.depthAirFactor(player.level(), player.getEyeY());
         int whole = (int) loss;
         if (player.getRandom().nextDouble() < loss - whole) {
@@ -81,7 +81,7 @@ public class BreathHandler {
         if (!(event.getEntity() instanceof Player player)) {
             return;
         }
-        if (!event.getSource().is(DamageTypes.DROWN) || !Config.PLAYER_SUFFOCATION.get()) {
+        if (!event.getSource().is(DamageTypes.DROWN) || !Config.synced(Config.PLAYER_SUFFOCATION)) {
             return; // not our doing: with player suffocation off we never induce drowning
         }
         Level level = player.level();

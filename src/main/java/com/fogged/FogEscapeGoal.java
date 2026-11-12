@@ -122,7 +122,7 @@ public class FogEscapeGoal extends Goal {
     // furthest that way walks land mobs out a leg at a time while swimmers and fliers go straight --
     // without this mod having to know how any of them move.
     private boolean towardsBoundary() {
-        boolean up = !Config.FLIP_FOG.getAsBoolean();
+        boolean up = !Config.synced(Config.FLIP_FOG);
         Vec3 best = null;
         for (int i = 0; i < SEARCH_SAMPLES; i++) {
             Vec3 candidate = DefaultRandomPos.getPos(mob, SEARCH_RADIUS, SEARCH_HEIGHT);

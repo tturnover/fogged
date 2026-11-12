@@ -107,7 +107,7 @@ public final class FogDebugOverlay {
             return new Line("terrain fog: no terrain hook has run"
                     + (SodiumCompatibility.loaded() ? " (Sodium loaded)" : ""), BAD);
         }
-        float want = Config.FOG_DISTANCE.getAsInt();
+        float want = Config.synced(Config.FOG_DISTANCE);
         boolean fogged = Config.fogged(Minecraft.getInstance().level,
                 Minecraft.getInstance().gameRenderer.getMainCamera().getPosition().y);
         // Off the murk side the fog is somebody else's and a mismatch means nothing.

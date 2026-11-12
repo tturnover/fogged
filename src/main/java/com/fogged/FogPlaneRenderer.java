@@ -166,7 +166,7 @@ public class FogPlaneRenderer {
         float relY = (float) (surfaceY - cam.y);
         // On the fogged side of the boundary the camera is in the thick murk fog; the plane (and its
         // foam) must be obscured once it is out of that fog's reach. flipFog swaps which side that is.
-        boolean below = (cam.y < surfaceY) != Config.FLIP_FOG.getAsBoolean();
+        boolean below = (cam.y < surfaceY) != Config.synced(Config.FLIP_FOG);
         lastSurfaceY = surfaceY;
         lastBelow = below;
 
@@ -325,7 +325,7 @@ public class FogPlaneRenderer {
         // we leave the vanilla scene fog, so the plane dissolves into whatever the world fades to (the
         // horizon/world-edge fog when dry, the water fog when submerged) instead of tinting the far view
         // its own colour or cutting a hard edge at the loaded-chunk boundary.
-        float far = Config.FOG_DISTANCE.getAsInt();
+        float far = Config.synced(Config.FOG_DISTANCE);
         float savedFogStart = RenderSystem.getShaderFogStart();
         float savedFogEnd = RenderSystem.getShaderFogEnd();
         float[] savedFogColor = RenderSystem.getShaderFogColor();
@@ -575,7 +575,7 @@ public class FogPlaneRenderer {
 
         // The murk fog on the fogged side, as the core path sets it; whether the pack's fog uniforms
         // follow is the pack's business, but a pack that reads vanilla's fog gets the same answer.
-        float far = Config.FOG_DISTANCE.getAsInt();
+        float far = Config.synced(Config.FOG_DISTANCE);
         float savedFogStart = RenderSystem.getShaderFogStart();
         float savedFogEnd = RenderSystem.getShaderFogEnd();
         float[] savedFogColor = RenderSystem.getShaderFogColor();
@@ -660,7 +660,7 @@ public class FogPlaneRenderer {
     // water the eye reads as empty: submerging over sections that were still rebuilding painted the
     // whole gap murk, with a straight horizon cut where the plane ran out.
     static float visibleReach(Minecraft mc, Camera camera, boolean below) {
-        float reach = below ? Config.FOG_DISTANCE.getAsInt() : mc.options.getEffectiveRenderDistance() * 16.0F;
+        float reach = below ? Config.synced(Config.FOG_DISTANCE) : mc.options.getEffectiveRenderDistance() * 16.0F;
         if (camera.getFluidInCamera() != FogType.NONE) {
             reach = Math.min(reach, RenderSystem.getShaderFogEnd());
         }

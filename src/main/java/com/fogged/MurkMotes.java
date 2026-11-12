@@ -54,7 +54,7 @@ public final class MurkMotes {
             return; // the camera is on the dry side: the murk is a surface over there, not a place
         }
 
-        double range = Math.min(Config.MOTES_RANGE.get(), Config.FOG_DISTANCE.getAsInt() * FOG_SHARE);
+        double range = Math.min(Config.MOTES_RANGE.get(), Config.synced(Config.FOG_DISTANCE) * FOG_SHARE);
         if (range <= MIN_RANGE) {
             return;
         }
