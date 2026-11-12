@@ -77,12 +77,12 @@ public final class ModBlocks {
                     .strength(3.5F, 6.0F)
                     .requiresCorrectToolForDrops()
                     .sound(SoundType.METAL)
-                    .pushReaction(PushReaction.BLOCK)); // it and its intake go together
+                    .pushReaction(PushReaction.BLOCK));
 
-    // An air compressor's intake: the half-block behind it, set down and taken away with it. Never
-    // obtained; drops nothing. See AirCompressorIntakeBlock.
+    // Air intake: where a compressor draws its air, set right behind it or at the end of a duct run
+    // from its back. Out of the murk, or with a wool filter in it. See AirCompressorIntakeBlock.
     public static final DeferredBlock<AirCompressorIntakeBlock> AIR_COMPRESSOR_INTAKE =
-            registerNoItem("air_compressor_intake", AirCompressorIntakeBlock::new, BlockBehaviour.Properties.of()
+            register("air_compressor_intake", AirCompressorIntakeBlock::new, BlockBehaviour.Properties.of()
                     .mapColor(MapColor.METAL)
                     .strength(3.5F, 6.0F)
                     .requiresCorrectToolForDrops()

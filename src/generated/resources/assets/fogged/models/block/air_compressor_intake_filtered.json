@@ -1,0 +1,6 @@
+{
+  "parent": "fogged:block/air_compressor_intake",
+  "textures": {
+    "intake": "minecraft:block/white_wool"
+  }
+}

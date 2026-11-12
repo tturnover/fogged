@@ -1,16 +1,19 @@
 package com.fogged.create;
 
 import java.util.List;
+import java.util.Locale;
 
+import com.fogged.block.AirCompressorCore;
 import com.fogged.block.AirCompressorIntakeBlock;
 import com.fogged.block.AirCompressorIntakeBlockEntity;
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** The intake as Create's goggles see it: its compressor's readout. Only made with Create installed. */
+/** The intake as Create's goggles see it: what it draws in, and its filter. Only made with Create installed. */
 public class GoggledIntakeBlockEntity extends AirCompressorIntakeBlockEntity implements IHaveGoggleInformation {
 
     public GoggledIntakeBlockEntity(BlockPos pos, BlockState state) {
@@ -22,8 +25,17 @@ public class GoggledIntakeBlockEntity extends AirCompressorIntakeBlockEntity imp
         if (level == null) {
             return false;
         }
-        BlockPos compressor = AirCompressorIntakeBlock.compressorPos(worldPosition, getBlockState());
-        return level.getBlockEntity(compressor) instanceof IHaveGoggleInformation goggled
-                && goggled.addToGoggleTooltip(tooltip, isPlayerSneaking);
+        AirCompressorIntakeBlock.Supply supply = AirCompressorIntakeBlock.supply(level, worldPosition, getBlockState());
+        tooltip.add(Component.literal(tooltip.isEmpty() ? "    " : "")
+                .append(Component.translatable("fogged.goggles.intake")).withStyle(ChatFormatting.WHITE));
+        tooltip.add(AirCompressorCore.line(Component.translatable("fogged.goggles.intake.air").withStyle(ChatFormatting.GRAY)));
+        tooltip.add(AirCompressorCore.line(Component.literal(" ")
+                .append(Component.translatable("fogged.goggles.intake." + supply.name().toLowerCase(Locale.ROOT)))
+                .withStyle(supply.clean() ? ChatFormatting.GREEN : ChatFormatting.RED)));
+        tooltip.add(AirCompressorCore.line(Component.translatable("fogged.goggles.filter").withStyle(ChatFormatting.GRAY)));
+        tooltip.add(AirCompressorCore.line(Component.literal(" ")
+                .append(filter().isEmpty() ? Component.translatable("fogged.goggles.filter.none") : filter().getHoverName())
+                .withStyle(ChatFormatting.AQUA)));
+        return true;
     }
 }

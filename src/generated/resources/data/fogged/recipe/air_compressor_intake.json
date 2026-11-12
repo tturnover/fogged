@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "B": {
+      "item": "minecraft:iron_bars"
+    },
+    "I": {
+      "tag": "c:ingots/iron"
+    }
+  },
+  "pattern": [
+    "IBI",
+    "I I",
+    "III"
+  ],
+  "result": {
+    "count": 1,
+    "id": "fogged:air_compressor_intake"
+  }
+}

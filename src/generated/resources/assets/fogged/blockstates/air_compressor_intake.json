@@ -1,26 +1,49 @@
 {
   "variants": {
-    "facing=down": {
+    "facing=down,filtered=false": {
       "model": "fogged:block/air_compressor_intake",
       "x": 90
     },
-    "facing=east": {
+    "facing=down,filtered=true": {
+      "model": "fogged:block/air_compressor_intake_filtered",
+      "x": 90
+    },
+    "facing=east,filtered=false": {
       "model": "fogged:block/air_compressor_intake",
       "y": 90
     },
-    "facing=north": {
+    "facing=east,filtered=true": {
+      "model": "fogged:block/air_compressor_intake_filtered",
+      "y": 90
+    },
+    "facing=north,filtered=false": {
       "model": "fogged:block/air_compressor_intake"
     },
-    "facing=south": {
+    "facing=north,filtered=true": {
+      "model": "fogged:block/air_compressor_intake_filtered"
+    },
+    "facing=south,filtered=false": {
       "model": "fogged:block/air_compressor_intake",
       "y": 180
     },
-    "facing=up": {
+    "facing=south,filtered=true": {
+      "model": "fogged:block/air_compressor_intake_filtered",
+      "y": 180
+    },
+    "facing=up,filtered=false": {
       "model": "fogged:block/air_compressor_intake",
       "x": 270
     },
-    "facing=west": {
+    "facing=up,filtered=true": {
+      "model": "fogged:block/air_compressor_intake_filtered",
+      "x": 270
+    },
+    "facing=west,filtered=false": {
       "model": "fogged:block/air_compressor_intake",
+      "y": 270
+    },
+    "facing=west,filtered=true": {
+      "model": "fogged:block/air_compressor_intake_filtered",
       "y": 270
     }
   }

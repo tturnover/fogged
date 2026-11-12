@@ -27,15 +27,18 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * An air duct: carries an air compressor's output away from it, to come out somewhere else. Laid like
- * one of Create's fluid pipes -- each duct joins every duct beside it, and a compressor whose outlet
- * points at it, on its own -- but thick, a 12-pixel box with riveted collars where it joins, in the
+ * An air duct: carries an air compressor's output away from it, to come out somewhere else, or brings
+ * it air from an intake set further off. Laid like one of Create's fluid pipes -- each duct joins every
+ * duct beside it, a compressor's outlet or back, and an intake feeding it, on its own -- but thick, a 12-pixel box with riveted collars where it joins, in the
  * look of Create's industrial iron.
  *
  * <p>The air comes out of the network's dead ends: a duct joined on one side only vents straight out
  * of the side across from it (see {@link #ends}). Every other side of every duct is closed, so a
  * network can branch freely and each branch ends in a vent. Its outline is the tube, but it collides as
  * a full block, so a duct run through a wall is as tight as the wall.
+ *
+ * <p>A duct is full of the air it carries: every duct cell of a compressor's networks counts as a
+ * block of its room, held and paid for like any other (see {@link AirCompressorCore}).
  */
 public class AirDuctBlock extends Block {
 
@@ -69,11 +72,19 @@ public class AirDuctBlock extends Block {
                 BlockStateProperties.WEST, BlockStateProperties.UP, BlockStateProperties.DOWN);
     }
 
-    /** Whether a duct joins {@code neighbour}, which lies to its {@code side}. */
+    /**
+     * Whether a duct joins {@code neighbour}, which lies to its {@code side}: another duct, a
+     * compressor's outlet or back, or an intake feeding into it.
+     */
     private static boolean joins(BlockState neighbour, Direction side) {
-        return neighbour.getBlock() instanceof AirDuctBlock
-                || (neighbour.getBlock() instanceof CompressorBlock
-                        && neighbour.getValue(BlockStateProperties.FACING) == side.getOpposite());
+        if (neighbour.getBlock() instanceof AirDuctBlock) {
+            return true;
+        }
+        if (neighbour.getBlock() instanceof CompressorBlock) {
+            return neighbour.getValue(BlockStateProperties.FACING).getAxis() == side.getAxis();
+        }
+        return neighbour.getBlock() instanceof AirCompressorIntakeBlock
+                && neighbour.getValue(AirCompressorIntakeBlock.FACING) == side.getOpposite();
     }
 
     @Override
@@ -114,34 +125,19 @@ public class AirDuctBlock extends Block {
      * The vents of the duct network that starts at {@code start}, entered from a compressor going
      * {@code from}: where the air comes out, each with the way it is travelling. Empty when
      * {@code start} is not a duct joined to the compressor -- the air then goes straight out of the
-     * outlet. Every duct cell walked is added to {@code walked}, for the room to watch.
+     * outlet. Every duct cell walked is added to {@code walked}, for the room to watch and to fill.
      */
     public static List<AirFill.Seed> ends(Level level, BlockPos start, Direction from, Set<BlockPos> walked) {
         List<AirFill.Seed> out = new ArrayList<>();
-        BlockState first = level.getBlockState(start);
-        if (!(first.getBlock() instanceof AirDuctBlock) || !first.getValue(SIDES.get(from.getOpposite()))) {
-            return out;
-        }
-        Set<BlockPos> seen = new HashSet<>();
-        List<BlockPos> queue = new ArrayList<>();
-        queue.add(start.immutable());
-        seen.add(start.immutable());
-        for (int i = 0; i < queue.size(); i++) {
-            BlockPos at = queue.get(i);
+        List<BlockPos> network = network(level, start, from);
+        for (BlockPos at : network) {
             BlockState here = level.getBlockState(at);
             int joined = 0;
             Direction only = null;
             for (Direction d : Direction.values()) {
-                if (!here.getValue(SIDES.get(d))) {
-                    continue;
-                }
-                joined++;
-                only = d;
-                BlockPos next = at.relative(d);
-                if (!seen.contains(next) && seen.size() < MAX_NETWORK && level.isLoaded(next)
-                        && level.getBlockState(next).getBlock() instanceof AirDuctBlock) {
-                    seen.add(next.immutable());
-                    queue.add(next.immutable());
+                if (here.getValue(SIDES.get(d))) {
+                    joined++;
+                    only = d;
                 }
             }
             // A dead end vents straight on, out of the side across from the one it is joined by.
@@ -150,7 +146,64 @@ public class AirDuctBlock extends Block {
                 out.add(new AirFill.Seed(at.relative(vent).immutable(), vent));
             }
         }
-        walked.addAll(seen);
+        walked.addAll(network);
         return out;
+    }
+
+    /**
+     * The intakes feeding the duct network that starts at {@code start}, entered from a compressor's
+     * back going {@code from}. Every duct cell walked is added to {@code walked}.
+     */
+    public static List<BlockPos> intakes(Level level, BlockPos start, Direction from, Set<BlockPos> walked) {
+        List<BlockPos> out = new ArrayList<>();
+        List<BlockPos> network = network(level, start, from);
+        for (BlockPos at : network) {
+            BlockState here = level.getBlockState(at);
+            for (Direction d : Direction.values()) {
+                if (!here.getValue(SIDES.get(d))) {
+                    continue;
+                }
+                BlockPos next = at.relative(d);
+                if (!level.isLoaded(next)) {
+                    continue;
+                }
+                BlockState there = level.getBlockState(next);
+                if (there.getBlock() instanceof AirCompressorIntakeBlock
+                        && there.getValue(AirCompressorIntakeBlock.FACING) == d.getOpposite()) {
+                    out.add(next.immutable());
+                }
+            }
+        }
+        walked.addAll(network);
+        return out;
+    }
+
+    // Every duct cell joined to `start`, which a compressor face going `from` enters; empty when
+    // `start` is no duct joined that way.
+    private static List<BlockPos> network(Level level, BlockPos start, Direction from) {
+        List<BlockPos> queue = new ArrayList<>();
+        BlockState first = level.getBlockState(start);
+        if (!(first.getBlock() instanceof AirDuctBlock) || !first.getValue(SIDES.get(from.getOpposite()))) {
+            return queue;
+        }
+        Set<BlockPos> seen = new HashSet<>();
+        queue.add(start.immutable());
+        seen.add(start.immutable());
+        for (int i = 0; i < queue.size(); i++) {
+            BlockPos at = queue.get(i);
+            BlockState here = level.getBlockState(at);
+            for (Direction d : Direction.values()) {
+                if (!here.getValue(SIDES.get(d))) {
+                    continue;
+                }
+                BlockPos next = at.relative(d);
+                if (!seen.contains(next) && seen.size() < MAX_NETWORK && level.isLoaded(next)
+                        && level.getBlockState(next).getBlock() instanceof AirDuctBlock) {
+                    seen.add(next.immutable());
+                    queue.add(next.immutable());
+                }
+            }
+        }
+        return queue;
     }
 }

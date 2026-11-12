@@ -40,6 +40,16 @@ public class ModRecipeProvider extends RecipeProvider {
                 .unlockedBy("has_iron_bars", has(Items.IRON_BARS))
                 .save(recipeOutput);
 
+        // A grille over an iron mouth.
+        ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, ModBlocks.AIR_COMPRESSOR_INTAKE.get())
+                .pattern("IBI")
+                .pattern("I I")
+                .pattern("III")
+                .define('I', Tags.Items.INGOTS_IRON)
+                .define('B', Items.IRON_BARS)
+                .unlockedBy("has_air_compressor", has(ModBlocks.AIR_COMPRESSOR.get()))
+                .save(recipeOutput);
+
         // Iron sheet round an open middle: six ducts.
         ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, ModBlocks.AIR_DUCT.get(), 6)
                 .pattern("I I")

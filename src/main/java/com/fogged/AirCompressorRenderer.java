@@ -24,7 +24,7 @@ import net.minecraft.world.phys.AABB;
 
 /**
  * Draws an air compressor unit's two fan faces: the outlet (with its red lamp, the side that seals)
- * and the intake. Only the controller draws, and it lays one face across the whole unit, so a 2x2 or
+ * and the back, where it draws from its intake. Only the controller draws, and it lays one face across the whole unit, so a 2x2 or
  * 3x3 reads as one big fan rather than a grid of small ones. While the unit has power the face is the
  * animated sprite and spins; without, the still one. A lone 1x1 with no power draws nothing -- its
  * block model already shows the still fan.
@@ -70,8 +70,8 @@ public class AirCompressorRenderer implements BlockEntityRenderer<AirCompressorB
         VertexConsumer vc = buffers.getBuffer(RenderType.cutout());
         BlockPos pos = be.getBlockPos();
         face(vc, pose, be, facing, size, 0.0F, sprite(base + "_out" + still), pos.relative(facing));
-        // The intake face is at the end of the housing, half a block out (see AirCompressorBlock).
-        face(vc, pose, be, facing.getOpposite(), size, 0.5F, sprite(base + still), pos.relative(facing.getOpposite()));
+        // The back fan, on the casing's own back face: the intake is a block of its own.
+        face(vc, pose, be, facing.getOpposite(), size, 0.0F, sprite(base + still), pos.relative(facing.getOpposite()));
     }
 
     // One face of the unit, on its `normal` side and `out` blocks beyond it, lit by the cell in front.

@@ -27,6 +27,7 @@ public final class ModCreativeTabs {
         if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS) {
             event.accept(ModBlocks.FOG_DETECTOR.get());
             event.accept(ModBlocks.AIR_COMPRESSOR.get());
+            event.accept(ModBlocks.AIR_COMPRESSOR_INTAKE.get());
             event.accept(ModBlocks.AIR_DUCT.get());
         }
     }

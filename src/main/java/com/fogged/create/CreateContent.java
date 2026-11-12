@@ -55,6 +55,13 @@ public final class CreateContent {
 
     // Into the player's inventory what breaking it would drop, as Create's wrench picks up its own.
     private static void pickUp(ServerLevel level, BlockPos pos, BlockState state, Player player, ItemStack tool) {
+        // An intake's filter comes along into the inventory, rather than dropping as it is taken away.
+        if (level.getBlockEntity(pos) instanceof com.fogged.block.AirCompressorIntakeBlockEntity intake) {
+            ItemStack filter = intake.takeFilter();
+            if (!filter.isEmpty()) {
+                player.getInventory().placeItemBackInInventory(filter);
+            }
+        }
         if (!player.isCreative()) {
             for (ItemStack drop : Block.getDrops(state, level, pos, level.getBlockEntity(pos), player, tool)) {
                 player.getInventory().placeItemBackInInventory(drop);
@@ -85,7 +92,7 @@ public final class CreateContent {
     }
 
     // A wrench on an air compressor's side fits a shaft socket there (KineticAirCompressorBlock.fitShaft);
-    // sneaking, it picks the compressor or an air duct up, as Create's wrench does its own blocks. A
+    // sneaking, it picks the compressor, an intake or an air duct up, as Create's wrench does its own blocks. A
     // kinetic compressor is Create's own wrenchable and needs none of this (onWrenched, and Create's
     // own pick-up).
     private static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
@@ -95,16 +102,9 @@ public final class CreateContent {
         }
         BlockPos pos = event.getPos();
         BlockState state = event.getLevel().getBlockState(pos);
-        // The intake is part of its compressor: a wrench on it works on the compressor.
-        if (state.getBlock() instanceof AirCompressorIntakeBlock) {
-            pos = AirCompressorIntakeBlock.compressorPos(pos, state);
-            state = event.getLevel().getBlockState(pos);
-            if (!(state.getBlock() instanceof com.fogged.block.CompressorBlock)) {
-                return;
-            }
-        }
         if (event.getEntity().isShiftKeyDown()) {
-            if (state.getBlock() instanceof com.fogged.block.CompressorBlock || state.is(ModBlocks.AIR_DUCT.get())) {
+            if (state.getBlock() instanceof com.fogged.block.CompressorBlock || state.is(ModBlocks.AIR_DUCT.get())
+                    || state.getBlock() instanceof AirCompressorIntakeBlock) {
                 event.setCanceled(true);
                 event.setCancellationResult(InteractionResult.SUCCESS);
                 if (event.getLevel() instanceof ServerLevel level) {

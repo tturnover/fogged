@@ -47,6 +47,11 @@ import net.minecraft.world.phys.Vec3;
  * filtering; a unit that cannot pay its holding in full holds that share of its room, so a starved one
  * finds its room too big and lets it go.
  *
+ * <h2>Air in</h2>
+ * A unit draws through {@link AirCompressorIntakeBlock}s: one set right behind a member, or any feeding
+ * a duct network run from a member's back ({@link AirDuctBlock#intakes}). With none it does nothing
+ * ({@link State#NO_INTAKE}); one drawing from the murk needs a filter in it ({@link State#UNFILTERED}).
+ *
  * <h2>The room</h2>
  * The air goes out of the outlet -- or the open ends of an air duct set on it -- and floods the room
  * ({@link AirFill}). A sealed room then <em>pressurizes</em>: the air spreads outward in the order
@@ -59,7 +64,9 @@ public final class AirCompressorCore {
 
     /** What the unit's air is doing. */
     public enum State {
-        OFF, NO_INTAKE, BLOCKED, OVERSIZE, LEAK, PRESSURIZING, SEALED;
+        OFF, NO_INTAKE, BLOCKED, OVERSIZE, LEAK, PRESSURIZING, SEALED,
+        /** Every intake feeding it is in the murk without a filter. */
+        UNFILTERED;
 
         static State of(int ordinal) {
             return ordinal >= 0 && ordinal < values().length ? values()[ordinal] : OFF;
@@ -134,6 +141,11 @@ public final class AirCompressorCore {
     private int retryIn;         // ticks until a fill that met an unloaded chunk tries again
     private long[] leakPath = new long[0];
     private List<AirFill.Seed> lastSeeds = List.of(); // where the air last came in: outlets, duct ends
+    // The intakes feeding the unit, and the ducts between them and its back; looked up again on a
+    // re-check and every FAST_RECHECK ticks.
+    private List<BlockPos> intakes;
+    private Set<BlockPos> intakeDucts = Set.of();
+    private final List<BlockPos> liveMouths = new ArrayList<>(); // mouths of the intakes giving clean air
 
     // --- Lifecycle ---
     private boolean fresh = true;  // placed, not loaded from disk: joins its neighbours once in the level
@@ -383,14 +395,18 @@ public final class AirCompressorCore {
             recheck = --retryIn == 0;
         }
 
-        Boolean intake = intakeOpen(level, members, facing);
+        if (intakes == null || recheck
+                || level.getGameTime() % FAST_RECHECK == Math.floorMod(pos().asLong(), FAST_RECHECK)) {
+            findIntakes(level, members, facing);
+        }
+        State supply = supply(level);
         if (power < RUNNING) {
             settle(State.OFF);
-        } else if (intake == null) {
-            // Behind the intake is a chunk not loaded yet: wait for it rather than call it shut.
-        } else if (!intake) {
-            settle(State.NO_INTAKE);
-        } else if (recheck || state == State.OFF || state == State.NO_INTAKE) {
+        } else if (supply == null) {
+            // An intake's mouth is in a chunk not loaded yet: wait for it rather than call it shut.
+        } else if (supply != State.PRESSURIZING) {
+            settle(supply);
+        } else if (recheck || state == State.OFF || state == State.NO_INTAKE || state == State.UNFILTERED) {
             check(level, members, facing);
         }
 
@@ -443,32 +459,68 @@ public final class AirCompressorCore {
         }
     }
 
-    // Where the air comes in: the cell beyond a member's intake block, past its open end.
-    private static BlockPos drawCell(BlockPos member, Direction facing) {
-        return member.relative(facing.getOpposite(), 2);
-    }
-
-    // The intake needs air behind it: at least one cell beyond a member's intake whose face toward it is
-    // open. Null when that cannot be told yet: the chunk behind it is not loaded.
-    private static Boolean intakeOpen(Level level, List<BlockPos> members, Direction facing) {
+    // The intakes feeding the unit: one set right behind a member, feeding it, or one feeding a duct
+    // network that runs from a member's back.
+    private void findIntakes(Level level, List<BlockPos> members, Direction facing) {
+        Set<BlockPos> found = new java.util.LinkedHashSet<>();
+        Set<BlockPos> ducts = new HashSet<>();
         for (BlockPos m : members) {
-            BlockPos in = drawCell(m, facing);
-            if (!level.isLoaded(in)) {
-                return null;
-            }
-            if (!AirFill.closes(level, in, level.getBlockState(in), facing)) {
-                return true;
+            BlockPos back = m.relative(facing.getOpposite());
+            BlockState there = level.getBlockState(back);
+            if (there.getBlock() instanceof AirCompressorIntakeBlock
+                    && there.getValue(AirCompressorIntakeBlock.FACING) == facing) {
+                found.add(back.immutable());
+            } else {
+                found.addAll(AirDuctBlock.intakes(level, back, facing.getOpposite(), ducts));
             }
         }
-        return false;
+        intakes = new ArrayList<>(found);
+        intakeDucts = ducts;
     }
 
-    // Whether every open intake cell is inside the room the outlet fills: the compressor is standing
-    // in the room rather than in its wall. One intake cell outside is enough to draw from.
-    private static boolean intakeInside(LongArrayList room, List<BlockPos> members, Direction facing) {
+    // What the intakes give, as the state the unit settles in without it: PRESSURIZING when at least
+    // one draws clean air (and liveMouths says where), UNFILTERED when the only open ones draw murk,
+    // NO_INTAKE when there is none or every one is stopped up. Null when an intake's mouth is not
+    // loaded yet and nothing else is drawing.
+    private State supply(Level level) {
+        liveMouths.clear();
+        boolean unknown = false;
+        boolean murk = false;
+        boolean gone = false;
+        for (BlockPos in : intakes) {
+            BlockState s = level.getBlockState(in);
+            if (!(s.getBlock() instanceof AirCompressorIntakeBlock)) {
+                gone = true;
+                continue;
+            }
+            switch (AirCompressorIntakeBlock.supply(level, in, s)) {
+                case CLEAN, FILTERED -> liveMouths.add(AirCompressorIntakeBlock.mouth(in, s));
+                case MURK -> murk = true;
+                case UNKNOWN -> unknown = true;
+                case BLOCKED -> {
+                }
+            }
+        }
+        if (gone) {
+            // Broken or replaced: drop it now; the next look (a re-check, or soon) finds any new one.
+            intakes = new ArrayList<>(intakes);
+            intakes.removeIf(in -> !(level.getBlockState(in).getBlock() instanceof AirCompressorIntakeBlock));
+        }
+        if (!liveMouths.isEmpty()) {
+            return State.PRESSURIZING;
+        }
+        if (unknown) {
+            return null;
+        }
+        return murk ? State.UNFILTERED : State.NO_INTAKE;
+    }
+
+    // Whether every clean intake draws from inside the room the outlet fills: the unit would breathe
+    // its own air back in. One intake drawing from outside is enough.
+    private boolean intakesInside(LongArrayList room) {
         LongOpenHashSet cells = new LongOpenHashSet(room);
-        for (BlockPos m : members) {
-            if (!cells.contains(drawCell(m, facing).asLong())) {
+        for (BlockPos mouth : liveMouths) {
+            if (!cells.contains(mouth.asLong())) {
                 return false;
             }
         }
@@ -490,7 +542,11 @@ public final class AirCompressorCore {
             }
         }
         lastSeeds = seeds;
-        AirFill result = AirFill.run(level, seeds, Math.max(1, capacity));
+        // The ducts are full of air too, outlet side and intake side alike: they count as room, first
+        // to fill, and leave the less for the room itself.
+        Set<BlockPos> allDucts = new java.util.LinkedHashSet<>(ducts);
+        allDucts.addAll(intakeDucts);
+        AirFill result = AirFill.run(level, seeds, Math.max(1, capacity - allDucts.size()));
         if (result.result() == AirFill.Result.UNLOADED) {
             // The room runs into a chunk still loading -- usually just after a world loads. Leave the
             // air as it is and look again shortly, rather than flood a room that is likely fine.
@@ -499,14 +555,22 @@ public final class AirCompressorCore {
         }
         fill = result;
         checkedCapacity = capacity;
-        space.watch(result, ducts);
+        // Watch the intakes and what is in front of them as well, wherever the ducts run to.
+        List<BlockPos> watched = new ArrayList<>(allDucts);
+        watched.addAll(intakes);
+        watched.addAll(liveMouths);
+        space.watch(result, watched);
         switch (result.result()) {
             case SEALED -> {
-                LongArrayList order = result.order();
-                if (intakeInside(order, members, facing)) {
+                if (intakesInside(result.order())) {
                     flood(State.NO_INTAKE); // drawing the room's own air back in: nothing clean comes in
                     return;
                 }
+                LongArrayList order = new LongArrayList(allDucts.size() + result.order().size());
+                for (BlockPos d : allDucts) {
+                    order.add(d.asLong());
+                }
+                order.addAll(result.order());
                 roomVolume = order.size();
                 LongOpenHashSet cells = space.cells();
                 if (savedState == State.SEALED) {

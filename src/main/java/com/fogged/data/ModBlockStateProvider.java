@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.fogged.Fogged;
 import com.fogged.block.AirCompressorBlock;
+import com.fogged.block.AirCompressorIntakeBlock;
 import com.fogged.block.FogDetectorBlock;
 import com.fogged.block.NozzleFilterBlock;
 import com.fogged.registry.ModBlocks;
@@ -55,7 +56,8 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // item shows the casing with its fan in, which in the world the block entity renderer spins.
         airCompressor();
         itemModels().withExistingParent("air_compressor", modLoc("block/air_compressor_item"));
-        facingLikeCompressor(ModBlocks.AIR_COMPRESSOR_INTAKE.get(), "air_compressor_intake");
+        airIntake();
+        itemModels().withExistingParent("air_compressor_intake", modLoc("block/air_compressor_intake"));
 
         // Air duct: a hand-made multipart (assets/fogged/blockstates/air_duct.json) -- a core, a collar
         // per joined side, a vent on a dead end -- which a generated blockstate cannot express. Item only.
@@ -95,6 +97,21 @@ public class ModBlockStateProvider extends BlockStateProvider {
 
     private void airCompressor() {
         facingLikeCompressor(ModBlocks.AIR_COMPRESSOR.get(), "air_compressor");
+    }
+
+    // The intake, turned like the compressor; a fitted filter plugs its mouth with wool.
+    private void airIntake() {
+        ModelFile open = models().getExistingFile(modLoc("block/air_compressor_intake"));
+        ModelFile filtered = models()
+                .withExistingParent("air_compressor_intake_filtered", modLoc("block/air_compressor_intake"))
+                .texture("intake", mcLoc("block/white_wool"));
+        getVariantBuilder(ModBlocks.AIR_COMPRESSOR_INTAKE.get()).forAllStates(state -> {
+            Direction facing = state.getValue(AirCompressorIntakeBlock.FACING);
+            int x = facing == Direction.UP ? 270 : facing == Direction.DOWN ? 90 : 0;
+            int y = facing.getAxis().isHorizontal() ? ((int) facing.toYRot() + 180) % 360 : 0;
+            return ConfiguredModel.builder().modelFile(state.getValue(AirCompressorIntakeBlock.FILTERED) ? filtered : open)
+                    .rotationX(x).rotationY(y).build();
+        });
     }
 
     // block/<name>, authored facing north, turned onto the block's FACING the way the compressor is.

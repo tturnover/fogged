@@ -26,7 +26,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
             "nozzle_filter", "Фільтр туману",
             "air_compressor", "Повітряний компресор",
             "air_duct", "Повітропровід",
-            "air_compressor_intake", "Забір повітряного компресора",
+            "air_compressor_intake", "Забір повітря",
             "plodder", "Тупцюн",
             "snap_dog", "Клацопес",
             "trudger", "Важкоступ");
@@ -45,14 +45,26 @@ public class ModLanguageProviderUk extends LanguageProvider {
                 "Видає _редстоуновий сигнал_ залежно від глибини під туманом.");
         add("fogged.tooltip.fog_detector.desc2", "ПКМ _іншим таким же_, щоб зробити колону вищою.");
 
-        add("fogged.tooltip.air_compressor.desc1", "Вбудуйте в _стіну герметичного приміщення_, забором назовні й виходом усередину, і він викачає _каламуть_.");
+        add("fogged.tooltip.air_compressor.desc1", "Вбудуйте в _стіну герметичного приміщення_ виходом усередину, і він викачає _каламуть_. Потрібен _забір повітря_ ззаду чи через повітропровід.");
+        add("fogged.tooltip.air_intake.desc1", "Живить _компресор_ чи _повітропровід_, до якого приставлений, і тягне повітря _відкритим кінцем_.");
+        add("fogged.tooltip.air_intake.desc2", "Поза _каламуттю_ бере чисте повітря; у ній вставте _вовняний_ фільтр. Порожня рука його виймає.");
         add("fogged.tooltip.air_compressor.desc2", "Працює від _FE_ у його _боки_; з Create _ключ_ на боці ставить _гніздо для вала_. Поєднайте _2x2_ чи _3x3_.");
         // The kinetic compressor is only registered with Create, so it is outside ModBlocks: named here.
         add("block.fogged.kinetic_air_compressor", "Кінетичний повітряний компресор");
         // Create goggles on an air compressor (AirCompressorCore#goggleLines).
         add("fogged.goggles.compressor", "Повітряний компресор %sx%s:");
         add("fogged.goggles.state.off", "Немає живлення");
-        add("fogged.goggles.state.no_intake", "Забір перекрито");
+        add("fogged.goggles.state.no_intake", "Немає забору повітря");
+        add("fogged.goggles.state.unfiltered", "Забір тягне каламуть: потрібен фільтр");
+        add("fogged.goggles.intake", "Забір повітря:");
+        add("fogged.goggles.intake.air", "Тягне:");
+        add("fogged.goggles.intake.clean", "Чисте повітря");
+        add("fogged.goggles.intake.filtered", "Каламуть, відфільтрована");
+        add("fogged.goggles.intake.murk", "Каламуть: потрібен фільтр");
+        add("fogged.goggles.intake.blocked", "Отвір перекрито");
+        add("fogged.goggles.intake.unknown", "...");
+        add("fogged.goggles.filter", "Фільтр:");
+        add("fogged.goggles.filter.none", "Немає");
         add("fogged.goggles.state.blocked", "Вихід замуровано");
         add("fogged.goggles.state.oversize", "Приміщення завелике");
         add("fogged.goggles.state.leak", "Витік");
@@ -65,7 +77,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.blocks", " %s блоків");
         add("fogged.goggles.energy_usage", "Споживання енергії:");
         add("fogged.goggles.too_slow", "Вал надто повільний: потрібна середня швидкість");
-        add("fogged.tooltip.air_duct.desc1", "Прокладений від _виходу компресора_, несе повітря до своїх _глухих кінців_.");
+        add("fogged.tooltip.air_duct.desc1", "Прокладений від _виходу компресора_, несе повітря до своїх _глухих кінців_; від його _спини_ підводить повітря із _забору_.");
         add("fogged.tooltip.air_duct.desc2", "Сам з'єднується з _сусідами_, як _труба для рідин_; розгалужуйте як завгодно.");
 
         // Категорія JEI для перетворень блоків каламуттю (див. FoggedJeiPlugin).

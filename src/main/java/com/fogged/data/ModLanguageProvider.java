@@ -23,7 +23,8 @@ public class ModLanguageProvider extends LanguageProvider {
     // Names that are not just the registry path spelled out -- the filter is sold on what it filters,
     // not on the Create nozzle it replaces.
     private static final Map<String, String> NAMES = Map.of(
-            "nozzle_filter", "Fog Filter");
+            "nozzle_filter", "Fog Filter",
+            "air_compressor_intake", "Air Intake");
 
     public ModLanguageProvider(PackOutput output) {
         super(output, Fogged.MODID, "en_us");
@@ -40,14 +41,27 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.tooltip.fog_detector.desc1", "Emits a _redstone signal_ by how deep it sits under the fog.");
         add("fogged.tooltip.fog_detector.desc2", "Right-click with _another_ to stack it taller.");
 
-        add("fogged.tooltip.air_compressor.desc1", "Set into a _sealed room's wall_, intake out and outlet in, it pumps the _murk_ out.");
+        add("fogged.tooltip.air_compressor.desc1", "Set into a _sealed room's wall_, outlet in, it pumps the _murk_ out. Needs an _Air Intake_ on its back, or ducted to it.");
+        add("fogged.tooltip.air_intake.desc1", "Feeds the _compressor_ or _duct_ it is set against, drawing through its _open end_.");
+        add("fogged.tooltip.air_intake.desc2", "Out of the _murk_ it draws clean air; in it, fit a _Wool_ filter. Empty hand takes it out.");
         add("fogged.tooltip.air_compressor.desc2", "Runs on _FE_ into its _sides_; with Create, a _Wrench_ on a side fits a _shaft socket_. Join _2x2_ or _3x3_.");
         // The kinetic compressor is only registered with Create, so it is outside ModBlocks: named here.
         add("block.fogged.kinetic_air_compressor", "Kinetic Air Compressor");
         // Create goggles on an air compressor (AirCompressorCore#goggleLines).
         add("fogged.goggles.compressor", "Air Compressor %sx%s:");
         add("fogged.goggles.state.off", "No power");
-        add("fogged.goggles.state.no_intake", "Intake shut");
+        add("fogged.goggles.state.no_intake", "No air intake");
+        add("fogged.goggles.state.unfiltered", "Intake draws murk: fit a filter");
+        // Create goggles on an air intake (GoggledIntakeBlockEntity).
+        add("fogged.goggles.intake", "Air Intake:");
+        add("fogged.goggles.intake.air", "Drawing:");
+        add("fogged.goggles.intake.clean", "Clean air");
+        add("fogged.goggles.intake.filtered", "Murk, filtered");
+        add("fogged.goggles.intake.murk", "Murk: needs a filter");
+        add("fogged.goggles.intake.blocked", "Mouth blocked");
+        add("fogged.goggles.intake.unknown", "...");
+        add("fogged.goggles.filter", "Filter:");
+        add("fogged.goggles.filter.none", "None");
         add("fogged.goggles.state.blocked", "Outlet walled off");
         add("fogged.goggles.state.oversize", "Room too big to hold");
         add("fogged.goggles.state.leak", "Leaking");
@@ -60,7 +74,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.blocks", " %s blocks");
         add("fogged.goggles.energy_usage", "Energy Usage:");
         add("fogged.goggles.too_slow", "Shaft too slow: needs medium speed");
-        add("fogged.tooltip.air_duct.desc1", "Laid from a _compressor's outlet_, it carries the air to its _dead ends_.");
+        add("fogged.tooltip.air_duct.desc1", "Laid from a _compressor's outlet_, it carries the air to its _dead ends_; from its _back_, it brings air from an _intake_.");
         add("fogged.tooltip.air_duct.desc2", "Joins its _neighbours_ on its own, like a _fluid pipe_; branch it as you like.");
 
         // Custom death messages (keyed by each damage type's message_id).

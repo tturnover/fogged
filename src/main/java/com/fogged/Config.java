@@ -527,8 +527,9 @@ public class Config {
 
     // ==== common [compressor] : air compressors and the sealed rooms they hold ====
     static {
-        COMMON.comment("Air compressors: set one into the wall of a sealed room, intake to the outside and",
-                "outlet in, and it pumps the murk out. The room fills from the outlet outward and is",
+        COMMON.comment("Air compressors: set one into the wall of a sealed room, outlet in, with an air intake",
+                "on its back (or ducted to it) drawing from outside the murk or through a wool filter, and it",
+                "pumps the murk out. Duct cells count as room. The room fills from the outlet outward and is",
                 "breathable wherever the air has reached; a leak, or a room too big to hold, floods it.",
                 "A wall seals where a block's collision shape covers the whole face between two cells.");
         COMMON.push("compressor");

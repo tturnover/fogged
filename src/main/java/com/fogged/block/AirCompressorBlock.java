@@ -2,7 +2,6 @@ package com.fogged.block;
 
 import com.fogged.Fogged;
 import com.fogged.registry.ModBlockEntities;
-import com.fogged.registry.ModBlocks;
 import com.mojang.serialization.MapCodec;
 
 import java.util.EnumMap;
@@ -14,7 +13,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Mirror;
@@ -35,9 +33,10 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
 /**
- * An air compressor: a fan in a casing, set into the wall of a room. It draws air in through its
- * intake (the {@code FACING.getOpposite()} face, which needs open air behind it) and pushes it out of
- * its outlet ({@code FACING}) into the room, which it then holds airtight -- see
+ * An air compressor: a fan in a casing, set into the wall of a room. It draws air in at its back
+ * ({@code FACING.getOpposite()}) from an {@link AirCompressorIntakeBlock} set right behind it or at the
+ * far end of a duct run from there -- without one it does nothing -- and pushes it out of its outlet
+ * ({@code FACING}) into the room, which it then holds airtight -- see
  * {@link AirCompressorBlockEntity} for the fill and {@link com.fogged.AirFill} for what seals.
  *
  * <p>Placed with the outlet toward whoever places it: you stand in the room and set it into the wall.
@@ -73,8 +72,7 @@ public class AirCompressorBlock extends BaseEntityBlock implements CompressorBlo
     }
 
     /**
-     * Which way a compressor of block {@code self} placed in {@code context} faces, or null -- no
-     * placement -- when the cell its intake would go into is taken.
+     * Which way a compressor of block {@code self} placed in {@code context} faces.
      *
      * <p>Set against the side of another of the same compressor, it faces the way that one does, so a
      * wall of them joins into a unit however steeply the placer had to look to reach the top row.
@@ -96,17 +94,7 @@ public class AirCompressorBlock extends BaseEntityBlock implements CompressorBlo
             Direction toPlacer = context.getNearestLookingDirection().getOpposite();
             facing = sneaking ? toPlacer.getOpposite() : toPlacer;
         }
-        return intakeFree(context.getLevel(), context.getClickedPos(), facing) ? facing : null;
-    }
-
-    /** The cell behind a compressor at {@code pos} facing {@code facing}: where its intake goes. */
-    public static BlockPos intakeCell(BlockPos pos, Direction facing) {
-        return pos.relative(facing.getOpposite());
-    }
-
-    /** Whether that cell is free for the intake: air, or anything placing a block would replace. */
-    public static boolean intakeFree(LevelReader level, BlockPos pos, Direction facing) {
-        return level.getBlockState(intakeCell(pos, facing)).canBeReplaced();
+        return facing;
     }
 
     @Override
@@ -145,15 +133,6 @@ public class AirCompressorBlock extends BaseEntityBlock implements CompressorBlo
      * entity exists.
      */
     public static void placed(Block self, BlockState state, Level level, BlockPos pos, BlockState oldState) {
-        // Set down with its intake behind it -- unless it was a compressor already (a shaft fitted or
-        // taken out), whose intake is there.
-        if (!level.isClientSide && !(oldState.getBlock() instanceof CompressorBlock)) {
-            BlockPos behind = intakeCell(pos, state.getValue(FACING));
-            if (level.getBlockState(behind).canBeReplaced()) {
-                level.setBlock(behind, ModBlocks.AIR_COMPRESSOR_INTAKE.get().defaultBlockState()
-                        .setValue(AirCompressorIntakeBlock.FACING, state.getValue(FACING)), 3);
-            }
-        }
         if (!level.isClientSide && oldState.is(self) && oldState.getValue(FACING) != state.getValue(FACING)) {
             AirCompressorCore.reformAround(level, pos, self, oldState.getValue(FACING));
             AirCompressorCore.reform(level, pos, state.getValue(FACING));
@@ -164,15 +143,6 @@ public class AirCompressorBlock extends BaseEntityBlock implements CompressorBlo
     public static void removed(Block self, BlockState state, Level level, BlockPos pos, BlockState newState) {
         if (!level.isClientSide && !newState.is(self)) {
             AirCompressorCore.reformAround(level, pos, self, state.getValue(FACING));
-        }
-        // Gone for good (not turned into the other kind of compressor): its intake goes with it.
-        if (!level.isClientSide && !(newState.getBlock() instanceof CompressorBlock)) {
-            BlockPos behind = intakeCell(pos, state.getValue(FACING));
-            BlockState intake = level.getBlockState(behind);
-            if (intake.getBlock() instanceof AirCompressorIntakeBlock
-                    && intake.getValue(AirCompressorIntakeBlock.FACING) == state.getValue(FACING)) {
-                level.setBlock(behind, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 35);
-            }
         }
     }
 
