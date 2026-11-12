@@ -1,12 +1,14 @@
 {
+  "parent": "minecraft:block/block",
   "textures": {
     "side": "fogged:block/air_compressor/side",
-    "particle": "fogged:block/air_compressor/side",
     "outlet": "fogged:block/air_compressor/fan_out_still",
-    "intake": "fogged:block/air_compressor/fan_still"
+    "intake": "fogged:block/air_compressor/fan_still",
+    "particle": "fogged:block/air_compressor/side"
   },
   "elements": [
     {
+      "name": "casing sides",
       "from": [
         0,
         0,
@@ -18,15 +20,6 @@
         16
       ],
       "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": "#outlet"
-        },
         "east": {
           "uv": [
             0,
@@ -34,7 +27,8 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#side",
+          "cullface": "east"
         },
         "west": {
           "uv": [
@@ -43,7 +37,8 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#side",
+          "cullface": "west"
         },
         "up": {
           "uv": [
@@ -52,7 +47,8 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#side",
+          "cullface": "up"
         },
         "down": {
           "uv": [
@@ -61,8 +57,320 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#side",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "name": "north rim top",
+      "from": [
+        0,
+        14,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        1
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "texture": "#side",
+          "cullface": "north"
         },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "name": "north rim bottom",
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        2,
+        1
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            14,
+            16,
+            16
+          ],
+          "texture": "#side",
+          "cullface": "north"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "name": "north rim left",
+      "from": [
+        0,
+        2,
+        0
+      ],
+      "to": [
+        2,
+        14,
+        1
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            2,
+            2,
+            14
+          ],
+          "texture": "#side",
+          "cullface": "north"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "name": "north rim right",
+      "from": [
+        14,
+        2,
+        0
+      ],
+      "to": [
+        16,
+        14,
+        1
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            14,
+            2,
+            16,
+            14
+          ],
+          "texture": "#side",
+          "cullface": "north"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "name": "outlet face",
+      "from": [
+        2,
+        2,
+        1
+      ],
+      "to": [
+        14,
+        14,
+        1
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#outlet"
+        }
+      }
+    },
+    {
+      "name": "south rim top",
+      "from": [
+        0,
+        14,
+        15
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "texture": "#side",
+          "cullface": "south"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "name": "south rim bottom",
+      "from": [
+        0,
+        0,
+        15
+      ],
+      "to": [
+        16,
+        2,
+        16
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            0,
+            14,
+            16,
+            16
+          ],
+          "texture": "#side",
+          "cullface": "south"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "name": "south rim left",
+      "from": [
+        0,
+        2,
+        15
+      ],
+      "to": [
+        2,
+        14,
+        16
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            0,
+            2,
+            2,
+            14
+          ],
+          "texture": "#side",
+          "cullface": "south"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "name": "south rim right",
+      "from": [
+        14,
+        2,
+        15
+      ],
+      "to": [
+        16,
+        14,
+        16
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            14,
+            2,
+            16,
+            14
+          ],
+          "texture": "#side",
+          "cullface": "south"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "name": "intake face",
+      "from": [
+        2,
+        2,
+        15
+      ],
+      "to": [
+        14,
+        14,
+        15
+      ],
+      "faces": {
         "south": {
           "uv": [
             0,
@@ -70,10 +378,9 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#intake"
         }
       }
     }
-  ],
-  "parent": "minecraft:block/block"
+  ]
 }

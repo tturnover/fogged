@@ -35,6 +35,9 @@ public class AirCompressorRenderer implements BlockEntityRenderer<AirCompressorB
 
     /** How far in front of the block face the fan is drawn, to sit over the block model's own face. */
     private static final float LIFT = 0.006F;
+    /** The casing's rim round each fan face: two pixels wide, one deep (see the block model). */
+    private static final float INSET = 2.0F / 16.0F;
+    private static final float RECESS = 1.0F / 16.0F;
 
     public AirCompressorRenderer(BlockEntityRendererProvider.Context context) {
     }
@@ -62,9 +65,9 @@ public class AirCompressorRenderer implements BlockEntityRenderer<AirCompressorB
         String still = "";
         VertexConsumer vc = buffers.getBuffer(RenderType.cutout());
         BlockPos pos = be.getBlockPos();
-        face(vc, pose, be, facing, size, 0.0F, sprite(base + "_out" + still), pos.relative(facing));
+        face(vc, pose, be, facing, size, -RECESS, sprite(base + "_out" + still), pos.relative(facing));
         // The back fan, on the casing's own back face: the intake is a block of its own.
-        face(vc, pose, be, facing.getOpposite(), size, 0.0F, sprite(base + still), pos.relative(facing.getOpposite()));
+        face(vc, pose, be, facing.getOpposite(), size, -RECESS, sprite(base + still), pos.relative(facing.getOpposite()));
     }
 
     // One face of the unit, on its `normal` side and `out` blocks beyond it, lit by the cell in front.
@@ -78,10 +81,12 @@ public class AirCompressorRenderer implements BlockEntityRenderer<AirCompressorB
 
         // The unit spans [0, size] along both plane axes from the controller's corner, and [0, 1] along
         // the facing axis; the face sits on the `normal` side of that, lifted clear of the block.
+        // Set into the casing's rim, as the block model's own faces are: inset two pixels each side.
         float[] lo = new float[3];
         float[] hi = {1, 1, 1};
         for (Direction d : AirCompressorCore.plane(normal)) {
-            hi[d.getAxis().ordinal()] = size;
+            lo[d.getAxis().ordinal()] = INSET;
+            hi[d.getAxis().ordinal()] = size - INSET;
         }
         int ax = normal.getAxis().ordinal();
         float plane = normal.getAxisDirection() == Direction.AxisDirection.POSITIVE ? 1 + out + LIFT : -out - LIFT;
