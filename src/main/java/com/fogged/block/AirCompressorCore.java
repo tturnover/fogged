@@ -184,8 +184,6 @@ public final class AirCompressorCore {
     private double shownFlow;
     private int shownNeed;
     private int shownCount = 1; // the compressors working the room together
-    private double shownOwnFlow; // this compressor's own air in
-    private int shownOwnSource;  // where it comes from: 1 clean, 2 filtered, 3 both, 0 none
     private double shownLoss;    // blocks/s the room is losing
     private int shownRunning;    // of the room's compressors, how many run
     private int shownIntakes;    // the room's intakes
@@ -639,7 +637,7 @@ public final class AirCompressorCore {
     // Blocks a second the room this compressor holds is losing now.
     private double lossRate() {
         if (draining) {
-            return state == State.STOPPED ? Config.COMPRESSOR_VENT_RATE.get() : Config.COMPRESSOR_DRAIN_RATE.get();
+            return state == State.STOPPED ? Config.COMPRESSOR_DRAIN_RATE.get() * Config.VENT_FACTOR : Config.COMPRESSOR_DRAIN_RATE.get();
         }
         if (shrinking && heldBlocks() > roomCapacity) {
             return Config.COMPRESSOR_DRAIN_RATE.get();
@@ -672,7 +670,7 @@ public final class AirCompressorCore {
                 setState(why);
                 // Stopped by redstone it vents, fast enough to cycle an airlock; starved of air, it
                 // only loses it slowly.
-                drainTo(why == State.STOPPED ? Config.COMPRESSOR_VENT_RATE.get() : Config.COMPRESSOR_DRAIN_RATE.get(), 0);
+                drainTo(why == State.STOPPED ? Config.COMPRESSOR_DRAIN_RATE.get() * Config.VENT_FACTOR : Config.COMPRESSOR_DRAIN_RATE.get(), 0);
             }
         } else {
             settle(why);
@@ -1276,15 +1274,6 @@ public final class AirCompressorCore {
         tag.putDouble("Flow", h.groupFlow);
         tag.putInt("Need", Config.COMPRESSOR_FILL_RATE.getAsInt() * (h.group.size() + 1));
         tag.putInt("Count", h.group.size() + 1);
-        // This compressor's own part: what its intakes supply, and from where.
-        tag.putDouble("OwnFlow", supplyFlow);
-        boolean clean = false;
-        boolean filtered = false;
-        for (Live in : live) {
-            clean |= !in.filtered();
-            filtered |= in.filtered();
-        }
-        tag.putInt("OwnSource", (clean ? 1 : 0) | (filtered ? 2 : 0));
         // The room's air going out (draining, venting, shrinking), its compressors running, and every
         // intake's filter together.
         tag.putDouble("Loss", h.lossRate());
@@ -1323,8 +1312,6 @@ public final class AirCompressorCore {
         shownFlow = tag.getDouble("Flow");
         shownNeed = tag.getInt("Need");
         shownCount = Math.max(1, tag.getInt("Count"));
-        shownOwnFlow = tag.getDouble("OwnFlow");
-        shownOwnSource = tag.getInt("OwnSource");
         shownLoss = tag.getDouble("Loss");
         shownRunning = tag.getInt("Running");
         shownIntakes = tag.getInt("Intakes");
@@ -1339,78 +1326,42 @@ public final class AirCompressorCore {
      */
     public void goggleLines(List<net.minecraft.network.chat.Component> tooltip) {
         AirCompressorCore c = controller();
+        net.minecraft.ChatFormatting gray = net.minecraft.ChatFormatting.GRAY;
+        net.minecraft.ChatFormatting aqua = net.minecraft.ChatFormatting.AQUA;
+        net.minecraft.ChatFormatting gold = net.minecraft.ChatFormatting.GOLD;
+        net.minecraft.ChatFormatting red = net.minecraft.ChatFormatting.RED;
         // First in the tooltip, the header sits beside the goggles' icon: leave room for it.
         tooltip.add(net.minecraft.network.chat.Component.literal(tooltip.isEmpty() ? "    " : "")
                 .append(net.minecraft.network.chat.Component.translatable("fogged.goggles.compressor"))
                 .withStyle(net.minecraft.ChatFormatting.WHITE));
-        // Working a room with others: everything below is the room's, all of them together.
-        if (c.shownCount > 1) {
-            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.compressors")
-                    .withStyle(net.minecraft.ChatFormatting.GRAY)));
-            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.running",
-                    c.shownRunning, c.shownCount)
-                    .withStyle(c.shownRunning < c.shownCount ? net.minecraft.ChatFormatting.GOLD
-                            : net.minecraft.ChatFormatting.AQUA)));
-        }
+        // A few lines, each a grey label over its value as Create lays them out, all of it the room's:
+        // what its air is doing, how much there is, what comes in, the filters, the compressors.
         State shown = State.of(c.shownState);
-        // Each a grey label over its value, as Create and Create Crafts & Additions lay theirs out.
-        tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.status")
-                .withStyle(net.minecraft.ChatFormatting.GRAY)));
-        tooltip.add(line(net.minecraft.network.chat.Component.literal(" ").append(net.minecraft.network.chat.Component.translatable(
-                "fogged.goggles.state." + shown.name().toLowerCase(java.util.Locale.ROOT)))
+        net.minecraft.network.chat.MutableComponent status = net.minecraft.network.chat.Component.literal(" ")
+                .append(net.minecraft.network.chat.Component.translatable(
+                        "fogged.goggles.state." + shown.name().toLowerCase(java.util.Locale.ROOT)))
                 .withStyle(shown == State.SEALED ? net.minecraft.ChatFormatting.GREEN
-                        : shown == State.PRESSURIZING ? net.minecraft.ChatFormatting.YELLOW
-                        : net.minecraft.ChatFormatting.RED)));
-        if (c.shownVolume > 0) {
-            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.room")
-                    .withStyle(net.minecraft.ChatFormatting.GRAY)));
-            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.blocks_of",
-                    amount(c.shownHeld), amount(c.shownVolume)).withStyle(net.minecraft.ChatFormatting.AQUA)));
-        }
+                        : shown == State.PRESSURIZING ? net.minecraft.ChatFormatting.YELLOW : red);
         if (c.shownLoss > 0.0 && c.shownHeld > 0) {
-            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.losing")
-                    .withStyle(net.minecraft.ChatFormatting.GRAY)));
-            tooltip.add(line(net.minecraft.network.chat.Component.literal(" ").append(
-                    net.minecraft.network.chat.Component.translatable("fogged.goggles.per_second_one", amount(c.shownLoss)))
-                    .withStyle(net.minecraft.ChatFormatting.GOLD)));
+            status.append(net.minecraft.network.chat.Component.translatable("fogged.goggles.losing_rate",
+                    amount(c.shownLoss)).withStyle(gold));
         }
-        tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.capacity")
-                .withStyle(net.minecraft.ChatFormatting.GRAY)));
-        tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.blocks",
-                amount(c.shownCapacity)).withStyle(net.minecraft.ChatFormatting.AQUA)));
-        // What the intakes supply against what the unit can push: short, it fills only that fast.
-        tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.air_in")
-                .withStyle(net.minecraft.ChatFormatting.GRAY)));
-        tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.per_second",
-                amount(c.shownFlow), amount(c.shownNeed))
-                .withStyle(c.shownFlow + 0.5 >= c.shownNeed ? net.minecraft.ChatFormatting.AQUA
-                        : net.minecraft.ChatFormatting.GOLD)));
-        // The room's intakes, and their filters together.
-        tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.intakes")
-                .withStyle(net.minecraft.ChatFormatting.GRAY)));
-        tooltip.add(line(net.minecraft.network.chat.Component.literal(" " + c.shownIntakes)
-                .withStyle(c.shownIntakes == 0 ? net.minecraft.ChatFormatting.RED : net.minecraft.ChatFormatting.AQUA)));
+        pair(tooltip, "fogged.goggles.status", status);
+        pair(tooltip, "fogged.goggles.room", net.minecraft.network.chat.Component.translatable(
+                c.shownVolume > 0 ? "fogged.goggles.room_value" : "fogged.goggles.room_none",
+                amount(c.shownHeld), amount(c.shownVolume), amount(c.shownCapacity)).withStyle(aqua));
+        pair(tooltip, "fogged.goggles.air_in", net.minecraft.network.chat.Component.translatable(
+                "fogged.goggles.per_second", amount(c.shownFlow), amount(c.shownNeed))
+                .withStyle(c.shownIntakes == 0 ? red : c.shownFlow + 0.5 >= c.shownNeed ? aqua : gold));
         if (c.shownFilters > 0) {
-            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.filters")
-                    .withStyle(net.minecraft.ChatFormatting.GRAY)));
-            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.filters_state",
-                    c.shownPolluted, c.shownClogged, c.shownFilters)
-                    .withStyle(c.shownClogged > 0 ? net.minecraft.ChatFormatting.RED
-                            : c.shownPolluted >= 75 ? net.minecraft.ChatFormatting.GOLD : net.minecraft.ChatFormatting.AQUA)));
+            pair(tooltip, "fogged.goggles.filters", net.minecraft.network.chat.Component.translatable(
+                    "fogged.goggles.filters_value", c.shownPolluted, c.shownClogged)
+                    .withStyle(c.shownClogged > 0 ? red : c.shownPolluted >= 75 ? gold : aqua));
         }
-        // Working a room with others: this compressor's own part, and where its air comes from.
         if (c.shownCount > 1) {
-            String source = switch (c.shownOwnSource) {
-                case 1 -> "clean";
-                case 2 -> "filtered";
-                case 3 -> "mixed";
-                default -> "none";
-            };
-            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.this_one")
-                    .withStyle(net.minecraft.ChatFormatting.GRAY)));
-            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.own_air",
-                    amount(c.shownOwnFlow), net.minecraft.network.chat.Component.translatable("fogged.goggles.source." + source))
-                    .withStyle(net.minecraft.ChatFormatting.AQUA)));
+            pair(tooltip, "fogged.goggles.compressors", net.minecraft.network.chat.Component.translatable(
+                    "fogged.goggles.running", c.shownCount, c.shownRunning)
+                    .withStyle(c.shownRunning < c.shownCount ? gold : aqua));
         }
         // What the unit is spending, from whatever drives it -- the same from every block of it.
         for (net.minecraft.network.chat.Component spend : c.unitDrive(c.members()).readout()) {
@@ -1445,6 +1396,14 @@ public final class AirCompressorCore {
             return Math.round(value / 100.0) / 10.0 + "k";
         }
         return Integer.toString((int) Math.round(value));
+    }
+
+    // A grey label, and its value on the line below, both indented under the header.
+    private static void pair(List<net.minecraft.network.chat.Component> tooltip, String label,
+            net.minecraft.network.chat.Component value) {
+        tooltip.add(line(net.minecraft.network.chat.Component.translatable(label)
+                .withStyle(net.minecraft.ChatFormatting.GRAY)));
+        tooltip.add(line(value));
     }
 
     /** A goggle line indented under the header, as Create's own are. */

@@ -49,21 +49,16 @@ public class ModLanguageProvider extends LanguageProvider {
         add("block.fogged.kinetic_air_compressor", "Kinetic Air Compressor");
         // Create goggles on an air compressor (AirCompressorCore#goggleLines).
         add("fogged.goggles.compressor", "Air Compressor:");
-        add("fogged.goggles.compressors", "Compressors In The Room:");
-        add("fogged.goggles.this_one", "This Compressor:");
-        add("fogged.goggles.running", " %s of %s running");
-        add("fogged.goggles.losing", "Losing Air:");
+        add("fogged.goggles.compressors", "Compressors:");
+        add("fogged.goggles.running", " %s, %s running");
+        add("fogged.goggles.losing_rate", ", losing %s/s");
+        add("fogged.goggles.room_value", " %s / %s blocks, holds %s");
+        add("fogged.goggles.room_none", " none yet, holds %3$s blocks");
+        add("fogged.goggles.filters_value", " %s%% polluted, %s clogged");
         add("fogged.goggles.per_second_one", "%s blocks/s");
-        add("fogged.goggles.intakes", "Intakes:");
         add("fogged.goggles.filters", "Filters:");
-        add("fogged.goggles.filters_state", " %s%% polluted, %s of %s clogged");
         add("fogged.goggles.air_out", "Air Out:");
         add("fogged.goggles.not_connected", "Not connected to a compressor");
-        add("fogged.goggles.own_air", " %s blocks/s, %s");
-        add("fogged.goggles.source.clean", "clean air");
-        add("fogged.goggles.source.filtered", "filtered");
-        add("fogged.goggles.source.mixed", "clean and filtered");
-        add("fogged.goggles.source.none", "no air");
         add("fogged.goggles.state.off", "No power");
         add("fogged.goggles.state.no_intake", "No air intake");
         add("fogged.goggles.state.unfiltered", "Intake draws murk: fit a filter");
@@ -100,9 +95,6 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.state.sealed", "Sealed");
         add("fogged.goggles.status", "Status:");
         add("fogged.goggles.room", "Room:");
-        add("fogged.goggles.capacity", "Capacity:");
-        add("fogged.goggles.blocks_of", " %s / %s blocks");
-        add("fogged.goggles.blocks", " %s blocks");
         add("fogged.goggles.energy_usage", "Energy Usage:");
         add("fogged.goggles.too_slow", "Shaft too slow: needs medium speed");
         add("fogged.tooltip.air_duct.desc1", "Laid from a _compressor's outlet_, it carries the air out of its _open ends_; from its _back_, it brings air from an _intake_.");
@@ -204,7 +196,7 @@ public class ModLanguageProvider extends LanguageProvider {
         cfg("compressorVolumePerFace", "Room Per Compressor",
                 "Blocks of room one compressor holds at full power. Several in one room add up. Bigger rooms count as leaking.");
         cfg("compressorFillRate", "Fill Rate Per Compressor",
-                "Blocks per second one compressor pressurizes, at full power. Several in one room add up. The air is breathable wherever it has reached.");
+                "Blocks per second one compressor pressurizes, at full power; one intake supplies just this much. Several in one room add up.");
         cfg("intakeFilters", "Intake Filters",
                 "What an air intake takes as a filter, and how many blocks of murk it cleans before it clogs: item id or #tag, '=', capacity. Full blocks only.");
         cfg("intakeFilterCleanRate", "Filter Cleaning In Clean Air",
@@ -217,12 +209,10 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Sounds when a filter is taken out of an intake, as the fitted sounds.");
         cfg("intakeClogSounds", "Filter Clogged Sounds",
                 "Sounds when an intake's filter clogs, as the fitted sounds.");
-        cfg("compressorDrainRate", "Air Lost Without Intake",
-                "Blocks of a sealed room's air lost per second while no clean air comes in. The rest stays, farthest from the outlet going first. 0 = kept.");
-        cfg("compressorVentRate", "Air Vented When Stopped",
-                "Blocks of a sealed room's air vented per second while redstone stops its compressors: fast, to cycle an airlock. 0 = kept.");
-        cfg("intakeFlow", "Air Per Intake",
-                "Blocks of air one intake supplies per second. A compressor fills only as fast as its intakes supply.");
+        cfg("group.cosmetic", "Cosmetic",
+                "Looks and sounds only: the filter's grime colour, and the sound lists after it. Nothing here changes how the air works.");
+        cfg("compressorDrainRate", "Air Loss",
+                "Blocks of a room's air lost per second with no clean air coming in, or too big for its compressors. Redstone vents ten times as fast. 0 = kept.");
         cfg("intakeDuctLossPercent", "Flow Lost Per Duct",
                 "Percent of an intake's flow lost for each duct between it and its compressor. Compounds.");
         cfg("compressorHoldFePerBlock", "FE To Hold, Per Block",

@@ -53,21 +53,16 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("block.fogged.kinetic_air_compressor", "Кінетичний повітряний компресор");
         // Create goggles on an air compressor (AirCompressorCore#goggleLines).
         add("fogged.goggles.compressor", "Повітряний компресор:");
-        add("fogged.goggles.compressors", "Компресорів у приміщенні:");
-        add("fogged.goggles.this_one", "Цей компресор:");
-        add("fogged.goggles.running", " %s з %s працюють");
-        add("fogged.goggles.losing", "Втрачається повітря:");
+        add("fogged.goggles.compressors", "Компресори:");
+        add("fogged.goggles.running", " %s, працюють %s");
+        add("fogged.goggles.losing_rate", ", втрачає %s/с");
+        add("fogged.goggles.room_value", " %s / %s блоків, тримає %s");
+        add("fogged.goggles.room_none", " ще немає, тримає %3$s блоків");
+        add("fogged.goggles.filters_value", " забруднені на %s%%, забито %s");
         add("fogged.goggles.per_second_one", "%s блоків/с");
-        add("fogged.goggles.intakes", "Забори:");
         add("fogged.goggles.filters", "Фільтри:");
-        add("fogged.goggles.filters_state", " забруднені на %s%%, забито %s з %s");
         add("fogged.goggles.air_out", "Видає повітря:");
         add("fogged.goggles.not_connected", "Не під'єднаний до компресора");
-        add("fogged.goggles.own_air", " %s блоків/с, %s");
-        add("fogged.goggles.source.clean", "чисте повітря");
-        add("fogged.goggles.source.filtered", "через фільтр");
-        add("fogged.goggles.source.mixed", "чисте й через фільтр");
-        add("fogged.goggles.source.none", "немає повітря");
         add("fogged.goggles.state.off", "Немає живлення");
         add("fogged.goggles.state.no_intake", "Немає забору повітря");
         add("fogged.goggles.state.unfiltered", "Забір тягне каламуть: потрібен фільтр");
@@ -102,9 +97,6 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.state.sealed", "Герметично");
         add("fogged.goggles.status", "Стан:");
         add("fogged.goggles.room", "Приміщення:");
-        add("fogged.goggles.capacity", "Місткість:");
-        add("fogged.goggles.blocks_of", " %s / %s блоків");
-        add("fogged.goggles.blocks", " %s блоків");
         add("fogged.goggles.energy_usage", "Споживання енергії:");
         add("fogged.goggles.too_slow", "Вал надто повільний: потрібна середня швидкість");
         add("fogged.tooltip.air_duct.desc1", "Прокладений від _виходу компресора_, несе повітря до своїх _відкритих кінців_; від його _спини_ підводить повітря із _забору_.");
@@ -218,12 +210,10 @@ public class ModLanguageProviderUk extends LanguageProvider {
                 "Звуки, коли фільтр виймають із забору, як і звуки встановлення.");
         cfg("intakeClogSounds", "Звуки забиття фільтра",
                 "Звуки, коли фільтр забору забивається, як і звуки встановлення.");
-        cfg("compressorDrainRate", "Втрата повітря без забору",
-                "Скільки блоків повітря герметичного приміщення втрачається за секунду, поки не надходить чисте повітря. Решта лишається, найдальше від виходу йде першим. 0 = не втрачається.");
-        cfg("compressorVentRate", "Скидання повітря при зупинці",
-                "Скільки блоків повітря герметичного приміщення скидається за секунду, поки редстоун зупиняє його компресори: швидко, щоб прогнати шлюз. 0 = не скидається.");
-        cfg("intakeFlow", "Повітря на забір",
-                "Скільки блоків повітря за секунду дає один забір. Компресор наповнює не швидше, ніж його забори подають.");
+        cfg("group.cosmetic", "Оформлення",
+                "Лише вигляд і звуки: колір бруду фільтра та списки звуків після нього. Тут ніщо не змінює роботу повітря.");
+        cfg("compressorDrainRate", "Втрата повітря",
+                "Скільки блоків повітря втрачає приміщення за секунду без чистого повітря чи завелике для своїх компресорів. Редстоун скидає вдесятеро швидше. 0 = не втрачається.");
         cfg("intakeDuctLossPercent", "Втрата на повітропровід",
                 "Відсоток потоку забору, втрачений на кожному повітропроводі між ним і компресором. Накопичується.");
         cfg("compressorHoldFePerBlock", "FE на утримання, на блок",

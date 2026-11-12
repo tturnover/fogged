@@ -141,7 +141,8 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
 
     /**
      * Blocks of air per second the intake at {@code pos} supplies its compressor through {@code ducts}
-     * ducts, drawing {@code supply}: {@link Config#INTAKE_FLOW}, less {@link Config#INTAKE_DUCT_LOSS}
+     * ducts, drawing {@code supply}: one compressor's fill rate ({@link Config#COMPRESSOR_FILL_RATE}), less
+     * {@link Config#INTAKE_DUCT_LOSS}
      * a duct, and through a filter less again for depth under the murk, as a nozzle filter's sphere
      * shrinks ({@link Config#depthRadiusFactor}). None for air it cannot use.
      */
@@ -149,7 +150,7 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         if (!supply.clean()) {
             return 0.0;
         }
-        double flow = Config.INTAKE_FLOW.getAsInt()
+        double flow = Config.COMPRESSOR_FILL_RATE.getAsInt()
                 * Math.pow(Math.max(0.0, 1.0 - Config.INTAKE_DUCT_LOSS.get() / 100.0), ducts);
         if (supply == Supply.FILTERED) {
             flow *= Config.depthRadiusFactor(level, PlaneSensor.worldY(level, mouth(pos, state)));

@@ -543,28 +543,21 @@ public class Config {
 
     public static final ModConfigSpec.IntValue COMPRESSOR_FILL_RATE = COMMON
             .comment("Blocks of room one compressor pressurizes per second, scaled by power like the",
-                    "volume. The room is breathable wherever the air has reached so far.")
+                    "volume. The room is breathable wherever the air has reached so far. One intake supplies",
+                    "just this much air: one intake to a compressor fills at full speed (less for ducts",
+                    "between, intakeDuctLossPercent, and through a filter for depth, depthScalingPercent).")
             .defineInRange("compressorFillRate", 80, 1, 100_000);
 
     public static final ModConfigSpec.DoubleValue COMPRESSOR_DRAIN_RATE = COMMON
-            .comment("Blocks of a sealed room's air lost per second while its compressor gets no clean air in",
-                    "-- no intake, intakes in the murk unfiltered, filters clogged. The room keeps the rest,",
-                    "losing it farthest from the outlet first, and fills back up when the air comes back.",
-                    "0 = the room keeps its air for as long as the compressor runs.")
+            .comment("Blocks of a sealed room's air lost per second when no clean air comes in -- no intake,",
+                    "intakes in the murk unfiltered, filters clogged -- or while it is too big for its",
+                    "compressors. A redstone signal stopping them vents it ten times as fast, to cycle an",
+                    "airlock. Always farthest from the outlet first; the room fills back up after.",
+                    "0 = the room keeps its air for as long as its compressors run.")
             .defineInRange("compressorDrainRate", 2.0, 0.0, 100_000.0);
 
-    public static final ModConfigSpec.DoubleValue COMPRESSOR_VENT_RATE = COMMON
-            .comment("Blocks of a sealed room's air vented per second while a redstone signal stops its",
-                    "compressors -- fast, so a lever or a button cycles an airlock. Farthest from the outlet",
-                    "first; the room refills when the signal goes off. 0 = stopping keeps the air in.")
-            .defineInRange("compressorVentRate", 20.0, 0.0, 100_000.0);
-
-    public static final ModConfigSpec.IntValue INTAKE_FLOW = COMMON
-            .comment("Blocks of air one air intake supplies per second. A compressor fills only as fast as",
-                    "its intakes supply: at the default one compressor's worth each, so one intake to a",
-                    "compressor fills at full speed. Less for ducts between (intakeDuctLossPercent) and,",
-                    "through a filter, for depth under the murk (depthScalingPercent).")
-            .defineInRange("intakeFlow", 80, 1, 100_000);
+    /** How much faster a redstone stop vents a room than it drains starved of air. */
+    public static final double VENT_FACTOR = 10.0;
 
     public static final ModConfigSpec.DoubleValue INTAKE_DUCT_LOSS = COMMON
             .comment("Percent of an intake's flow lost for every air duct between it and its compressor.",
@@ -588,6 +581,11 @@ public class Config {
                     "clogged filter clears and lets air through again. 0 = filters stay as dirty as they are.")
             .defineInRange("intakeFilterCleanRate", 5.0, 0.0, 100_000.0);
 
+    // Looks and sounds only: nothing here changes how the air works.
+    static {
+        COMMON.push("cosmetic");
+    }
+
     public static final ModConfigSpec.IntValue FILTER_POLLUTION_COLOR = COMMON
             .comment("The colour a filter darkens toward as it fills with murk, as a packed RGB integer: its",
                     "texture is shaded by it in step with how polluted it is, from none when clean to all of",
@@ -610,6 +608,10 @@ public class Config {
             .defineListAllowEmpty("intakeClogSounds",
                     () -> List.of("minecraft:block.wool.hit,1.0,0.5", "minecraft:block.fire.extinguish,0.35,0.6"),
                     () -> "minecraft:block.wool.hit", o -> o instanceof String s && parseSound(s) != null);
+
+    static {
+        COMMON.pop(); // cosmetic
+    }
 
     private record SoundEntry(ResourceLocation id, float volume, float pitch) {}
 
