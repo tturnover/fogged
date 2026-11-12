@@ -450,6 +450,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Replace the plane with a raw view of one of the buffers behind it.");
         cfg("debugHud", "Debug Readout",
                 "Draw the render state (boundary, fade range, depth capture, hole count) in the corner.");
+        cfg("distantHorizons", "Murk Over Distant Horizons",
+                "Carry the surface, its foam and the mist out over Distant Horizons' LODs, and hide them while in the murk. Needs Distant Horizons 3.3.0 or newer, and no shader pack.");
         cfg("logRenderCompatWarnings", "Log Compatibility Warnings",
                 "Log once when this mod detects it cannot work with the current rendering setup.");
     }

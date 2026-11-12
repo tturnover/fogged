@@ -259,6 +259,7 @@ final class YaclCompatibility {
                         .controller(opt -> EnumControllerBuilder.create(opt).enumClass(Config.DebugView.class))
                         .build())
                 .option(bool("debugHud", Config.DEBUG_HUD))
+                .option(bool("distantHorizons", Config.DISTANT_HORIZONS))
                 .option(bool("logRenderCompatWarnings", Config.LOG_RENDER_COMPAT_WARNINGS))
                 .build();
     }

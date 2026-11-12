@@ -53,6 +53,8 @@
   "fogged.configuration.depthScalingPercent.tooltip": "За крок: втрата повітря зростає на цей відсоток, радіус сфери фільтра спадає. Кроки множаться.",
   "fogged.configuration.dimensions": "Виміри з імлою",
   "fogged.configuration.dimensions.tooltip": "Ідентифікатори вимірів, у яких існує імла, по одному на рядок. Там, де їх немає в списку, межі немає взагалі. \"*\" означає всі виміри.",
+  "fogged.configuration.distantHorizons": "Каламуть над Distant Horizons",
+  "fogged.configuration.distantHorizons.tooltip": "Продовжує поверхню, її піну й імлу над LOD-ами Distant Horizons і ховає їх, поки камера в каламуті. Потрібен Distant Horizons 3.3.0 або новіший і жодного шейдерпаку.",
   "fogged.configuration.dither": "Піксельний дизеринг",
   "fogged.configuration.dither.tooltip": "Піксельний дизеринг: як площина рідшає біля камери і яке зерно має кожен розмитий край. Під шейдерпаком Iris так малюється вся каламуть.",
   "fogged.configuration.ditherPixelSize": "Розмір пікселя дизерингу",

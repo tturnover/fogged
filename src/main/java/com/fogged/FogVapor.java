@@ -3,6 +3,7 @@ package com.fogged;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -122,7 +123,7 @@ public final class FogVapor {
                 renderThroughPack(view, cam, relY, fogFar, timeSeconds, depth);
                 return;
             }
-            renderCore(view, cam, surfaceY, relY, fogFar, below, timeSeconds, depth);
+            renderCore(view, cam, surfaceY, relY, fogFar, below, timeSeconds, depth, null);
         } finally {
             if (time) {
                 gpu.end();
@@ -132,8 +133,44 @@ public final class FogVapor {
 
     private static boolean over; // which copy render() is drawing this call, for the timer above
 
+    // How a copy drawn into DH's buffers differs (see drawFar): the distances it fades in and out over,
+    // how far its sheets reach, and whether it is at the coarse far scale.
+    private record Far(float fadeIn, float fadeInEnd, float fadeOut, float fadeOutEnd, float outer, boolean coarse) {
+    }
+
+    // How much coarser the far copy's noise is than the near one's, and its pixels with it. At the near
+    // scale a wisp is a few pixels wide a few hundred blocks out and then under one: what reads as
+    // terraces up close only shimmers. Past that the mist wants to be big slow shapes. A power of two, so
+    // NOISE_ANCHOR * the scale stays a whole number and the field still tiles (see WISP_SCALE).
+    private static final float FAR_COARSENESS = 8.0F;
+
+    /**
+     * The mist over LODs, into DH's buffers (see DhFarPass, which has set the matrices and leaves the
+     * depth function as DH had it). The plane is already in that depth buffer, so the sheets hanging on
+     * its far side are simply hidden, and only the clear side is drawn.
+     *
+     * <p>Two copies. The near mist cannot go past lodStart, because it would have to ask where the LODs
+     * are (see the note in DistantHorizonsCompatibility), so one copy here takes over from it there at
+     * the same scale, with no change for the eye to catch, and hands over in turn to the coarse one.
+     */
+    static void drawFar(Minecraft mc, Vec3 cam, float lodStart, float outer) {
+        if (Config.VAPOR_SHEETS.getAsInt() <= 0) {
+            return;
+        }
+        double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
+        float bandEnd = lodStart * DistantHorizonsCompatibility.HANDOFF_BAND;
+        Far[] copies = {
+                new Far(lodStart - 0.05F, lodStart, lodStart, bandEnd, bandEnd, false),
+                new Far(lodStart, bandEnd, outer * 0.8F, outer, outer, true)
+        };
+        for (Far far : copies) {
+            renderCore(RenderSystem.getModelViewStack(), cam, surfaceY, (float) (surfaceY - cam.y), outer, false,
+                    FogShaders.animTimeSeconds(), SceneDepth.SCENE, far);
+        }
+    }
+
     private static void renderCore(Matrix4f view, Vec3 cam, double surfaceY, float relY, float fogFar,
-            boolean below, double timeSeconds, SceneDepth depth) {
+            boolean below, double timeSeconds, SceneDepth depth, Far far) {
         ShaderInstance shader = FogShaders.FOG_VAPOR;
         if (shader == null) {
             return;
@@ -152,10 +189,25 @@ public final class FogVapor {
         }
 
         Minecraft mc = Minecraft.getInstance();
-        float reach = Math.min(mc.options.getEffectiveRenderDistance() * 16.0F, fogFar);
+        // With LODs past the rim the near copy stops where they can begin; see drawFar.
+        boolean handsOver = far == null && !below && DistantHorizonsCompatibility.lodsThisFrame();
+        if (handsOver) {
+            fogFar = DistantHorizonsCompatibility.lodStart();
+        }
+        float fadeFrom = far != null ? far.fadeOut() : handsOver ? fogFar - 0.05F : fogFar * 0.8F;
+        float fadeTo = far != null ? far.fadeOutEnd() : fogFar;
+        float reach = far != null ? far.outer()
+                : handsOver ? fogFar : Math.min(mc.options.getEffectiveRenderDistance() * 16.0F, fogFar);
 
         RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        if (far != null) {
+            // Blended colour, but DH's alpha left alone: its far fade and apply pass read that channel.
+            RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
+                    GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ZERO,
+                    GlStateManager.DestFactor.ONE);
+        } else {
+            RenderSystem.defaultBlendFunc();
+        }
         RenderSystem.enableDepthTest(); // terrain / the plane occlude the vapour
         RenderSystem.depthMask(false);  // translucent: never writes depth
         RenderSystem.disableCull();     // seen from both sides
@@ -166,7 +218,7 @@ public final class FogVapor {
         RenderSystem.setShaderTexture(3, depth.depthTextureId());
         // Degrades to "never occlude" in the shader when occlusion is off or the capture this frame
         // failed (see SceneDepth) -- mirrors FogPlaneRenderer's own DepthValid gating.
-        float depthValid = Config.PLANE_SOFT_OCCLUSION.getAsBoolean() && depth.depthAvailable() ? 1.0F : 0.0F;
+        float depthValid = far == null && Config.PLANE_SOFT_OCCLUSION.getAsBoolean() && depth.depthAvailable() ? 1.0F : 0.0F;
 
         RenderSystem.setShader(() -> shader);
         // Anchor world coords to a tile near the camera so the floor()-snapped wisp noise stays precise
@@ -176,13 +228,19 @@ public final class FogVapor {
         double ax = Math.rint(cam.x / FogPlaneRenderer.NOISE_ANCHOR) * FogPlaneRenderer.NOISE_ANCHOR;
         double az = Math.rint(cam.z / FogPlaneRenderer.NOISE_ANCHOR) * FogPlaneRenderer.NOISE_ANCHOR;
         shader.safeGetUniform("WorldOffset").set((float) (cam.x - ax), (float) cam.y, (float) (cam.z - az));
-        shader.safeGetUniform("WispScale").set(WISP_SCALE);
+        shader.safeGetUniform("WispScale").set(far != null && far.coarse() ? WISP_SCALE / FAR_COARSENESS : WISP_SCALE);
         // The baked terrace field (see NoiseField): one texel per pixel instead of the noise itself.
         RenderSystem.setShaderTexture(1, NoiseField.textureId());
         FogPlaneRenderer.setNoiseUniforms(shader, ax, az);
         // Must match the waterline map's actual resolution (Config.waterlineCellsPerBlock) so the vapour's
         // pixel-snap grid lines up with the plane's foam grid.
-        shader.safeGetUniform("PixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
+        shader.safeGetUniform("PixelsPerBlock").set(far != null && far.coarse()
+                ? WaterlineMap.cellsPerBlock() / FAR_COARSENESS : (float) WaterlineMap.cellsPerBlock());
+        if (far != null && far.coarse()) {
+            shader.safeGetUniform("NoiseValid").set(0.0F); // baked at the near scale, and a long way off
+        }
+        shader.safeGetUniform("FarFadeIn").set(far != null ? far.fadeIn() : 0.0F, far != null ? far.fadeInEnd() : 0.0F);
+        shader.safeGetUniform("LodActive").set(DistantHorizonsCompatibility.lodsThisFrame() ? 1.0F : 0.0F);
         // Where the foam map sits and how its stored distance scales -- the same values the plane
         // passes, anchored to the same tile, or the two would disagree about where the ring is.
         shader.safeGetUniform("WaterlineOrigin").set((float) (WaterlineMap.originX() - ax),
@@ -191,8 +249,8 @@ public final class FogVapor {
         shader.safeGetUniform("WaterlineMaxDist").set(WaterlineMap.MAX_DIST);
         shader.safeGetUniform("FoamPixelsPerBlock").set((float) WaterlineMap.cellsPerBlock());
         shader.safeGetUniform("FoamWidth").set((float) (double) Config.FOAM_WIDTH.get());
-        shader.safeGetUniform("PlaneFadeStart").set(fogFar * 0.8F);
-        shader.safeGetUniform("PlaneFadeEnd").set(fogFar);
+        shader.safeGetUniform("PlaneFadeStart").set(fadeFrom);
+        shader.safeGetUniform("PlaneFadeEnd").set(fadeTo);
         // Framebuffer size so the shader maps gl_FragCoord into the scene-depth snapshot.
         shader.safeGetUniform("ScreenSize").set((float) mc.getMainRenderTarget().width, (float) mc.getMainRenderTarget().height);
         shader.safeGetUniform("DepthValid").set(depthValid);
@@ -206,9 +264,15 @@ public final class FogVapor {
         // short of the render distance, and the mist must not hang over sky past it.
         float savedFogStart = RenderSystem.getShaderFogStart();
         float savedFogEnd = RenderSystem.getShaderFogEnd();
-        float dissolveEnd = !below && savedFogEnd > 0.0F ? Math.min(fogFar, savedFogEnd) : fogFar;
-        RenderSystem.setShaderFogStart(dissolveEnd * 0.25F);
-        RenderSystem.setShaderFogEnd(dissolveEnd);
+        float dissolveEnd = far == null && !below && savedFogEnd > 0.0F ? Math.min(fogFar, savedFogEnd) : fogFar;
+        if (handsOver) {
+            // Thinned to nothing on the way to the far copy, the two would leave a ring of clear air.
+            RenderSystem.setShaderFogStart(dissolveEnd * 2.0F);
+            RenderSystem.setShaderFogEnd(dissolveEnd * 3.0F);
+        } else {
+            RenderSystem.setShaderFogStart(dissolveEnd * 0.25F);
+            RenderSystem.setShaderFogEnd(dissolveEnd);
+        }
 
         // Equally-spaced flat planes from just above the boundary up to the configured height. Each is a
         // single big quad; the shader keeps it only where the noise field reaches that plane's rising
@@ -239,12 +303,17 @@ public final class FogVapor {
         // Without this the mist stayed above a murk that had gone above it: inside the ceiling, where
         // there is nothing to see it, and absent from the open air below where it belongs.
         float clearSide = Config.synced(Config.FLIP_FOG) ? -1.0F : 1.0F;
-        for (float face : Config.VAPOR_UNDERSIDE.getAsBoolean() ? BOTH_SIDES : CLEAR_ONLY) {
+        for (float face : far == null && Config.VAPOR_UNDERSIDE.getAsBoolean() ? BOTH_SIDES : CLEAR_ONLY) {
             float side = face * clearSide;
             for (int i = 0; i < sheets; i++) {
                 // Bottom plane carries most of the alpha (so the mist reads up close, face-on); higher
                 // planes fall off fast so grazing overlaps at distance don't pile into a solid wall.
                 float baseA = va * 0.5F * (float) Math.pow(0.55, i);
+                if (far != null && Config.VAPOR_UNDERWATER.getAsBoolean()) {
+                    // The near copy is drawn at two stages, so it lies twice over. The far one is drawn
+                    // once, and this is the same density without a second screen of noise.
+                    baseA = 1.0F - (1.0F - baseA) * (1.0F - baseA);
+                }
                 float threshold = (i + 1.0F) / (sheets + 1.0F);
                 float y = relY + side * (float) (0.3 + (i + 1) * spacing);
                 bb.addVertex(-reach, y, -reach).setColor(threshold, 0.0F, 0.0F, baseA);

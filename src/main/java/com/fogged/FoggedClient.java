@@ -46,6 +46,7 @@ public class FoggedClient {
             Config.acceptServerValues(null);
             AirtightSync.nearbyCells = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(); // the next world tells its own
         });
+        DistantHorizonsCompatibility.register();
         if (RigAssets.live()) {
             // Dev client only (see RigAssets): picks up a new Blockbench export without F3+T.
             NeoForge.EVENT_BUS.addListener(RigAssets::onClientTick);

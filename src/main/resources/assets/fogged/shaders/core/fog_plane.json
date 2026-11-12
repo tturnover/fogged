@@ -4,7 +4,9 @@
     "samplers": [
         { "name": "Sampler0" },
         { "name": "Sampler1" },
-        { "name": "Sampler3" }
+        { "name": "Sampler3" },
+        { "name": "Sampler4" },
+        { "name": "Sampler5" }
     ],
     "attributes": [
         "Position",
@@ -41,6 +43,13 @@
         { "name": "NoiseCellsPerBlock", "type": "float", "count": 1, "values": [ 4.0 ] },
         { "name": "NoiseValid", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "NoiseTime", "type": "float", "count": 1, "values": [ 0.0 ] },
-        { "name": "WispScale", "type": "float", "count": 1, "values": [ 0.09375 ] }
+        { "name": "WispScale", "type": "float", "count": 1, "values": [ 0.09375 ] },
+        { "name": "LodActive", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "LodStart", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "LodClearDepth", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "LodFoamSide", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "LodInvViewProj", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "FarInner", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "MaskPass", "type": "float", "count": 1, "values": [ 0.0 ] }
     ]
 }

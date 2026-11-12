@@ -34,6 +34,8 @@
         { "name": "NoiseCells", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "NoiseCellsPerBlock", "type": "float", "count": 1, "values": [ 4.0 ] },
         { "name": "NoiseValid", "type": "float", "count": 1, "values": [ 0.0 ] },
-        { "name": "NoiseTime", "type": "float", "count": 1, "values": [ 0.0 ] }
+        { "name": "NoiseTime", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "LodActive", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "FarFadeIn", "type": "float", "count": 2, "values": [ 0.0, 0.0 ] }
     ]
 }

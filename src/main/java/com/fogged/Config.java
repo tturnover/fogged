@@ -440,6 +440,13 @@ public class Config {
                     "Needs Sable.")
             .define("sableFoam", true);
 
+    public static final ModConfigSpec.BooleanValue DISTANT_HORIZONS = CLIENT
+            .comment("Carry the murk out over Distant Horizons' LODs: the surface, its foam and the mist",
+                    "reach them and are cut by them, and they are hidden while the camera is in the murk.",
+                    "Off, the surface stops at the render distance and LODs are drawn as if it were not",
+                    "there. Needs Distant Horizons 3.3.0 or newer, and no shader pack.")
+            .define("distantHorizons", true);
+
     static { CLIENT.pop(); }   // [compat]
 
     // ==== common [suffocation] : what the murk does to the things breathing in it ====

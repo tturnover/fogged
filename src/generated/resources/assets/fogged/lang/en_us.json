@@ -53,6 +53,8 @@
   "fogged.configuration.depthScalingPercent.tooltip": "Per step: air loss up by this percent, nozzle-filter sphere radius down by it. Steps compound.",
   "fogged.configuration.dimensions": "Fogged Dimensions",
   "fogged.configuration.dimensions.tooltip": "Dimension ids the murk exists in, one per line. Anywhere unlisted has no boundary at all. \"*\" means every dimension.",
+  "fogged.configuration.distantHorizons": "Murk Over Distant Horizons",
+  "fogged.configuration.distantHorizons.tooltip": "Carry the surface, its foam and the mist out over Distant Horizons' LODs, and hide them while in the murk. Needs Distant Horizons 3.3.0 or newer, and no shader pack.",
   "fogged.configuration.dither": "Pixel Dither",
   "fogged.configuration.dither.tooltip": "The pixel dither: how the plane thins out around the camera, and the grain of every dithered edge. Under an Iris shader pack this is also how the whole murk is drawn.",
   "fogged.configuration.ditherPixelSize": "Dither Pixel Size",

@@ -5,6 +5,8 @@
 uniform sampler2D Sampler0; // world-space waterline map (R = solid/entity dist, G = plant dist)
 uniform sampler2D Sampler1; // the baked noise fields (NoiseField); see fogged_field_sample.glsl
 uniform sampler2D Sampler3; // scene depth snapshot (captured just before the plane) for soft edges
+uniform sampler2D Sampler4; // LOD depth snapshot (DhFarPass); see fogged_lod.glsl
+uniform sampler2D Sampler5; // DH's finished colour, with the far plane in it
 uniform vec2 NoiseOrigin;   // anchor-relative world XZ of the noise texture's corner
 uniform float NoiseCells;   // its edge length in texels
 uniform float NoiseCellsPerBlock;
@@ -40,6 +42,15 @@ uniform int EntityHoleCount;    // number of active entity dissolve discs (0..MA
 // Packed 4 floats per entity: camera-relative centre X, Z, horizontal radius (blocks), vertical gap to
 // the plane (blocks; 0 while the hitbox straddles it). Sized MAX_ENTITY_HOLES * 4 (see the renderer).
 uniform float EntityHoles[128];
+// Distant Horizons (see fogged_lod.glsl). FarInner > 0 means this draw is the far pass: the same surface
+// drawn into DH's buffers from that distance out. LodStart is where LODs can begin.
+uniform float LodActive;
+uniform float LodStart;
+uniform float LodClearDepth;
+uniform float LodFoamSide;
+uniform mat4 LodInvViewProj;
+uniform float FarInner;
+uniform float MaskPass;     // 1 on the second draw that keeps DH's vanilla fade off the quad (DhFarPass)
 
 in vec4 vertexColor;
 in vec2 worldXZ;
@@ -61,6 +72,9 @@ const float NOISE_PERIOD_BLOCKS = 4096.0; // MUST equal FogPlaneRenderer.NOISE_A
 // Waterline map sampling, shared with fog_vapor.fsh so the mist thins on exactly the ring drawn here
 // (see fogged_foam.glsl).
 #moj_import <fogged:fogged_foam.glsl>
+
+// What DH drew here, for the foam and for the cut against LODs the depth test cannot make out of DH's pass.
+#moj_import <fogged:fogged_lod.glsl>
 
 // Foam & spot pixelation: FoamPixelsPerBlock pixels per block. Both the foam edge and the surface spots
 // snap to this same grid so their pixels are identical in size and aligned.
@@ -102,6 +116,28 @@ vec3 debugColor(vec3 wl, float edge, float lum, float opacity, float entityHole)
 }
 
 void main() {
+    if (MaskPass > 0.5) {
+        fragColor = vec4(0.0);
+        return;
+    }
+    if (FarInner > 0.0) {
+        if (length(relPos) < FarInner) {
+            discard;
+        }
+    } else if (LodActive > 0.5 && length(relPos) >= LodStart) {
+        // Where LODs can stand in front of the quad it shows what DH finished with here, the far plane
+        // or the LOD before it, and stays only to hide the vanilla world below. Their depth cannot
+        // settle this: it is shifted a fraction of a pixel every frame by DH's anti-aliasing, and
+        // only its colour is smoothed, so asking it flickered along every LOD block edge.
+        if (length(relPos.xz) > PlaneFadeEnd) {
+            discard;
+        }
+        fragColor = vec4(texture(Sampler5, gl_FragCoord.xy / ScreenSize).rgb, 1.0);
+        return;
+    }
+    vec3 lodPos;
+    bool lod = FarInner > 0.0 && fogged_lodAt(lodPos);
+
     // Near-camera dither: the closer a fragment is to the eye, the more of its pixels are dropped, so
     // the surface opens into a chunky screen-door around the camera instead of snapping in as a hard
     // sheet at eye level when the head crosses it. A discard, not alpha, so it costs nothing in
@@ -120,6 +156,9 @@ void main() {
     // pixel snap and how the two rings combine).
     vec3 wl = fogged_waterline(worldXZ); // R = crossing dist, G = plant dist, B = near-surface dist; also DebugView 5
     float edge = fogged_foamEdge(wl);
+    if (lod) {
+        edge = max(edge, fogged_lodFoam(lodPos, relPos));
+    }
 
     // Surface spots: low-frequency world-space noise blobs, on the same pixel grid as the foam, that
     // fade in/out in place (fogged_spotField) -- a texel of the baked field (NoiseField) wherever it
@@ -129,6 +168,11 @@ void main() {
     float t = smoothstep(0.45, 0.70, s);
     float lum = ceil(t * 2.0) / 4.0;
     lum *= FoamColor.a; // same foam strength the edge foam uses
+    // Past a few blocks to the pixel the spots are finer than the screen can show and only shimmer.
+    // The near view never gets there, so this is only ever the view over LODs.
+    if (LodActive > 0.5) {
+        lum *= 1.0 - smoothstep(1.0, 4.0, length(fwidth(worldXZ)));
+    }
 
     // Base that the foam and spots blend up from. Kept near the full plane colour: the plane is
     // opaque, so a heavily darkened base showed as a dark disc around the player (no fog there).
@@ -161,7 +205,8 @@ void main() {
     // shrank it as the player climbed); the vertical term then fades the whole plane once the camera
     // is farther above the surface than it can see. On the dry side the range starts past the last
     // visible terrain, where the scene fog has already taken the plane to the backdrop colour.
-    float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, max(length(relPos.xz), abs(relPos.y)));
+    // With LODs below there is no void to fade over and the surface carries on: only the radius counts.
+    float fade = 1.0 - smoothstep(PlaneFadeStart, PlaneFadeEnd, max(length(relPos.xz), abs(relPos.y) * (1.0 - LodActive)));
 
     // Entity dissolve discs: a soft hole opened around every entity near the plane, sized by its
     // hitbox, so a crossing mob/player isn't hard-cut by the depth-writing plane -- it pokes through

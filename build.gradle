@@ -164,6 +164,10 @@ dependencies {
     compileOnly("net.createmod.ponder:ponder-neoforge:1.0.82+mc1.21.1") { transitive = false }
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-1.21.1:1.0.6-44") { transitive = false }
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-1.21.1:1.0.6-44") { transitive = false }
+
+    // Distant Horizons' API, compile-time only. Optional at runtime: every DH type is confined to
+    // DhFarPass, which nothing touches unless the mod is loaded (DistantHorizonsCompatibility).
+    compileOnly files("libs/DistantHorizonsApi-7.2.0.jar")
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
