@@ -1,6 +1,8 @@
 {
   "parent": "minecraft:block/block",
+  "render_type": "minecraft:cutout",
   "textures": {
+    "intake_vertical_frame": "fogged:block/air_intake/intake_vertical_frame",
     "pipes": "fogged:block/air_duct/pipes",
     "particle": "fogged:block/air_duct/pipes"
   },
@@ -72,12 +74,12 @@
       "faces": {
         "north": {
           "uv": [
-            8,
-            8,
+            0,
+            0,
             16,
             16
           ],
-          "texture": "#pipes",
+          "texture": "#intake_vertical_frame",
           "cullface": "north"
         },
         "east": {
@@ -91,12 +93,12 @@
         },
         "south": {
           "uv": [
-            8,
-            8,
+            0,
+            0,
             16,
             16
           ],
-          "texture": "#pipes"
+          "texture": "#intake_vertical_frame"
         },
         "west": {
           "uv": [
@@ -131,6 +133,65 @@
     },
     {
       "from": [
+        2,
+        2,
+        2
+      ],
+      "to": [
+        14,
+        14,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            9,
+            9,
+            15,
+            15
+          ],
+          "texture": "#pipes"
+        },
+        "east": {
+          "uv": [
+            8,
+            9,
+            9,
+            15
+          ],
+          "texture": "#pipes"
+        },
+        "west": {
+          "uv": [
+            15,
+            9,
+            16,
+            15
+          ],
+          "texture": "#pipes"
+        },
+        "up": {
+          "uv": [
+            9,
+            8,
+            15,
+            9
+          ],
+          "texture": "#pipes"
+        },
+        "down": {
+          "uv": [
+            9,
+            16,
+            15,
+            15
+          ],
+          "texture": "#pipes"
+        }
+      }
+    },
+    {
+      "from": [
         0,
         0,
         14
@@ -143,12 +204,12 @@
       "faces": {
         "north": {
           "uv": [
-            8,
-            8,
+            0,
+            0,
             16,
             16
           ],
-          "texture": "#pipes"
+          "texture": "#intake_vertical_frame"
         },
         "east": {
           "uv": [
@@ -161,12 +222,12 @@
         },
         "south": {
           "uv": [
-            8,
-            8,
+            0,
+            0,
             16,
             16
           ],
-          "texture": "#pipes"
+          "texture": "#intake_vertical_frame"
         },
         "west": {
           "uv": [
@@ -196,6 +257,65 @@
           ],
           "texture": "#pipes",
           "rotation": 90
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        2,
+        16
+      ],
+      "to": [
+        14,
+        14,
+        14
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            9,
+            9,
+            8,
+            15
+          ],
+          "texture": "#pipes"
+        },
+        "south": {
+          "uv": [
+            9,
+            9,
+            15,
+            15
+          ],
+          "texture": "#pipes"
+        },
+        "west": {
+          "uv": [
+            16,
+            9,
+            15,
+            15
+          ],
+          "texture": "#pipes"
+        },
+        "up": {
+          "uv": [
+            9,
+            9,
+            15,
+            8
+          ],
+          "texture": "#pipes"
+        },
+        "down": {
+          "uv": [
+            9,
+            15,
+            15,
+            16
+          ],
+          "texture": "#pipes"
         }
       }
     }
