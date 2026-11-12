@@ -223,6 +223,9 @@ final class FoamSites {
             if (Math.abs(wx - cam.x) > reach || Math.abs(wz - cam.z) > reach) {
                 continue;
             }
+            if (AirtightView.inRoom(BlockPos.containing(wx, surfaceY + 0.05, wz))) {
+                continue; // a sealed room's air throws no murk
+            }
             level.addParticle(foam, wx, surfaceY + 0.05, wz, 0.0, 0.0, 0.0);
         }
     }

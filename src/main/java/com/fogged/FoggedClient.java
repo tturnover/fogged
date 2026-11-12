@@ -42,7 +42,10 @@ public class FoggedClient {
         modEventBus.addListener(FilterPollution.Client::registerDecorations);
         AirtightDebugRenderer.init(); // hooks the airtight payloads up to the client
         // The server's gameplay values (ConfigSync) belong to that connection only.
-        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut e) -> Config.acceptServerValues(null));
+        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut e) -> {
+            Config.acceptServerValues(null);
+            AirtightSync.nearbyCells = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(); // the next world tells its own
+        });
         if (RigAssets.live()) {
             // Dev client only (see RigAssets): picks up a new Blockbench export without F3+T.
             NeoForge.EVENT_BUS.addListener(RigAssets::onClientTick);

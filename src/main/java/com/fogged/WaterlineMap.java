@@ -1411,6 +1411,9 @@ public final class WaterlineMap {
     // along -- the two together open into a V behind anything moving quickly.
     private static void spawnWake(Level level, ParticleOptions foam, double x, double surfaceY, double z,
                                   double outX, double outZ, double push, Vec3 motion) {
+        if (AirtightView.inRoom(net.minecraft.core.BlockPos.containing(x, surfaceY + 0.05, z))) {
+            return; // a sealed room's air throws no murk
+        }
         level.addParticle(foam, x, surfaceY + 0.05, z,
                 outX * push - motion.x * WAKE_DRAG, 0.0, outZ * push - motion.z * WAKE_DRAG);
     }

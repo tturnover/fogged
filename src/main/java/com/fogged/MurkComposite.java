@@ -162,9 +162,8 @@ public final class MurkComposite {
         shader.safeGetUniform("InvProjMat").set(invProj);
         shader.safeGetUniform("InvViewMat").set(invView);
         shader.safeGetUniform("MurkColor").set(c[0], c[1], c[2]);
-        // As FogModifier sets the vanilla fog, sealed-room clearing included (AirtightView).
-        float clear = inside ? AirtightView.clearRadius(camera.getPosition()) : 0.0F;
-        shader.safeGetUniform("MurkRange").set(far * 0.25F + clear, far + clear);
+        // As FogModifier sets the vanilla fog.
+        shader.safeGetUniform("MurkRange").set(far * 0.25F, far);
         shader.safeGetUniform("PlaneY").set(relY);
         shader.safeGetUniform("MurkSide").set(Config.synced(Config.FLIP_FOG) ? -1.0F : 1.0F);
         shader.safeGetUniform("CameraInside").set(inside ? 1.0F : 0.0F);

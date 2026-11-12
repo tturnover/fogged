@@ -51,8 +51,8 @@ public final class AirtightSync {
     }
 
     /**
-     * The cells of the room the receiving player is in, so the client can clear the murk out of it
-     * (see {@code AirtightView}); empty when they are in none. World coordinates.
+     * The cells of the room the receiving player is in, so the client spawns no murk particles in it
+     * (see {@code AirtightView}); empty when they are in none. Plot coordinates for a room on a ship.
      */
     public record RoomCells(long anchor, boolean plot, long[] cells) implements CustomPacketPayload {
         public static final Type<RoomCells> TYPE =
@@ -74,6 +74,31 @@ public final class AirtightSync {
             return TYPE;
         }
     }
+
+    /**
+     * The air cells of every other sealed room in the world near the receiving player, all together, so
+     * the client spawns no murk particles in them (see {@code AirtightView}). World coordinates; rooms on
+     * Sable ships are left to {@link RoomCells}.
+     */
+    public record NearbyCells(long[] cells) implements CustomPacketPayload {
+        public static final Type<NearbyCells> TYPE =
+                new Type<>(ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "airtight_nearby"));
+        public static final StreamCodec<FriendlyByteBuf, NearbyCells> CODEC = StreamCodec.of(
+                (buf, r) -> buf.writeLongArray(r.cells), buf -> new NearbyCells(buf.readLongArray()));
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** How far from a player the sealed rooms they are told of reach, in blocks. */
+    private static final double NEARBY_RANGE = 48.0;
+    // Per player, what they were last told of the rooms about them: which rooms, and how many cells.
+    private static final Map<UUID, Long> NEARBY_SIGNATURE = new ConcurrentHashMap<>();
+
+    /** The sealed rooms' air near the local player, read by the client's particle spawners. */
+    static volatile LongOpenHashSet nearbyCells = new LongOpenHashSet();
 
     /** How long a pressurizing room may grow before its new cells are sent again, in ticks. */
     private static final int ROOM_RESEND = 10;
@@ -161,6 +186,9 @@ public final class AirtightSync {
                 PacketDistributor.sendToPlayer(player, new Status(now));
             }
             syncRoom(player, id, event.getServer().getTickCount());
+            if ((event.getServer().getTickCount() + id.hashCode()) % ROOM_RESEND == 0) {
+                syncNearby(player, id);
+            }
         }
     }
 
@@ -193,9 +221,37 @@ public final class AirtightSync {
                 : new RoomCells(keep.anchor.asLong(), keep.plot, keep.cells().toLongArray()));
     }
 
+    // Tell the player of the sealed rooms near them, again whenever which rooms or how much air in them
+    // changes.
+    private static void syncNearby(ServerPlayer player, UUID id) {
+        long signature = 17L;
+        int total = 0;
+        java.util.List<AirtightRooms.Space> rooms = new java.util.ArrayList<>();
+        for (AirtightRooms.Space s : AirtightRooms.near(player.level(), player.blockPosition(), NEARBY_RANGE)) {
+            if (!s.plot && !s.cells().isEmpty()) {
+                rooms.add(s);
+                total += s.cells().size();
+                signature = signature * 31 + s.anchor.asLong() * 7 + s.cells().size();
+            }
+        }
+        Long last = NEARBY_SIGNATURE.put(id, signature);
+        if (last != null && last == signature) {
+            return;
+        }
+        long[] cells = new long[total];
+        int i = 0;
+        for (AirtightRooms.Space s : rooms) {
+            for (long c : s.cells()) {
+                cells[i++] = c;
+            }
+        }
+        PacketDistributor.sendToPlayer(player, new NearbyCells(cells));
+    }
+
     @SubscribeEvent
     static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         UUID id = event.getEntity().getUUID();
+        NEARBY_SIGNATURE.remove(id);
         LAST.remove(id);
         SIGNAL.remove(id);
         SHELTERED.remove(id);
@@ -209,6 +265,8 @@ public final class AirtightSync {
         ROOM_SIZE.remove(event.getEntity().getUUID());
         if (event.getEntity() instanceof ServerPlayer player) {
             PacketDistributor.sendToPlayer(player, RoomCells.none());
+            NEARBY_SIGNATURE.remove(player.getUUID());
+            PacketDistributor.sendToPlayer(player, new NearbyCells(new long[0]));
         }
     }
 
@@ -218,6 +276,8 @@ public final class AirtightSync {
         event.registrar("1").optional().playToClient(RoomCells.TYPE, RoomCells.CODEC,
                 (room, ctx) -> ctx.enqueueWork(() -> clientRoom = room.cells().length == 0 ? ClientRoom.NONE
                         : new ClientRoom(new LongOpenHashSet(room.cells()), BlockPos.of(room.anchor()), room.plot())));
+        event.registrar("1").optional().playToClient(NearbyCells.TYPE, NearbyCells.CODEC,
+                (nearby, ctx) -> ctx.enqueueWork(() -> nearbyCells = new LongOpenHashSet(nearby.cells())));
     }
 
     private AirtightSync() {}
