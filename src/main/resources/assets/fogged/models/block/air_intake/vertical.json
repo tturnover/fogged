@@ -4,7 +4,6 @@
   "textures": {
     "intake_back": "fogged:block/air_intake/intake_back",
     "intake_base": "fogged:block/air_intake/intake_base",
-    "intake_open": "fogged:block/air_intake/intake_open",
     "intake_sides": "fogged:block/air_intake/intake_sides",
     "intake_vertical_frame": "fogged:block/air_intake/intake_vertical_frame",
     "particle": "fogged:block/air_intake/air_casing"
@@ -156,12 +155,12 @@
       "faces": {
         "up": {
           "uv": [
-            3,
-            3,
-            13,
-            13
+            0.5,
+            0.5,
+            5.5,
+            5.5
           ],
-          "texture": "#intake_open"
+          "texture": "#intake_base"
         }
       }
     },
