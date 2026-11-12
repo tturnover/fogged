@@ -22,7 +22,7 @@ import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 /**
  * A used intake filter's pollution ({@link ModDataComponents#POLLUTION}) out of the intake: it stacks
  * with filters as dirty, and dropped onto a stack of the same filter at another step the two merge at
- * the dirtier one; it shows as a bar that fills in the slot, in the grime colour, and as a tooltip line.
+ * the average of the two, rounded up; it shows as a bar that fills in the slot, in the grime colour, and as a tooltip line.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class FilterPollution {
@@ -32,7 +32,8 @@ public final class FilterPollution {
         return stack.getOrDefault(ModDataComponents.POLLUTION.get(), 0);
     }
 
-    // A whole stack dropped onto the same filter at another pollution step: merged, at the dirtier step.
+    // A whole stack dropped onto the same filter at another pollution step: merged, at the average step
+    // over all of it.
     // Both sides run it, as the click itself does.
     @SubscribeEvent
     static void onStackedOnOther(ItemStackedOnOtherEvent event) {
@@ -56,8 +57,15 @@ public final class FilterPollution {
         if (move <= 0) {
             return;
         }
-        ItemStack merged = target.copyWithCount(target.getCount() + move);
-        merged.set(ModDataComponents.POLLUTION.get(), Math.max(step(carried), step(target)));
+        // The average step over every filter in the merged stack, rounded up: mixing never cleans one.
+        int total = target.getCount() + move;
+        int step = (int) Math.ceil((step(target) * target.getCount() + step(carried) * move) / (double) total);
+        ItemStack merged = target.copyWithCount(total);
+        if (step > 0) {
+            merged.set(ModDataComponents.POLLUTION.get(), step);
+        } else {
+            merged.remove(ModDataComponents.POLLUTION.get());
+        }
         slot.set(merged);
         SlotAccess cursor = event.getCarriedSlotAccess();
         cursor.set(carried.copyWithCount(carried.getCount() - move));

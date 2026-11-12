@@ -107,6 +107,22 @@ public class AirCompressorBlock extends BaseEntityBlock implements CompressorBlo
         return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
+    /** A comparator reads the unit's intake filters' average pollution (AirCompressorCore#comparatorSignal). */
+    @Override
+    protected boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        return comparatorSignal(level, pos);
+    }
+
+    /** The comparator reading of the compressor at {@code pos}, either kind. */
+    public static int comparatorSignal(Level level, BlockPos pos) {
+        return level.getBlockEntity(pos) instanceof CompressorHost host ? host.core().comparatorSignal() : 0;
+    }
+
     /** The block model shows the still fan; the block entity renderer spins it and spans a unit. */
     @Override
     protected RenderShape getRenderShape(BlockState state) {

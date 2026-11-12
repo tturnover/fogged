@@ -57,6 +57,13 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.state.no_intake", "Немає забору повітря");
         add("fogged.goggles.state.unfiltered", "Забір тягне каламуть: потрібен фільтр");
         add("fogged.goggles.state.clogged", "Фільтри заборів забиті: замініть їх");
+        add("fogged.goggles.state.stopped", "Зупинено редстоуном");
+        add("fogged.display_source.air_compressor_status", "Стан компресора");
+        add("fogged.display_source.air_room_fill", "Повітря в приміщенні");
+        add("fogged.display_source.air_held", "Утримане повітря");
+        add("fogged.display_source.air_flow", "Потік повітря");
+        add("fogged.display_source.air_filter_pollution", "Забруднення фільтрів");
+        add("fogged.display_source.air_clogged_filters", "Забиті фільтри");
         add("fogged.goggles.intake", "Забір повітря:");
         add("fogged.goggles.intake.air", "Тягне:");
         add("fogged.goggles.intake.clean", "Чисте повітря");

@@ -21,7 +21,7 @@ public final class ModDataComponents {
     /**
      * How polluted a filter taken out of an air intake is, in steps 1..{@link #MAX_POLLUTION} (clean
      * filters carry none). Steps rather than an exact figure so filters stack: rounded up as one comes
-     * out, and two stacks merged take the dirtier (FilterPollution). It goes back in as dirty as it
+     * out, and two stacks merged take their average, rounded up (FilterPollution). It goes back in as dirty as it
      * says, and shows as a bar in the slot and a tooltip line.
      */
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> POLLUTION =

@@ -162,6 +162,17 @@ public class KineticAirCompressorBlock extends KineticBlock implements IBE<Kinet
         return rotate(state, mirror.getRotation(state.getValue(FACING)));
     }
 
+    // A comparator reads the unit's intake filters' average pollution, as from the FE compressor.
+    @Override
+    protected boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        return AirCompressorBlock.comparatorSignal(level, pos);
+    }
+
     @Override
     public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);

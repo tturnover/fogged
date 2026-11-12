@@ -53,6 +53,14 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.state.no_intake", "No air intake");
         add("fogged.goggles.state.unfiltered", "Intake draws murk: fit a filter");
         add("fogged.goggles.state.clogged", "Intake filters clogged: change them");
+        add("fogged.goggles.state.stopped", "Stopped by redstone");
+        // Create Display Link sources on a compressor or an intake (AirCompressorDisplaySources).
+        add("fogged.display_source.air_compressor_status", "Compressor Status");
+        add("fogged.display_source.air_room_fill", "Room Air");
+        add("fogged.display_source.air_held", "Air Held");
+        add("fogged.display_source.air_flow", "Air Flow");
+        add("fogged.display_source.air_filter_pollution", "Filter Pollution");
+        add("fogged.display_source.air_clogged_filters", "Clogged Filters");
         // Create goggles on an air intake (GoggledIntakeBlockEntity).
         add("fogged.goggles.intake", "Air Intake:");
         add("fogged.goggles.intake.air", "Drawing:");

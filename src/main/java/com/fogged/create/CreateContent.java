@@ -85,10 +85,44 @@ public final class CreateContent {
     private CreateContent() {}
 
     /** Called from {@link Fogged} when Create is loaded. */
+    private static final DeferredRegister<com.simibubi.create.api.behaviour.display.DisplaySource> DISPLAY_SOURCES =
+            DeferredRegister.create(com.simibubi.create.api.registry.CreateRegistries.DISPLAY_SOURCE, Fogged.MODID);
+
+    // What a Display Link reads off an air compressor or an intake: one bare value each, as Create's own
+    // (AirCompressorDisplaySources).
+    private static final DeferredHolder<com.simibubi.create.api.behaviour.display.DisplaySource, ?> ROOM_AIR =
+            DISPLAY_SOURCES.register("air_room_fill", AirCompressorDisplaySources.RoomAir::new);
+    private static final DeferredHolder<com.simibubi.create.api.behaviour.display.DisplaySource, ?> FILTER_POLLUTION =
+            DISPLAY_SOURCES.register("air_filter_pollution", AirCompressorDisplaySources.FilterPollution::new);
+    private static final DeferredHolder<com.simibubi.create.api.behaviour.display.DisplaySource, ?> AIR_HELD =
+            DISPLAY_SOURCES.register("air_held", AirCompressorDisplaySources.AirHeld::new);
+    private static final DeferredHolder<com.simibubi.create.api.behaviour.display.DisplaySource, ?> AIR_FLOW =
+            DISPLAY_SOURCES.register("air_flow", AirCompressorDisplaySources.AirFlow::new);
+    private static final DeferredHolder<com.simibubi.create.api.behaviour.display.DisplaySource, ?> CLOGGED_FILTERS =
+            DISPLAY_SOURCES.register("air_clogged_filters", AirCompressorDisplaySources.CloggedFilters::new);
+    private static final DeferredHolder<com.simibubi.create.api.behaviour.display.DisplaySource, ?> STATUS =
+            DISPLAY_SOURCES.register("air_compressor_status", AirCompressorDisplaySources.Status::new);
+
     public static void register(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);
         BLOCK_ENTITIES.register(modEventBus);
+        DISPLAY_SOURCES.register(modEventBus);
+        modEventBus.addListener(CreateContent::commonSetup);
         NeoForge.EVENT_BUS.addListener(CreateContent::onRightClickBlock);
+    }
+
+    // A Display Link set on a compressor, either kind, reads the unit; set on an intake, its filter.
+    private static void commonSetup(net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent event) {
+        event.enqueueWork(() -> {
+            var byBlock = com.simibubi.create.api.behaviour.display.DisplaySource.BY_BLOCK;
+            for (var compressor : java.util.List.of(ModBlocks.AIR_COMPRESSOR.get(), KINETIC_AIR_COMPRESSOR.get())) {
+                for (var source : java.util.List.of(STATUS, ROOM_AIR, AIR_HELD, AIR_FLOW, FILTER_POLLUTION, CLOGGED_FILTERS)) {
+                    byBlock.add(compressor, source.get());
+                }
+            }
+            byBlock.add(ModBlocks.AIR_COMPRESSOR_INTAKE.get(), FILTER_POLLUTION.get());
+            byBlock.add(ModBlocks.AIR_COMPRESSOR_INTAKE.get(), CLOGGED_FILTERS.get());
+        });
     }
 
     // A wrench on an air compressor's side fits a shaft socket there (KineticAirCompressorBlock.fitShaft);

@@ -87,6 +87,9 @@ public class KineticAirCompressorBlockEntity extends KineticBlockEntity implemen
     // the client, from what the server last sent (the goggles ask there).
     private float unitStress() {
         AirCompressorCore controller = core.controller();
+        if (controller.stopped()) {
+            return 0.0F; // stopped by redstone: no load on the network
+        }
         float perBlock = (float) (double) Config.KINETIC_STRESS_PER_BLOCK.get();
         boolean client = level != null && level.isClientSide;
         boolean filling = client ? controller.shownPressurizing() : controller.pressurizing();

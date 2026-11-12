@@ -186,6 +186,32 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         }
     }
 
+    /**
+     * The comparator reading of the intake at {@code pos}: how polluted its filter is, 0 (clean, or none
+     * fitted) to 15 (clogged).
+     */
+    public static int signal(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof AirCompressorIntakeBlock) || !state.getValue(FILTERED)) {
+            return 0;
+        }
+        if (state.getValue(POLLUTION) >= CLOGGED) {
+            return 15;
+        }
+        return level.getBlockEntity(pos) instanceof AirCompressorIntakeBlockEntity be
+                ? Math.min(14, (int) Math.ceil(be.worn() * 15)) : 0;
+    }
+
+    @Override
+    protected boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        return signal(level, pos);
+    }
+
     // --- The filter ---------------------------------------------------------------------------------
 
     @Override

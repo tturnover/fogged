@@ -68,7 +68,9 @@ public final class AirCompressorCore {
         /** Every intake feeding it is in the murk without a filter. */
         UNFILTERED,
         /** Every intake that could feed it has a clogged filter: change them. */
-        CLOGGED;
+        CLOGGED,
+        /** A redstone signal has it stopped. */
+        STOPPED;
 
         static State of(int ordinal) {
             return ordinal >= 0 && ordinal < values().length ? values()[ordinal] : OFF;
@@ -158,6 +160,8 @@ public final class AirCompressorCore {
     private LongArrayList roomOrder = new LongArrayList(); // the room as last found sealed, ducts first
     private int drainCursor;     // roomOrder is drained from the end down to here
     private double drainCarry;   // the part of a block owed from earlier ticks
+    private boolean stopped;     // a redstone signal into the unit
+    private int filterSignal;    // the comparator reading, see updateSignal
 
     // --- Lifecycle ---
     private boolean fresh = true;  // placed, not loaded from disk: joins its neighbours once in the level
@@ -393,6 +397,18 @@ public final class AirCompressorCore {
         List<BlockPos> members = members();
         int area = size * size;
 
+        // A redstone signal into any block of the unit stops it: it spends nothing and draws no air.
+        boolean wasStopped = stopped;
+        stopped = false;
+        for (BlockPos m : members) {
+            if (level.hasNeighborSignal(m)) {
+                stopped = true;
+                break;
+            }
+        }
+        if (stopped != wasStopped) {
+            host.syncToClient(); // the fan, and a kinetic one's load
+        }
         updatePower(members);
         capacity = (int) (Config.COMPRESSOR_VOLUME.getAsInt() * area * power);
         // Capacity drifts with power; it only matters once it crosses the room: a held room that no
@@ -414,27 +430,17 @@ public final class AirCompressorCore {
             findIntakes(level, members, facing);
         }
         State supply = supply(level);
-        if (power < RUNNING) {
+        updateSignal(level, members);
+        if (stopped) {
+            starve(level, members, facing, area, State.STOPPED, recheck);
+        } else if (power < RUNNING) {
             settle(State.OFF);
         } else if (supply == null) {
             // An intake's mouth is in a chunk not loaded yet: wait for it rather than call it shut.
         } else if (supply != State.PRESSURIZING) {
-            if (draining || state == State.SEALED || state == State.PRESSURIZING) {
-                // No clean air coming in: the room keeps what it has and loses it slowly. Still looked
-                // at, so opening it floods it at once as ever.
-                draining = true;
-                if (recheck) {
-                    check(level, members, facing);
-                }
-                if (draining) {
-                    setState(supply);
-                    drain(area);
-                }
-            } else {
-                settle(supply);
-            }
+            starve(level, members, facing, area, supply, recheck);
         } else if (recheck || draining || state == State.OFF || state == State.NO_INTAKE
-                || state == State.UNFILTERED || state == State.CLOGGED) {
+                || state == State.UNFILTERED || state == State.CLOGGED || state == State.STOPPED) {
             check(level, members, facing); // keeps what a draining room still holds, fills the rest
             draining = false;
         }
@@ -449,6 +455,117 @@ public final class AirCompressorCore {
         if (level.getGameTime() % READOUT_INTERVAL == Math.floorMod(pos().asLong(), READOUT_INTERVAL)) {
             host.syncToClient();
         }
+    }
+
+    // No clean air coming in (`why`: no intake, murk unfiltered, clogged filters, stopped by redstone):
+    // a sealed room keeps what it has and loses it slowly. Still looked at, so opening it floods it at
+    // once as ever; with no room held, the unit just says why.
+    private void starve(ServerLevel level, List<BlockPos> members, Direction facing, int area, State why,
+            boolean recheck) {
+        if (draining || state == State.SEALED || state == State.PRESSURIZING) {
+            draining = true;
+            if (recheck) {
+                check(level, members, facing);
+            }
+            if (draining) {
+                setState(why);
+                drain(area);
+            }
+        } else {
+            settle(why);
+        }
+    }
+
+    // The comparator reading: the average pollution of the unit's intake filters, 0 (clean or none) to 15
+    // (every one clogged). Every block of the unit gives it; comparators are told when it changes.
+    private void updateSignal(Level level, List<BlockPos> members) {
+        int signal = (int) Math.ceil(averagePollution(level) * 15);
+        if (signal == 15 && !allClogged(level)) {
+            signal = 14; // 15 means every filter is clogged
+        }
+        if (signal != filterSignal) {
+            filterSignal = signal;
+            for (BlockPos m : members) {
+                level.updateNeighbourForOutputSignal(m, level.getBlockState(m).getBlock());
+            }
+        }
+    }
+
+    // The average pollution, 0..1, of the filters fitted to the unit's intakes; 0 with none fitted.
+    private double averagePollution(Level level) {
+        double sum = 0.0;
+        int n = 0;
+        for (BlockPos in : intakes.keySet()) {
+            BlockState s = level.getBlockState(in);
+            if (s.getBlock() instanceof AirCompressorIntakeBlock && s.getValue(AirCompressorIntakeBlock.FILTERED)
+                    && level.getBlockEntity(in) instanceof AirCompressorIntakeBlockEntity be) {
+                sum += s.getValue(AirCompressorIntakeBlock.POLLUTION) >= AirCompressorIntakeBlock.CLOGGED ? 1.0 : be.worn();
+                n++;
+            }
+        }
+        return n == 0 ? 0.0 : sum / n;
+    }
+
+    // Whether the unit has filters fitted and every one is clogged.
+    private boolean allClogged(Level level) {
+        int n = 0;
+        for (BlockPos in : intakes.keySet()) {
+            BlockState s = level.getBlockState(in);
+            if (s.getBlock() instanceof AirCompressorIntakeBlock && s.getValue(AirCompressorIntakeBlock.FILTERED)) {
+                if (s.getValue(AirCompressorIntakeBlock.POLLUTION) < AirCompressorIntakeBlock.CLOGGED) {
+                    return false;
+                }
+                n++;
+            }
+        }
+        return n > 0;
+    }
+
+    // --- Readings, server side, for Create's Display Link (com.fogged.create.AirCompressorDisplaySources) ---
+
+    /** The unit's state. */
+    public State state() {
+        return controller().state;
+    }
+
+    /** Blocks of air per second the unit's intakes supply now. */
+    public double supplyFlow() {
+        return controller().supplyFlow;
+    }
+
+    /** The average pollution of the filters fitted to the unit's intakes, 0..1; 0 with none fitted. */
+    public double filterPollution() {
+        AirCompressorCore c = controller();
+        return c.intakes == null || level() == null ? 0.0 : c.averagePollution(level());
+    }
+
+    /** How many of the unit's intake filters are clogged. */
+    public int cloggedFilters() {
+        AirCompressorCore c = controller();
+        Level level = level();
+        int n = 0;
+        if (c.intakes != null && level != null) {
+            for (BlockPos in : c.intakes.keySet()) {
+                BlockState s = level.getBlockState(in);
+                if (s.getBlock() instanceof AirCompressorIntakeBlock && s.getValue(AirCompressorIntakeBlock.FILTERED)
+                        && s.getValue(AirCompressorIntakeBlock.POLLUTION) >= AirCompressorIntakeBlock.CLOGGED) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    /** What a comparator reads from this block: its unit's intake filters' average pollution, 0..15. */
+    public int comparatorSignal() {
+        return controller().filterSignal;
+    }
+
+    /** Whether a redstone signal has the unit stopped. */
+    public boolean stopped() {
+        Level level = level();
+        return level != null && level.isClientSide ? State.of(controller().shownState) == State.STOPPED
+                : controller().stopped;
     }
 
     // The drive that pays for the unit: a shaft set into any of its blocks, or else the controller's own.
@@ -480,7 +597,8 @@ public final class AirCompressorCore {
         int held = space == null ? 0 : space.cells().size();
         // Up at once, down slowly: a unit coming on holds its room straight away, and one starved for a
         // moment (a supply a little short of the draw, a shaft network still loading) rides it out.
-        float raw = Mth.clamp(unitDrive(members).hold(members, held), 0.0F, 1.0F);
+        // Stopped by redstone, it asks nothing of its drive: no FE spent, no stress.
+        float raw = stopped ? 0.0F : Mth.clamp(unitDrive(members).hold(members, held), 0.0F, 1.0F);
         power = raw >= power ? raw : power + (raw - power) * POWER_EASE;
         boolean running = power >= RUNNING;
         if (running != syncedRunning) {
@@ -591,7 +709,10 @@ public final class AirCompressorCore {
         // to fill, and leave the less for the room itself.
         Set<BlockPos> allDucts = new java.util.LinkedHashSet<>(ducts);
         allDucts.addAll(intakeDucts);
-        AirFill result = AirFill.run(level, seeds, Math.max(1, capacity - allDucts.size()));
+        // A draining room is only looked at for a leak: whatever the power has wound down to, it is not
+        // too big for what it already holds.
+        int limit = draining ? Math.max(capacity, roomVolume) : capacity;
+        AirFill result = AirFill.run(level, seeds, Math.max(1, limit - allDucts.size()));
         if (result.result() == AirFill.Result.UNLOADED) {
             // The room runs into a chunk still loading -- usually just after a world loads. Leave the
             // air as it is and look again shortly, rather than flood a room that is likely fine.

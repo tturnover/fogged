@@ -128,8 +128,12 @@ public class AirCompressorIntakeBlockEntity extends BlockEntity {
         if (capacity <= 0) {
             return;
         }
+        int signal = AirCompressorIntakeBlock.signal(level, worldPosition);
         wear = Math.min(capacity, wear + blocks);
         setChanged();
+        if (level != null && AirCompressorIntakeBlock.signal(level, worldPosition) != signal) {
+            level.updateNeighbourForOutputSignal(worldPosition, getBlockState().getBlock()); // comparators
+        }
         int percent = (int) Math.min(100, wear * 100 / capacity);
         if (percent != syncedPercent) {
             syncedPercent = percent;
