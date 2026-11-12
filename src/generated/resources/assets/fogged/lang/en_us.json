@@ -87,6 +87,8 @@
   "fogged.configuration.intakeClogSounds.tooltip": "Sounds when an intake's filter clogs, as the fitted sounds.",
   "fogged.configuration.intakeDuctLossPercent": "Flow Lost Per Duct",
   "fogged.configuration.intakeDuctLossPercent.tooltip": "Percent of an intake's flow lost for each duct between it and its compressor. Compounds.",
+  "fogged.configuration.intakeFilterCleanRate": "Filter Cleaning In Clean Air",
+  "fogged.configuration.intakeFilterCleanRate.tooltip": "Blocks of murk a filter sheds per second out of the murk, in an intake or set down as a block. A clogged filter clears again. 0 = never.",
   "fogged.configuration.intakeFilterPollutionColor": "Filter Grime Colour",
   "fogged.configuration.intakeFilterPollutionColor.tooltip": "The colour a filter darkens toward as it fills with murk, and the pollution bar's colour.",
   "fogged.configuration.intakeFilters": "Intake Filters",

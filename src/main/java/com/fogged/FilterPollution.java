@@ -22,8 +22,8 @@ import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 /**
  * A used intake filter's pollution ({@link ModDataComponents#POLLUTION}) out of the intake: it stacks
  * with filters as dirty, and dropped onto a stack of the same filter at another step the two merge at
- * the average of the two, rounded up; set down as a block it keeps its pollution there, and breaks back
- * out as dirty; it shows as a bar that fills in the slot, in the grime colour, and as a tooltip line.
+ * the average of the two, rounded up; set down as a block it keeps its pollution there, sheds it out of
+ * the murk, and breaks back out as dirty as it still is; it shows as a bar that fills in the slot, in the grime colour, and as a tooltip line.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class FilterPollution {
@@ -73,7 +73,8 @@ public final class FilterPollution {
         event.setCanceled(true);
     }
 
-    // --- Set down as a block, a polluted filter keeps its pollution in the chunk (ModAttachments) -------
+    // --- Set down as a block, a polluted filter keeps its pollution in the chunk (ModAttachments), as
+    // blocks of murk, and sheds it out of the murk as one in an intake does (Config#FILTER_CLEAN_RATE).
 
     private static java.util.Map<Long, Integer> placed(net.minecraft.world.level.LevelAccessor level,
             net.minecraft.core.BlockPos pos) {
@@ -85,6 +86,21 @@ public final class FilterPollution {
         if (level.getChunk(pos) instanceof net.minecraft.world.level.chunk.LevelChunk chunk) {
             chunk.setUnsaved(true);
         }
+    }
+
+    // A filter's capacity in blocks of murk, to turn steps into blocks and back; one that never clogs is
+    // reckoned at a nominal size, so its steps still come back as they went down.
+    private static int capacityOf(net.minecraft.world.item.Item item) {
+        int capacity = Config.filterCapacity(new ItemStack(item));
+        return capacity > 0 ? capacity : 1000;
+    }
+
+    // The loaded chunks, per level, holding polluted filters to clean.
+    private static final java.util.Map<net.minecraft.world.level.Level, it.unimi.dsi.fastutil.longs.LongOpenHashSet>
+            DIRTY_CHUNKS = new java.util.WeakHashMap<>();
+
+    private static void track(net.minecraft.world.level.Level level, net.minecraft.world.level.ChunkPos chunk) {
+        DIRTY_CHUNKS.computeIfAbsent(level, l -> new it.unimi.dsi.fastutil.longs.LongOpenHashSet()).add(chunk.toLong());
     }
 
     // Placed by a player (or a Deployer's): the hand still holds the stack as it was when the event fires,
@@ -100,8 +116,8 @@ public final class FilterPollution {
             return;
         }
         int step = 0;
+        net.minecraft.world.item.Item item = event.getPlacedBlock().getBlock().asItem();
         if (event.getEntity() instanceof net.minecraft.world.entity.LivingEntity living) {
-            net.minecraft.world.item.Item item = event.getPlacedBlock().getBlock().asItem();
             for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
                 ItemStack held = living.getItemInHand(hand);
                 if (held.is(item) && step(held) > 0) {
@@ -112,29 +128,102 @@ public final class FilterPollution {
         }
         long key = event.getPos().asLong();
         if (step > 0) {
-            map.put(key, step);
+            map.put(key, (int) Math.round((double) step / ModDataComponents.MAX_POLLUTION * capacityOf(item)));
             changed(event.getLevel(), event.getPos());
+            if (event.getLevel() instanceof net.minecraft.world.level.Level level) {
+                track(level, new net.minecraft.world.level.ChunkPos(event.getPos()));
+            }
         } else if (map.remove(key) != null) {
             changed(event.getLevel(), event.getPos());
         }
     }
 
-    // Broken: what it drops of itself comes back as polluted as it was set down.
+    // Broken: what it drops of itself comes back as polluted as it still is, rounded up to a step.
     @SubscribeEvent
     static void onDrops(net.neoforged.neoforge.event.level.BlockDropsEvent event) {
         java.util.Map<Long, Integer> map = placed(event.getLevel(), event.getPos());
-        Integer step = map == null ? null : map.remove(event.getPos().asLong());
-        if (step == null) {
+        Integer murk = map == null ? null : map.remove(event.getPos().asLong());
+        if (murk == null) {
             return;
         }
         changed(event.getLevel(), event.getPos());
         net.minecraft.world.item.Item item = event.getState().getBlock().asItem();
+        int step = Math.min(ModDataComponents.MAX_POLLUTION,
+                (int) Math.ceil((double) murk / capacityOf(item) * ModDataComponents.MAX_POLLUTION - 1.0E-6));
+        if (step <= 0) {
+            return;
+        }
         for (net.minecraft.world.entity.item.ItemEntity drop : event.getDrops()) {
             ItemStack stack = drop.getItem();
             if (stack.is(item)) {
                 ItemStack dirty = stack.copy();
                 dirty.set(ModDataComponents.POLLUTION.get(), step);
                 drop.setItem(dirty);
+            }
+        }
+    }
+
+    // A chunk coming in with polluted filters in it: clean them while it is loaded.
+    @SubscribeEvent
+    static void onChunkLoad(net.neoforged.neoforge.event.level.ChunkEvent.Load event) {
+        if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level
+                && event.getChunk() instanceof net.minecraft.world.level.chunk.LevelChunk chunk
+                && chunk.hasData(com.fogged.registry.ModAttachments.PLACED_POLLUTION)
+                && !chunk.getData(com.fogged.registry.ModAttachments.PLACED_POLLUTION).isEmpty()) {
+            track(level, chunk.getPos());
+        }
+    }
+
+    // Once a second: each polluted filter out of the murk sheds Config#FILTER_CLEAN_RATE blocks of it;
+    // clean, it is forgotten. A record whose block is no filter any more (changed without an event) goes.
+    @SubscribeEvent
+    static void onLevelTick(net.neoforged.neoforge.event.tick.LevelTickEvent.Post event) {
+        if (!(event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)
+                || level.getGameTime() % 20 != 0) {
+            return;
+        }
+        it.unimi.dsi.fastutil.longs.LongOpenHashSet chunks = DIRTY_CHUNKS.get(level);
+        if (chunks == null || chunks.isEmpty()) {
+            return;
+        }
+        int shed = (int) Math.round(Config.FILTER_CLEAN_RATE.get());
+        it.unimi.dsi.fastutil.longs.LongIterator it = chunks.iterator();
+        while (it.hasNext()) {
+            long packed = it.nextLong();
+            net.minecraft.world.level.chunk.LevelChunk chunk = level.getChunkSource().getChunkNow(
+                    net.minecraft.world.level.ChunkPos.getX(packed), net.minecraft.world.level.ChunkPos.getZ(packed));
+            if (chunk == null) {
+                it.remove(); // unloaded: it comes back in with its chunk
+                continue;
+            }
+            java.util.Map<Long, Integer> map = chunk.getData(com.fogged.registry.ModAttachments.PLACED_POLLUTION);
+            boolean dirty = false;
+            java.util.Iterator<java.util.Map.Entry<Long, Integer>> entries = map.entrySet().iterator();
+            while (entries.hasNext()) {
+                java.util.Map.Entry<Long, Integer> e = entries.next();
+                net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.of(e.getKey());
+                net.minecraft.world.item.Item item = level.getBlockState(pos).getBlock().asItem();
+                if (Config.filterCapacity(new ItemStack(item)) < 0) {
+                    entries.remove();
+                    dirty = true;
+                    continue;
+                }
+                if (shed <= 0 || Config.fogged(level, PlaneSensor.worldY(level, pos))) {
+                    continue;
+                }
+                int left = e.getValue() - shed;
+                if (left <= 0) {
+                    entries.remove();
+                } else {
+                    e.setValue(left);
+                }
+                dirty = true;
+            }
+            if (dirty) {
+                chunk.setUnsaved(true);
+            }
+            if (map.isEmpty()) {
+                it.remove();
             }
         }
     }

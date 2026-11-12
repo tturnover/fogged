@@ -87,6 +87,8 @@
   "fogged.configuration.intakeClogSounds.tooltip": "Звуки, коли фільтр забору забивається, як і звуки встановлення.",
   "fogged.configuration.intakeDuctLossPercent": "Втрата на повітропровід",
   "fogged.configuration.intakeDuctLossPercent.tooltip": "Відсоток потоку забору, втрачений на кожному повітропроводі між ним і компресором. Накопичується.",
+  "fogged.configuration.intakeFilterCleanRate": "Очищення фільтра в чистому повітрі",
+  "fogged.configuration.intakeFilterCleanRate.tooltip": "Скільки блоків каламуті за секунду скидає фільтр поза каламуттю, у заборі чи поставлений блоком. Забитий фільтр знову звільняється. 0 = ніколи.",
   "fogged.configuration.intakeFilterPollutionColor": "Колір бруду фільтра",
   "fogged.configuration.intakeFilterPollutionColor.tooltip": "Колір, до якого темнішає фільтр, наповнюючись каламуттю; ним же малюється смужка забруднення.",
   "fogged.configuration.intakeFilters": "Фільтри заборів",

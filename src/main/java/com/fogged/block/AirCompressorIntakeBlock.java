@@ -273,6 +273,34 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
+    /**
+     * Once a second, server side: a filter whose intake draws out of the murk sheds its pollution
+     * ({@link Config#FILTER_CLEAN_RATE}), clogged or not -- a clogged one clears and lets air by again.
+     */
+    static void cleanTick(Level level, BlockPos pos, BlockState state, AirCompressorIntakeBlockEntity be) {
+        if (level.getGameTime() % 20 != Math.floorMod(pos.asLong(), 20) || !state.getValue(FILTERED)
+                || be.worn() <= 0.0) {
+            return;
+        }
+        double rate = Config.FILTER_CLEAN_RATE.get();
+        BlockPos mouth = mouth(pos, state);
+        if (rate <= 0.0 || !level.isLoaded(mouth) || Config.fogged(level, PlaneSensor.worldY(level, mouth))) {
+            return;
+        }
+        be.wear(-rate);
+        int step = be.pollutionStep();
+        if (step != state.getValue(POLLUTION)) {
+            level.setBlock(pos, state.setValue(POLLUTION, step), 3);
+        }
+    }
+
+    @Override
+    public <T extends BlockEntity> net.minecraft.world.level.block.entity.BlockEntityTicker<T> getTicker(Level level,
+            BlockState state, net.minecraft.world.level.block.entity.BlockEntityType<T> type) {
+        return level.isClientSide || type != com.fogged.registry.ModBlockEntities.AIR_COMPRESSOR_INTAKE.get() ? null
+                : (l, p, s, be) -> cleanTick(l, p, s, (AirCompressorIntakeBlockEntity) be);
+    }
+
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return AirCompressorIntakeBlockEntity.create(pos, state);

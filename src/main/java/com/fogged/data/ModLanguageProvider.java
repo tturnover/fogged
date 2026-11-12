@@ -192,6 +192,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Blocks per second one compressor face pressurizes, at full power. The air is breathable wherever it has reached.");
         cfg("intakeFilters", "Intake Filters",
                 "What an air intake takes as a filter, and how many blocks of murk it cleans before it clogs: item id or #tag, '=', capacity. Full blocks only.");
+        cfg("intakeFilterCleanRate", "Filter Cleaning In Clean Air",
+                "Blocks of murk a filter sheds per second out of the murk, in an intake or set down as a block. A clogged filter clears again. 0 = never.");
         cfg("intakeFilterPollutionColor", "Filter Grime Colour",
                 "The colour a filter darkens toward as it fills with murk, and the pollution bar's colour.");
         cfg("intakeFitSounds", "Filter Fitted Sounds",

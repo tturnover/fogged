@@ -127,6 +127,7 @@ final class YaclCompatibility {
                 .option(dbl("compressorDrainRate", Config.COMPRESSOR_DRAIN_RATE, 0.0, 100.0, 0.5))
                 .option(integer("intakeFlow", Config.INTAKE_FLOW, 1, 2_000, 1))
                 .option(dbl("intakeDuctLossPercent", Config.INTAKE_DUCT_LOSS, 0.0, 25.0, 0.5))
+                .option(dbl("intakeFilterCleanRate", Config.FILTER_CLEAN_RATE, 0.0, 100.0, 0.5))
                 .option(color("intakeFilterPollutionColor", Config.FILTER_POLLUTION_COLOR, false))
                 .option(dbl("compressorHoldFePerBlock", Config.COMPRESSOR_HOLD_FE, 0.0, 10.0, 0.05))
                 .option(dbl("compressorFilterFePerBlock", Config.COMPRESSOR_FILTER_FE, 0.0, 100.0, 0.5))

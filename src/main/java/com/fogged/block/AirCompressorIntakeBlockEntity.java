@@ -9,6 +9,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -122,14 +123,14 @@ public class AirCompressorIntakeBlockEntity extends BlockEntity {
         return Math.max(0, com.fogged.Config.filterCapacity(filter));
     }
 
-    /** Pollute the filter by {@code blocks} of murk cleaned out of the air. */
+    /** Pollute the filter by {@code blocks} of murk cleaned out of the air; negative cleans it. */
     void wear(double blocks) {
         int capacity = capacity();
         if (capacity <= 0) {
             return;
         }
         int signal = AirCompressorIntakeBlock.signal(level, worldPosition);
-        wear = Math.min(capacity, wear + blocks);
+        wear = Mth.clamp(wear + blocks, 0.0, capacity);
         setChanged();
         if (level != null && AirCompressorIntakeBlock.signal(level, worldPosition) != signal) {
             level.updateNeighbourForOutputSignal(worldPosition, getBlockState().getBlock()); // comparators

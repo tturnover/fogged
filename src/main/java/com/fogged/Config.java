@@ -576,6 +576,12 @@ public class Config {
             .defineListAllowEmpty("intakeFilters", () -> List.of("#minecraft:wool=2000"), () -> "minecraft:white_wool=2000",
                     o -> o instanceof String s && parseFilter(s) != null);
 
+    public static final ModConfigSpec.DoubleValue FILTER_CLEAN_RATE = COMMON
+            .comment("Blocks of murk a filter sheds per second out of the murk -- in an intake whose mouth is",
+                    "out of it, or set down as a block above it: pollution degrades in clean air, and a",
+                    "clogged filter clears and lets air through again. 0 = filters stay as dirty as they are.")
+            .defineInRange("intakeFilterCleanRate", 5.0, 0.0, 100_000.0);
+
     public static final ModConfigSpec.IntValue FILTER_POLLUTION_COLOR = COMMON
             .comment("The colour a filter darkens toward as it fills with murk, as a packed RGB integer: its",
                     "texture is shaded by it in step with how polluted it is, from none when clean to all of",
