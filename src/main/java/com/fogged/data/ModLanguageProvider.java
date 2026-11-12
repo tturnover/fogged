@@ -44,11 +44,12 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.tooltip.air_compressor.desc1", "Set into a _sealed room's wall_, outlet in, it pumps the _murk_ out. Needs an _Air Intake_ on its back, or ducted to it.");
         add("fogged.tooltip.air_intake.desc1", "Feeds the _compressor_ or _duct_ it is set against, drawing through its _open end_.");
         add("fogged.tooltip.air_intake.desc2", "Out of the _murk_ it draws clean air; in it, fit a _filter_ block, which _clogs_ in time and must be changed. Bigger compressors want _more intakes_.");
-        add("fogged.tooltip.air_compressor.desc2", "Runs on _FE_ into its _sides_; with Create, a _Wrench_ on a side fits a _shaft socket_. Join _2x2_ or _3x3_.");
+        add("fogged.tooltip.air_compressor.desc2", "Runs on _FE_ into its _sides_; with Create, a _Wrench_ on a side fits a _shaft socket_. Several in one _room_ add up.");
         // The kinetic compressor is only registered with Create, so it is outside ModBlocks: named here.
         add("block.fogged.kinetic_air_compressor", "Kinetic Air Compressor");
         // Create goggles on an air compressor (AirCompressorCore#goggleLines).
-        add("fogged.goggles.compressor", "Air Compressor %sx%s:");
+        add("fogged.goggles.compressor", "Air Compressor:");
+        add("fogged.goggles.compressors", "Compressors In The Room:");
         add("fogged.goggles.state.off", "No power");
         add("fogged.goggles.state.no_intake", "No air intake");
         add("fogged.goggles.state.unfiltered", "Intake draws murk: fit a filter");
@@ -186,10 +187,10 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.configuration.suffocation.tooltip", "What the murk does to the things breathing in it -- players and mobs -- and how much worse that gets with depth.");
         add("fogged.configuration.compressor", "Air Compressors");
         add("fogged.configuration.compressor.tooltip", "Air compressors and the sealed rooms they hold: how much room a compressor keeps, how fast it fills it, and what it runs on.");
-        cfg("compressorVolumePerFace", "Room Per Compressor Face",
-                "Blocks of room one compressor face holds at full power. A 2x2 holds four times this, a 3x3 nine. Bigger rooms count as leaking.");
-        cfg("compressorFillRate", "Fill Rate Per Face",
-                "Blocks per second one compressor face pressurizes, at full power. The air is breathable wherever it has reached.");
+        cfg("compressorVolumePerFace", "Room Per Compressor",
+                "Blocks of room one compressor holds at full power. Several in one room add up. Bigger rooms count as leaking.");
+        cfg("compressorFillRate", "Fill Rate Per Compressor",
+                "Blocks per second one compressor pressurizes, at full power. Several in one room add up. The air is breathable wherever it has reached.");
         cfg("intakeFilters", "Intake Filters",
                 "What an air intake takes as a filter, and how many blocks of murk it cleans before it clogs: item id or #tag, '=', capacity. Full blocks only.");
         cfg("intakeFilterCleanRate", "Filter Cleaning In Clean Air",

@@ -37,9 +37,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * The kinetic air compressor: an {@link AirCompressorBlock} driven by a Create shaft instead of fed FE.
- * Same casing, intake, units and room. Not crafted -- an air compressor becomes one when a wrench is
- * used on one of its sides ({@link #fitShaft}): that side gets a socket with a shaft end to connect
- * to. One socket to a compressor, and one to a unit -- it drives the whole unit. The wrench on the
+ * Same casing, intake and room. Not crafted -- an air compressor becomes one when a wrench is used on
+ * one of its sides ({@link #fitShaft}): that side gets a socket with a shaft end to connect to. One
+ * socket to a compressor. The wrench on the
  * socket takes it back out, and it is a plain air compressor again. Its stress on the network grows with the room it holds
  * (see {@link KineticAirCompressorBlockEntity}). Only registered with Create installed.
  */
@@ -77,17 +77,13 @@ public class KineticAirCompressorBlock extends KineticBlock implements IBE<Kinet
 
     /**
      * A wrench on side {@code face} of the air compressor at {@code pos}: it becomes a kinetic one with a
-     * shaft socket there. False -- nothing done -- for the intake or outlet, a compressor that already
-     * has its socket, or one in a unit that does.
+     * shaft socket there. False -- nothing done -- for the intake or outlet, or a compressor that already
+     * has its socket.
      */
     static boolean fitShaft(Level level, BlockPos pos, BlockState state, Direction face) {
         Direction facing = state.getValue(FACING);
         if (face.getAxis() == facing.getAxis() || !state.is(ModBlocks.AIR_COMPRESSOR.get())) {
             return false; // not the intake or outlet; and one shaft to a compressor
-        }
-        // One shaft to a unit, too: it drives all of it.
-        if (level.getBlockEntity(pos) instanceof CompressorHost host && host.core().shaftMember() != null) {
-            return false;
         }
         BlockState next = CreateContent.KINETIC_AIR_COMPRESSOR.get().defaultBlockState()
                 .setValue(FACING, facing).setValue(AXIS, face.getAxis())
@@ -162,7 +158,7 @@ public class KineticAirCompressorBlock extends KineticBlock implements IBE<Kinet
         return rotate(state, mirror.getRotation(state.getValue(FACING)));
     }
 
-    // A comparator reads the unit's intake filters' average pollution, as from the FE compressor.
+    // A comparator reads the room's intake filters' average pollution, as from the FE compressor.
     @Override
     protected boolean hasAnalogOutputSignal(BlockState state) {
         return true;
@@ -174,16 +170,9 @@ public class KineticAirCompressorBlock extends KineticBlock implements IBE<Kinet
     }
 
     @Override
-    public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
-        super.onPlace(state, level, pos, oldState, movedByPiston);
-        AirCompressorBlock.placed(this, state, level, pos, oldState);
-    }
-
-    @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         super.onRemove(state, level, pos, newState, movedByPiston);
         IBE.onRemove(state, level, pos, newState);
-        AirCompressorBlock.removed(this, state, level, pos, newState);
     }
 
     @Override

@@ -29,16 +29,11 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Everything an air compressor does, whatever drives it: the unit it belongs to, the room it holds,
- * and the specks it breathes out. It lives in a {@link CompressorHost} block entity -- the FE
- * {@link AirCompressorBlockEntity}, or with Create the kinetic one -- and is paid for by that host's
- * {@link Drive}.
- *
- * <h2>Units</h2>
- * Compressors of the same block, facing the same way, side by side in the plane of their faces, join
- * into square units of 1x1, 2x2 or 3x3 ({@link #reform}). One block of each unit -- the corner lowest
- * along both plane axes -- is its controller: it alone ticks the room and draws the one big fan. The
- * room a unit holds and the rate it fills scale with its face area.
+ * Everything an air compressor does, whatever drives it: the room it holds -- alone, or with the other
+ * compressors opening into it (see elect) -- and the specks it breathes out. It lives in a
+ * {@link CompressorHost} block entity -- the FE {@link AirCompressorBlockEntity}, or with Create the
+ * kinetic one -- and is paid for by that host's {@link Drive}. Each compressor is a block of its own:
+ * more of them in a room add up.
  *
  * <h2>Power</h2>
  * A room costs to hold, block by block, and costs again to fill: FE for the FE compressor
@@ -90,11 +85,7 @@ public final class AirCompressorCore {
         /** Pay to filter up to {@code want} blocks of room this tick; returns how many it paid for. */
         int filter(int want);
 
-        /** Called when the unit's controller or size changes: pool or split anything the drive keeps. */
-        default void joined(AirCompressorCore controller) {
-        }
-
-        /** Whether this is a shaft: one in a unit drives the whole unit, FE or not. */
+        /** Whether this is a shaft, turned by Create rather than paid in FE. */
         default boolean shaft() {
             return false;
         }
@@ -108,8 +99,6 @@ public final class AirCompressorCore {
         }
     }
 
-    /** Largest unit edge. */
-    public static final int MAX_SIZE = 3;
     /** Re-check the room this often even without a block change, for changes that notify nobody. */
     private static final int RECHECK_INTERVAL = 100;
     /** ...and this often while it is not holding, or rides a ship (see tickController). */
@@ -125,10 +114,6 @@ public final class AirCompressorCore {
     private final BlockEntity be;
     private final CompressorHost host;
     private final Drive drive;
-
-    // --- Unit (saved, and synced so the client knows which block draws the fan, and how big) ---
-    private BlockPos controllerPos;
-    private int size = 1;
 
     // --- Power ---
     private float power;
@@ -183,7 +168,6 @@ public final class AirCompressorCore {
             new java.util.WeakHashMap<>();
 
     // --- Lifecycle ---
-    private boolean fresh = true;  // placed, not loaded from disk: joins its neighbours once in the level
     private boolean unloading;     // going with its chunk, not removed: the room stays registered
 
     // --- Client ---
@@ -196,6 +180,7 @@ public final class AirCompressorCore {
     private int shownCapacity;
     private double shownFlow;
     private int shownNeed;
+    private int shownCount = 1; // the compressors working the room together
     /** Ticks between keeping the client's readout current. */
     private static final int READOUT_INTERVAL = 10;
 
@@ -203,7 +188,6 @@ public final class AirCompressorCore {
         this.be = be;
         this.host = host;
         this.drive = drive;
-        this.controllerPos = be.getBlockPos();
     }
 
     /** The block entity this core lives in. */
@@ -223,11 +207,7 @@ public final class AirCompressorCore {
         return be.getBlockState().getValue(BlockStateProperties.FACING);
     }
 
-    // ================================================================================================
-    // Units
-    // ================================================================================================
-
-    /** The two directions spanning the plane of a compressor's faces, positive along their axes. */
+    /** The two directions spanning the plane of a compressor's face, positive along their axes. */
     public static Direction[] plane(Direction facing) {
         return switch (facing.getAxis()) {
             case X -> new Direction[] {Direction.SOUTH, Direction.UP};
@@ -240,159 +220,24 @@ public final class AirCompressorCore {
         return level.getBlockEntity(pos) instanceof CompressorHost h ? h.core() : null;
     }
 
-    /**
-     * Re-form every unit in the patch of compressors touching {@code pos}: gather the patch, then cut
-     * it into squares, largest first, scanning from its lowest corner. The same patch always cuts the
-     * same way, so units stay put as long as nothing in them changes. FE and kinetic compressors join
-     * alike: a shaft set into one block of a unit drives the whole unit.
-     */
-    public static void reform(Level level, BlockPos pos, Direction facing) {
-        Block block = level.getBlockState(pos).getBlock();
-        Direction[] uv = plane(facing);
-        Set<BlockPos> patch = patch(level, pos, block, facing, uv);
-        if (patch.isEmpty()) {
-            return;
-        }
-        List<BlockPos> sorted = new ArrayList<>(patch);
-        Direction u = uv[0], v = uv[1];
-        sorted.sort((a, b) -> {
-            int dv = coord(a, v) - coord(b, v);
-            return dv != 0 ? dv : coord(a, u) - coord(b, u);
-        });
-        Set<BlockPos> taken = new HashSet<>();
-        for (BlockPos origin : sorted) {
-            if (taken.contains(origin)) {
-                continue;
-            }
-            int n = MAX_SIZE;
-            while (n > 1 && !squareFree(origin, n, u, v, patch, taken)) {
-                n--;
-            }
-            List<AirCompressorCore> members = new ArrayList<>();
-            for (int i = 0; i < n; i++) {
-                for (int j = 0; j < n; j++) {
-                    BlockPos at = origin.relative(u, i).relative(v, j);
-                    taken.add(at);
-                    AirCompressorCore core = coreAt(level, at);
-                    if (core != null) {
-                        members.add(core);
-                    }
-                }
-            }
-            AirCompressorCore controller = coreAt(level, origin);
-            for (AirCompressorCore core : members) {
-                core.join(origin, n);
-            }
-            if (controller != null) {
-                for (AirCompressorCore core : members) {
-                    core.drive.joined(controller);
-                }
-            }
-        }
-    }
-
-    /** Re-form the units next to {@code pos} after the compressor there is gone or turned. */
-    public static void reformAround(Level level, BlockPos pos, Block block, Direction facing) {
-        Set<BlockPos> done = new HashSet<>();
-        Direction[] uv = plane(facing);
-        for (Direction d : new Direction[] {uv[0], uv[0].getOpposite(), uv[1], uv[1].getOpposite()}) {
-            BlockPos n = pos.relative(d);
-            if (!done.contains(n) && same(level, n, block, facing)) {
-                done.addAll(patch(level, n, block, facing, uv));
-                reform(level, n, facing);
-            }
-        }
-    }
-
-    private static int coord(BlockPos pos, Direction d) {
-        return pos.get(d.getAxis());
-    }
-
-    private static boolean squareFree(BlockPos origin, int n, Direction u, Direction v,
-            Set<BlockPos> patch, Set<BlockPos> taken) {
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                BlockPos at = origin.relative(u, i).relative(v, j);
-                if (!patch.contains(at) || taken.contains(at)) {
-                    return false;
-                }
-            }
-        }
+    /** Every compressor holds its own room or shares one: each is its own controller. */
+    public boolean isController() {
         return true;
     }
 
-    // Same compressors connected to start within the plane, capped so a wall of them is cheap.
-    private static Set<BlockPos> patch(Level level, BlockPos start, Block block, Direction facing, Direction[] uv) {
-        Set<BlockPos> patch = new HashSet<>();
-        if (!same(level, start, block, facing)) {
-            return patch;
-        }
-        List<BlockPos> queue = new ArrayList<>();
-        queue.add(start.immutable());
-        patch.add(start.immutable());
-        Direction[] steps = {uv[0], uv[0].getOpposite(), uv[1], uv[1].getOpposite()};
-        for (int i = 0; i < queue.size() && patch.size() < 256; i++) {
-            for (Direction d : steps) {
-                BlockPos n = queue.get(i).relative(d);
-                if (!patch.contains(n) && same(level, n, block, facing)) {
-                    patch.add(n);
-                    queue.add(n);
-                }
-            }
-        }
-        return patch;
-    }
-
-    private static boolean same(Level level, BlockPos pos, Block block, Direction facing) {
-        BlockState s = level.getBlockState(pos);
-        return s.getBlock() instanceof CompressorBlock && s.getValue(BlockStateProperties.FACING) == facing;
-    }
-
-    private void join(BlockPos controller, int n) {
-        boolean changed = !controller.equals(controllerPos) || n != size;
-        controllerPos = controller.immutable();
-        size = n;
-        if (changed) {
-            if (!isController()) {
-                dropRoom();
-            }
-            be.setChanged();
-            Level level = level();
-            if (level != null) {
-                level.sendBlockUpdated(pos(), be.getBlockState(), be.getBlockState(), 3);
-                level.invalidateCapabilities(pos());
-            }
-        }
-    }
-
-    public boolean isController() {
-        return controllerPos.equals(pos());
-    }
-
+    /** A compressor is one block. */
     public int size() {
-        return size;
+        return 1;
     }
 
-    /** This unit's controller: the core that holds its room. Itself if that is gone. */
+    /** This compressor. */
     public AirCompressorCore controller() {
-        Level level = level();
-        if (isController() || level == null) {
-            return this;
-        }
-        AirCompressorCore c = coreAt(level, controllerPos);
-        return c != null ? c : this;
+        return this;
     }
 
-    /** The unit's member positions, controller first. */
+    /** This compressor's own position: the block that blows. */
     public List<BlockPos> members() {
-        Direction[] uv = plane(facing());
-        List<BlockPos> out = new ArrayList<>(size * size);
-        for (int i = 0; i < size; i++) {
-            for (int j = 0; j < size; j++) {
-                out.add(pos().relative(uv[0], i).relative(uv[1], j));
-            }
-        }
-        return out;
+        return List.of(pos());
     }
 
     // ================================================================================================
@@ -414,7 +259,7 @@ public final class AirCompressorCore {
         }
         Direction facing = facing();
         List<BlockPos> members = members();
-        int area = size * size;
+        int area = 1;
 
         // A redstone signal into any block of the unit stops it: it spends nothing and draws no air.
         boolean wasStopped = stopped;
@@ -560,7 +405,7 @@ public final class AirCompressorCore {
         for (AirCompressorCore m : mates) {
             roomCapacity += m.capacity;
             if (m.contributes()) {
-                groupPush += Config.COMPRESSOR_FILL_RATE.getAsInt() * m.size * m.size * m.power;
+                groupPush += Config.COMPRESSOR_FILL_RATE.getAsInt() * m.power;
                 groupFlow += m.supplyFlow;
             }
         }
@@ -756,11 +601,30 @@ public final class AirCompressorCore {
         }
     }
 
-    // The average pollution, 0..1, of the filters fitted to the unit's intakes; 0 with none fitted.
+    // The intakes of every compressor working this compressor's room, its own among them.
+    private List<BlockPos> roomIntakes() {
+        AirCompressorCore h = holder();
+        Level level = level();
+        List<BlockPos> out = new ArrayList<>();
+        if (h.intakes != null) {
+            out.addAll(h.intakes.keySet());
+        }
+        if (level != null) {
+            for (BlockPos p : h.group) {
+                AirCompressorCore m = coreAt(level, p);
+                if (m != null && m.intakes != null) {
+                    out.addAll(m.intakes.keySet());
+                }
+            }
+        }
+        return out;
+    }
+
+    // The average pollution, 0..1, of the filters fitted to the room's intakes; 0 with none fitted.
     private double averagePollution(Level level) {
         double sum = 0.0;
         int n = 0;
-        for (BlockPos in : intakes.keySet()) {
+        for (BlockPos in : roomIntakes()) {
             BlockState s = level.getBlockState(in);
             if (s.getBlock() instanceof AirCompressorIntakeBlock && s.getValue(AirCompressorIntakeBlock.FILTERED)
                     && level.getBlockEntity(in) instanceof AirCompressorIntakeBlockEntity be) {
@@ -771,10 +635,10 @@ public final class AirCompressorCore {
         return n == 0 ? 0.0 : sum / n;
     }
 
-    // Whether the unit has filters fitted and every one is clogged.
+    // Whether the room's intakes have filters fitted and every one is clogged.
     private boolean allClogged(Level level) {
         int n = 0;
-        for (BlockPos in : intakes.keySet()) {
+        for (BlockPos in : roomIntakes()) {
             BlockState s = level.getBlockState(in);
             if (s.getBlock() instanceof AirCompressorIntakeBlock && s.getValue(AirCompressorIntakeBlock.FILTERED)) {
                 if (s.getValue(AirCompressorIntakeBlock.POLLUTION) < AirCompressorIntakeBlock.CLOGGED) {
@@ -788,29 +652,29 @@ public final class AirCompressorCore {
 
     // --- Readings, server side, for Create's Display Link (com.fogged.create.AirCompressorDisplaySources) ---
 
-    /** The unit's state. */
+    // Every compressor working a room reads the room's: its state, and all their intakes together.
+
+    /** The room's state. */
     public State state() {
-        return controller().state;
+        return holder().state;
     }
 
-    /** Blocks of air per second the unit's intakes supply now. */
+    /** Blocks of air per second the room's intakes supply now, every compressor's together. */
     public double supplyFlow() {
-        return controller().supplyFlow;
+        return holder().groupFlow;
     }
 
-    /** The average pollution of the filters fitted to the unit's intakes, 0..1; 0 with none fitted. */
+    /** The average pollution of the filters fitted to the room's intakes, 0..1; 0 with none fitted. */
     public double filterPollution() {
-        AirCompressorCore c = controller();
-        return c.intakes == null || level() == null ? 0.0 : c.averagePollution(level());
+        return level() == null ? 0.0 : averagePollution(level());
     }
 
-    /** How many of the unit's intake filters are clogged. */
+    /** How many of the room's intake filters are clogged. */
     public int cloggedFilters() {
-        AirCompressorCore c = controller();
         Level level = level();
         int n = 0;
-        if (c.intakes != null && level != null) {
-            for (BlockPos in : c.intakes.keySet()) {
+        if (level != null) {
+            for (BlockPos in : roomIntakes()) {
                 BlockState s = level.getBlockState(in);
                 if (s.getBlock() instanceof AirCompressorIntakeBlock && s.getValue(AirCompressorIntakeBlock.FILTERED)
                         && s.getValue(AirCompressorIntakeBlock.POLLUTION) >= AirCompressorIntakeBlock.CLOGGED) {
@@ -843,19 +707,6 @@ public final class AirCompressorCore {
             }
         }
         return drive;
-    }
-
-    /** The unit's member with a shaft in it, or null: there is at most one. */
-    public AirCompressorCore shaftMember() {
-        Level level = level();
-        AirCompressorCore controller = controller();
-        for (BlockPos m : controller.members()) {
-            AirCompressorCore core = level == null ? null : coreAt(level, m);
-            if (core != null && core.drive.shaft()) {
-                return core;
-            }
-        }
-        return null;
     }
 
     private void updatePower(List<BlockPos> members) {
@@ -1284,19 +1135,20 @@ public final class AirCompressorCore {
 
     /** Write what the client needs: the unit, whether it runs, and what the goggles read. */
     public void writeClient(CompoundTag tag) {
-        writeUnit(tag);
         tag.putFloat("Power", power);
-        tag.putInt("State", state.ordinal());
-        tag.putInt("Held", heldBlocks());
-        tag.putInt("Volume", roomVolume);
-        tag.putInt("Capacity", leaderPos == null ? roomCapacity : capacity);
-        tag.putDouble("Flow", supplyFlow);
-        tag.putInt("Need", Config.COMPRESSOR_FILL_RATE.getAsInt() * size * size);
+        // Every compressor working a room shows the room's: its state, air, and the group's totals.
+        AirCompressorCore h = holder();
+        tag.putInt("State", h.state.ordinal());
+        tag.putInt("Held", h.heldBlocks());
+        tag.putInt("Volume", h.roomVolume);
+        tag.putInt("Capacity", h.roomCapacity);
+        tag.putDouble("Flow", h.groupFlow);
+        tag.putInt("Need", Config.COMPRESSOR_FILL_RATE.getAsInt() * (h.group.size() + 1));
+        tag.putInt("Count", h.group.size() + 1);
     }
 
     /** Read what {@link #writeClient} wrote. */
     public void readClient(CompoundTag tag) {
-        readUnit(tag);
         power = tag.getFloat("Power");
         shownState = tag.getInt("State");
         shownHeld = tag.getInt("Held");
@@ -1304,6 +1156,7 @@ public final class AirCompressorCore {
         shownCapacity = tag.getInt("Capacity");
         shownFlow = tag.getDouble("Flow");
         shownNeed = tag.getInt("Need");
+        shownCount = Math.max(1, tag.getInt("Count"));
     }
 
     /**
@@ -1314,8 +1167,15 @@ public final class AirCompressorCore {
         AirCompressorCore c = controller();
         // First in the tooltip, the header sits beside the goggles' icon: leave room for it.
         tooltip.add(net.minecraft.network.chat.Component.literal(tooltip.isEmpty() ? "    " : "")
-                .append(net.minecraft.network.chat.Component.translatable("fogged.goggles.compressor", c.size, c.size))
+                .append(net.minecraft.network.chat.Component.translatable("fogged.goggles.compressor"))
                 .withStyle(net.minecraft.ChatFormatting.WHITE));
+        // Working a room with others: everything below is the room's, all of them together.
+        if (c.shownCount > 1) {
+            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.compressors")
+                    .withStyle(net.minecraft.ChatFormatting.GRAY)));
+            tooltip.add(line(net.minecraft.network.chat.Component.literal(" " + c.shownCount)
+                    .withStyle(net.minecraft.ChatFormatting.AQUA)));
+        }
         State shown = State.of(c.shownState);
         // Each a grey label over its value, as Create and Create Crafts & Additions lay theirs out.
         tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.status")
@@ -1384,7 +1244,6 @@ public final class AirCompressorCore {
 
     /** Write everything that is saved with the world. */
     public void save(CompoundTag tag) {
-        writeUnit(tag);
         tag.putInt("Air", state.ordinal());
         tag.putFloat("Power", power);
         tag.putBoolean("Draining", draining);
@@ -1392,8 +1251,6 @@ public final class AirCompressorCore {
 
     /** Read what {@link #save} wrote, as the block entity loads. */
     public void load(CompoundTag tag) {
-        fresh = false;
-        readUnit(tag);
         savedState = State.of(tag.getInt("Air"));
         draining = tag.getBoolean("Draining"); // the room comes back with the world, still draining
         // The smoothed power picks up where it left off, so a loaded unit does not start from nothing
@@ -1402,29 +1259,8 @@ public final class AirCompressorCore {
         syncedRunning = power >= RUNNING;
     }
 
-    private void writeUnit(CompoundTag tag) {
-        BlockPos off = controllerPos.subtract(pos());
-        tag.putInt("CtrlX", off.getX());
-        tag.putInt("CtrlY", off.getY());
-        tag.putInt("CtrlZ", off.getZ());
-        tag.putInt("Size", size);
-    }
-
-    private void readUnit(CompoundTag tag) {
-        controllerPos = pos().offset(tag.getInt("CtrlX"), tag.getInt("CtrlY"), tag.getInt("CtrlZ"));
-        size = Mth.clamp(tag.contains("Size") ? tag.getInt("Size") : 1, 1, MAX_SIZE);
-    }
-
-    /**
-     * The block entity is in the level. A freshly placed compressor (not one loaded from disk) joins
-     * its neighbours here: the block's onPlace runs before its block entity exists, so it cannot.
-     */
+    /** The block entity is in the level: nothing to join, every compressor stands alone. */
     public void onLoad() {
-        Level level = level();
-        if (fresh && level != null && !level.isClientSide) {
-            fresh = false;
-            reform(level, pos(), facing());
-        }
     }
 
     /**

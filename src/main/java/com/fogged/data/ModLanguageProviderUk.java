@@ -48,11 +48,12 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.tooltip.air_compressor.desc1", "Вбудуйте в _стіну герметичного приміщення_ виходом усередину, і він викачає _каламуть_. Потрібен _забір повітря_ ззаду чи через повітропровід.");
         add("fogged.tooltip.air_intake.desc1", "Живить _компресор_ чи _повітропровід_, до якого приставлений, і тягне повітря _відкритим кінцем_.");
         add("fogged.tooltip.air_intake.desc2", "Поза _каламуттю_ бере чисте повітря; у ній вставте блок-_фільтр_, що з часом _забивається_ й потребує заміни. Більшим компресорам треба _більше заборів_.");
-        add("fogged.tooltip.air_compressor.desc2", "Працює від _FE_ у його _боки_; з Create _ключ_ на боці ставить _гніздо для вала_. Поєднайте _2x2_ чи _3x3_.");
+        add("fogged.tooltip.air_compressor.desc2", "Працює від _FE_ у його _боки_; з Create _ключ_ на боці ставить _гніздо для вала_. Кілька в одному _приміщенні_ складаються.");
         // The kinetic compressor is only registered with Create, so it is outside ModBlocks: named here.
         add("block.fogged.kinetic_air_compressor", "Кінетичний повітряний компресор");
         // Create goggles on an air compressor (AirCompressorCore#goggleLines).
-        add("fogged.goggles.compressor", "Повітряний компресор %sx%s:");
+        add("fogged.goggles.compressor", "Повітряний компресор:");
+        add("fogged.goggles.compressors", "Компресорів у приміщенні:");
         add("fogged.goggles.state.off", "Немає живлення");
         add("fogged.goggles.state.no_intake", "Немає забору повітря");
         add("fogged.goggles.state.unfiltered", "Забір тягне каламуть: потрібен фільтр");
@@ -187,10 +188,10 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.configuration.suffocation.tooltip", "Що каламуть робить із тими, хто в ній дихає -- гравцями й мобами -- і наскільки гірше це стає з глибиною.");
         add("fogged.configuration.compressor", "Повітряні компресори");
         add("fogged.configuration.compressor.tooltip", "Повітряні компресори й герметичні приміщення, які вони тримають: скільки приміщення тримає компресор, як швидко його наповнює і від чого працює.");
-        cfg("compressorVolumePerFace", "Приміщення на грань компресора",
-                "Скільки блоків приміщення тримає одна грань компресора на повній потужності. 2x2 тримає вчетверо більше, 3x3 — вдев'ятеро. Більші приміщення вважаються дірявими.");
-        cfg("compressorFillRate", "Швидкість наповнення на грань",
-                "Скільки блоків за секунду нагнітає одна грань компресора на повній потужності. Повітрям можна дихати всюди, куди воно дійшло.");
+        cfg("compressorVolumePerFace", "Приміщення на компресор",
+                "Скільки блоків приміщення тримає один компресор на повній потужності. Кілька в одному приміщенні складаються. Більші приміщення вважаються дірявими.");
+        cfg("compressorFillRate", "Швидкість наповнення на компресор",
+                "Скільки блоків за секунду нагнітає один компресор на повній потужності. Кілька в одному приміщенні складаються. Повітрям можна дихати всюди, куди воно дійшло.");
         cfg("intakeFilters", "Фільтри заборів",
                 "Що забір повітря бере за фільтр і скільки блоків каламуті той очищає, поки не заб'ється: id предмета чи #тег, '=', місткість. Лише повні блоки.");
         cfg("intakeFilterCleanRate", "Очищення фільтра в чистому повітрі",

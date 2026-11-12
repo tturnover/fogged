@@ -536,13 +536,13 @@ public class Config {
     }
 
     public static final ModConfigSpec.IntValue COMPRESSOR_VOLUME = COMMON
-            .comment("Blocks of room one compressor face holds at full power: a 1x1 holds this, a 2x2 four",
-                    "times it, a 3x3 nine times (900 at the default). A room bigger than the compressor",
+            .comment("Blocks of room one compressor holds at full power; several opening into one room add",
+                    "up (two hold 200 at the default). A room bigger than the compressors",
                     "holds counts as leaking.")
             .defineInRange("compressorVolumePerFace", 100, 8, 1_000_000);
 
     public static final ModConfigSpec.IntValue COMPRESSOR_FILL_RATE = COMMON
-            .comment("Blocks of room one compressor face pressurizes per second, scaled by power like the",
+            .comment("Blocks of room one compressor pressurizes per second, scaled by power like the",
                     "volume. The room is breathable wherever the air has reached so far.")
             .defineInRange("compressorFillRate", 80, 1, 100_000);
 
@@ -555,8 +555,8 @@ public class Config {
 
     public static final ModConfigSpec.IntValue INTAKE_FLOW = COMMON
             .comment("Blocks of air one air intake supplies per second. A compressor fills only as fast as",
-                    "its intakes supply: at the default a face's worth each, so a 2x2 wants four intakes and",
-                    "a 3x3 nine to fill at full speed. Less for ducts between (intakeDuctLossPercent) and,",
+                    "its intakes supply: at the default one compressor's worth each, so one intake to a",
+                    "compressor fills at full speed. Less for ducts between (intakeDuctLossPercent) and,",
                     "through a filter, for depth under the murk (depthScalingPercent).")
             .defineInRange("intakeFlow", 80, 1, 100_000);
 

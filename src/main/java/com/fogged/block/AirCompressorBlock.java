@@ -40,8 +40,8 @@ import net.neoforged.neoforge.event.level.BlockEvent;
  * {@link AirCompressorBlockEntity} for the fill and {@link com.fogged.AirFill} for what seals.
  *
  * <p>Placed with the outlet toward whoever places it: you stand in the room and set it into the wall.
- * Compressors facing the same way side by side join into 2x2 and 3x3 units that hold proportionally
- * more room (see {@link AirCompressorCore#reform}).
+ * Several opening into one room work it together, their capacity and fill rate adding up (see
+ * {@link AirCompressorCore}).
  *
  * <p>The casing is a full cube, so it is part of the room's shell like any wall block.
  */
@@ -75,7 +75,7 @@ public class AirCompressorBlock extends BaseEntityBlock implements CompressorBlo
      * Which way a compressor of block {@code self} placed in {@code context} faces.
      *
      * <p>Set against the side of another of the same compressor, it faces the way that one does, so a
-     * wall of them joins into a unit however steeply the placer had to look to reach the top row.
+     * wall of them all face the room however steeply the placer had to look to reach the top row.
      * Otherwise the outlet faces the placer. Sneaking opts out of the first and turns the second round,
      * for one set from outside.
      */
@@ -123,43 +123,10 @@ public class AirCompressorBlock extends BaseEntityBlock implements CompressorBlo
         return level.getBlockEntity(pos) instanceof CompressorHost host ? host.core().comparatorSignal() : 0;
     }
 
-    /** The block model shows the still fan; the block entity renderer spins it and spans a unit. */
+    /** The block model shows the still fan; the block entity renderer spins it. */
     @Override
     protected RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
-    }
-
-    // --- Joining: every placement or removal re-forms the units around it ---------------------------
-
-    @Override
-    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
-        super.onPlace(state, level, pos, oldState, movedByPiston);
-        placed(this, state, level, pos, oldState);
-    }
-
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        super.onRemove(state, level, pos, newState, movedByPiston);
-        removed(this, state, level, pos, newState);
-    }
-
-    /**
-     * A compressor of {@code self} was set down or turned at {@code pos}: re-form the units it left and
-     * joined. A fresh placement joins from its core's onLoad instead -- this runs before its block
-     * entity exists.
-     */
-    public static void placed(Block self, BlockState state, Level level, BlockPos pos, BlockState oldState) {
-        if (!level.isClientSide && oldState.is(self) && oldState.getValue(FACING) != state.getValue(FACING)) {
-            AirCompressorCore.reformAround(level, pos, self, oldState.getValue(FACING));
-            AirCompressorCore.reform(level, pos, state.getValue(FACING));
-        }
-    }
-
-    /** A compressor of {@code self} at {@code pos} is gone: re-form the units around where it was. */
-    public static void removed(Block self, BlockState state, Level level, BlockPos pos, BlockState newState) {
-        if (!level.isClientSide && !newState.is(self)) {
-            AirCompressorCore.reformAround(level, pos, self, state.getValue(FACING));
-        }
     }
 
     // --- Block entity ------------------------------------------------------------------------------

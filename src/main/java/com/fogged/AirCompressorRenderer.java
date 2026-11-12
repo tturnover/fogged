@@ -23,14 +23,11 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.AABB;
 
 /**
- * Draws an air compressor unit's two fan faces: the outlet (with its red lamp, the side that seals)
- * and the back, where it draws from its intake. Only the controller draws, and it lays one face across the whole unit, so a 2x2 or
- * 3x3 reads as one big fan rather than a grid of small ones. While the unit has power the face is the
- * animated sprite and spins; without, the still one. A lone 1x1 with no power draws nothing -- its
- * block model already shows the still fan.
+ * Draws an air compressor's two fan faces: the outlet (with its red lamp, the side that seals)
+ * and the back, where it draws from its intake. While the compressor has power the face is the
+ * animated sprite and spins; without, it draws nothing -- the block model already shows the still fan.
  *
- * <p>The art is Factory Blocks' fans (see textures/block/air_compressor/CREDITS.txt): the 32px fan for
- * a 1x1, the 96px one for a unit. Each face is laid out the way a viewer standing in front of it sees
+ * <p>The art is Factory Blocks' fans (see textures/block/air_compressor/CREDITS.txt). Each face is laid out the way a viewer standing in front of it sees
  * it, up being world up (north for a face pointing up or down), so the intake turns the opposite way
  * to the outlet, as the far side of one fan does.
  */
@@ -53,20 +50,16 @@ public class AirCompressorRenderer implements BlockEntityRenderer<AirCompressorB
         renderFans(be, be.core(), pose, buffers, packedOverlay);
     }
 
-    /** The unit's two fan faces, drawn by its controller; shared with the kinetic compressor's renderer. */
+    /** The compressor's two fan faces; shared with the kinetic compressor's renderer. */
     public static void renderFans(BlockEntity be, AirCompressorCore core, PoseStack pose, MultiBufferSource buffers,
             int packedOverlay) {
-        if (!core.isController() || be.getLevel() == null) {
-            return;
+        if (be.getLevel() == null || !core.running()) {
+            return; // stopped: the block model's still fan is all there is
         }
-        int size = core.size();
-        boolean running = core.running();
-        if (size == 1 && !running) {
-            return;
-        }
+        int size = 1;
         Direction facing = be.getBlockState().getValue(AirCompressorBlock.FACING);
-        String base = size == 1 ? "fan" : "fan_large";
-        String still = running ? "" : "_still";
+        String base = "fan";
+        String still = "";
         VertexConsumer vc = buffers.getBuffer(RenderType.cutout());
         BlockPos pos = be.getBlockPos();
         face(vc, pose, be, facing, size, 0.0F, sprite(base + "_out" + still), pos.relative(facing));
@@ -131,11 +124,8 @@ public class AirCompressorRenderer implements BlockEntityRenderer<AirCompressorB
         return unitBounds(be, be.core());
     }
 
-    /** Everything a unit draws: its whole face and the housing beyond it. */
+    /** Everything a compressor draws: its faces, just clear of its block. */
     public static AABB unitBounds(BlockEntity be, AirCompressorCore core) {
-        BlockPos pos = be.getBlockPos();
-        int n = core.size() - 1;
-        Direction[] uv = AirCompressorCore.plane(be.getBlockState().getValue(AirCompressorBlock.FACING));
-        return new AABB(pos).minmax(new AABB(pos.relative(uv[0], n).relative(uv[1], n))).inflate(0.6);
+        return new AABB(be.getBlockPos()).inflate(0.6);
     }
 }

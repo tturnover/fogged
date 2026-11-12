@@ -128,18 +128,6 @@ public class AirCompressorBlockEntity extends BlockEntity implements CompressorH
                     net.minecraft.network.chat.Component.literal(" " + AirCompressorCore.amount(shownDraw) + "\u26A1/t")
                             .withStyle(net.minecraft.ChatFormatting.AQUA));
         }
-
-        // Pool the members' energy into the controller, so joining or splitting loses none.
-        @Override
-        public void joined(AirCompressorCore controller) {
-            if (controller == core || !(controller.blockEntity() instanceof AirCompressorBlockEntity c)) {
-                return;
-            }
-            c.energy.set(c.energy.getEnergyStored() + energy.getEnergyStored());
-            energy.set(0);
-            c.setChanged();
-            setChanged();
-        }
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, AirCompressorBlockEntity be) {
@@ -224,14 +212,11 @@ public class AirCompressorBlockEntity extends BlockEntity implements CompressorH
         core.onChunkUnloaded();
     }
 
-    // What the unit will spend next tick at most: holding the room it has, and a full tick's filtering.
+    // What the compressor will spend next tick at most: its share of holding the room it holds or shares,
+    // and a full tick's filtering.
     private int nextDemand() {
-        if (!core.isController()) {
-            return 0;
-        }
-        int area = core.size() * core.size();
-        double hold = core.heldBlocks() * Config.COMPRESSOR_HOLD_FE.get();
-        double fill = Config.COMPRESSOR_FILL_RATE.getAsInt() * area / 20.0 * Config.COMPRESSOR_FILTER_FE.get();
+        double hold = core.loadHeld() * Config.COMPRESSOR_HOLD_FE.get();
+        double fill = Config.COMPRESSOR_FILL_RATE.getAsInt() / 20.0 * Config.COMPRESSOR_FILTER_FE.get();
         return (int) Math.ceil(hold + fill);
     }
 
