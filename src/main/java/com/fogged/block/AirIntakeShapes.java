@@ -9,53 +9,25 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * The air intake's shape: stepped boxes following its model, as a hopper's follows its funnel. GENERATED
- * from the intake models (voxelized at a pixel, the hood's lining cut out, a pixel plate across the side
- * it feeds so the cell stays sealed to air) -- regenerate rather than edit.
+ * The air intake's shape: four stepped boxes following its model, as Create steps its shapes. GENERATED
+ * from the intake models (voxelized at a pixel, then each quarter of the height boxed) -- regenerate rather
+ * than edit. The block it feeds (a compressor, a duct) seals the way through, not this.
  */
 final class AirIntakeShapes {
 
-    // The hood, authored feeding south: 32 boxes.
+    // The hood, authored feeding south: 4 boxes.
     private static final int[][] HOOD = {
-            {0, 13, 6, 16, 15, 8},
-            {0, 11, 7, 2, 13, 13},
-            {14, 11, 7, 16, 13, 13},
-            {0, 8, 8, 2, 11, 14},
-            {14, 8, 8, 16, 11, 14},
-            {0, 13, 8, 2, 16, 12},
-            {14, 13, 8, 16, 16, 12},
-            {2, 14, 8, 14, 16, 10},
-            {0, 6, 9, 2, 8, 16},
-            {14, 6, 9, 16, 8, 16},
-            {0, 4, 10, 2, 6, 16},
-            {14, 4, 10, 16, 6, 16},
-            {2, 15, 10, 14, 16, 12},
-            {0, 1, 11, 2, 4, 16},
-            {14, 1, 11, 16, 4, 16},
-            {0, 0, 12, 16, 1, 16},
-            {2, 1, 12, 14, 2, 16},
-            {2, 3, 12, 14, 8, 16},
-            {0, 13, 12, 2, 14, 13},
-            {14, 13, 12, 16, 14, 13},
-            {1, 14, 12, 15, 15, 16},
-            {0, 11, 13, 2, 12, 14},
-            {14, 11, 13, 16, 12, 14},
-            {1, 12, 13, 2, 14, 16},
-            {14, 12, 13, 15, 14, 16},
-            {2, 2, 14, 14, 3, 16},
-            {0, 8, 14, 16, 10, 16},
-            {1, 10, 14, 15, 12, 16},
-            {2, 12, 14, 14, 14, 16},
-            {0, 10, 15, 1, 16, 16},
-            {15, 10, 15, 16, 16, 16},
-            {1, 15, 15, 15, 16, 16}
+            {0, 0, 11, 16, 4, 16},
+            {0, 4, 9, 16, 8, 16},
+            {0, 8, 7, 16, 12, 16},
+            {0, 12, 6, 16, 16, 16}
     };
 
     // The frame, authored feeding down: 3 boxes.
     private static final int[][] FRAME = {
-            {0, 0, 0, 16, 1, 16},
-            {0, 4, 0, 16, 10, 16},
-            {1, 1, 1, 15, 4, 15}
+            {1, 0, 1, 15, 4, 15},
+            {0, 4, 0, 16, 8, 16},
+            {0, 8, 0, 16, 10, 16}
     };
 
     /** Per the way the intake feeds. */

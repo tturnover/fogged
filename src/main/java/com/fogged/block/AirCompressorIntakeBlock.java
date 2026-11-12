@@ -106,8 +106,8 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
-    // Stepped boxes following the model, hollow where the hood is, as a hopper's shape is; a pixel plate
-    // across the side it feeds keeps the cell sealed to air (see AirIntakeShapes).
+    // Four stepped boxes following the model, as Create steps its shapes (see AirIntakeShapes). The block
+    // it feeds -- a compressor, a duct -- is what seals the way through.
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return AirIntakeShapes.SHAPES.get(state.getValue(FACING));
