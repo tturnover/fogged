@@ -35,6 +35,57 @@ public class AirCompressorIntakeBlockEntity extends BlockEntity {
 
     private static final boolean CREATE = net.neoforged.fml.ModList.get().isLoaded("create");
 
+    /**
+     * The intake as an inventory of one slot, the filter: a Mechanical Arm, hopper, funnel or chute puts
+     * filter media in as a hand would ({@link AirCompressorIntakeBlock#fit}). Nothing comes out -- a
+     * hopper under it must not pull a fresh filter back out; a hand takes it out, and a spent one falls
+     * apart.
+     */
+    private final net.neoforged.neoforge.items.IItemHandler inventory = new net.neoforged.neoforge.items.IItemHandler() {
+        @Override
+        public int getSlots() {
+            return 1;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return slot == 0 ? filter : ItemStack.EMPTY;
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (slot != 0 || stack.isEmpty() || !isItemValid(slot, stack) || !filter.isEmpty()
+                    || level == null || level.isClientSide
+                    || getBlockState().getValue(AirCompressorIntakeBlock.FILTERED)) {
+                return stack;
+            }
+            if (!simulate && !AirCompressorIntakeBlock.fit(level, worldPosition, stack)) {
+                return stack;
+            }
+            return stack.copyWithCount(stack.getCount() - 1);
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return 1;
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return slot == 0 && stack.is(com.fogged.registry.ModTags.FILTER_MEDIA);
+        }
+    };
+
+    /** The intake's inventory, for the item-handler capability; any side. */
+    public net.neoforged.neoforge.items.IItemHandler inventory() {
+        return inventory;
+    }
+
     /** The filter fitted, or empty. */
     public ItemStack filter() {
         return filter;

@@ -53,6 +53,9 @@ public final class ModBlockEntities {
     private static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, AIR_COMPRESSOR.get(),
                 (be, side) -> be.energyStorage(side));
+        // An intake takes its filter in through any side: Mechanical Arms, hoppers, funnels, chutes.
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, AIR_COMPRESSOR_INTAKE.get(),
+                (be, side) -> be.inventory());
     }
 
     private ModBlockEntities() {}

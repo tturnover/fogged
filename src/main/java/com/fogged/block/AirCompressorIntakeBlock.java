@@ -184,14 +184,29 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         if (!stack.is(ModTags.FILTER_MEDIA) || state.getValue(FILTERED)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
-        if (!level.isClientSide && level.getBlockEntity(pos) instanceof AirCompressorIntakeBlockEntity be) {
-            be.setFilter(stack.copyWithCount(1));
+        if (!level.isClientSide && fit(level, pos, stack)) {
             stack.consume(1, player);
-            level.setBlock(pos, state.setValue(FILTERED, true)
-                    .setValue(COLOR, com.fogged.NozzleFilterEvents.woolColor(stack)), 3);
-            level.playSound(null, pos, SoundEvents.WOOL_PLACE, SoundSource.BLOCKS, 1.0F, 1.0F);
         }
         return ItemInteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    /**
+     * Fit one of {@code stack} as the filter of the intake at {@code pos}, server side: by a player's
+     * (or a Deployer's) hand, or put in through its inventory by a Mechanical Arm, hopper or funnel.
+     * False, nothing done, when it is no filter media or a filter is in already. Takes nothing from
+     * {@code stack}; the caller does.
+     */
+    public static boolean fit(Level level, BlockPos pos, ItemStack stack) {
+        BlockState state = level.getBlockState(pos);
+        if (stack.isEmpty() || !stack.is(ModTags.FILTER_MEDIA) || !(state.getBlock() instanceof AirCompressorIntakeBlock)
+                || state.getValue(FILTERED) || !(level.getBlockEntity(pos) instanceof AirCompressorIntakeBlockEntity be)) {
+            return false;
+        }
+        be.setFilter(stack.copyWithCount(1));
+        level.setBlock(pos, state.setValue(FILTERED, true)
+                .setValue(COLOR, com.fogged.NozzleFilterEvents.woolColor(stack)), 3);
+        level.playSound(null, pos, SoundEvents.WOOL_PLACE, SoundSource.BLOCKS, 1.0F, 1.0F);
+        return true;
     }
 
     @Override
