@@ -32,6 +32,12 @@ public class GoggledIntakeBlockEntity extends AirCompressorIntakeBlockEntity imp
         tooltip.add(AirCompressorCore.line(Component.literal(" ")
                 .append(Component.translatable("fogged.goggles.intake." + supply.name().toLowerCase(Locale.ROOT)))
                 .withStyle(supply.clean() ? ChatFormatting.GREEN : ChatFormatting.RED)));
+        // What it sends its compressor, or that no compressor draws on it.
+        tooltip.add(AirCompressorCore.line(Component.translatable("fogged.goggles.air_out").withStyle(ChatFormatting.GRAY)));
+        tooltip.add(AirCompressorCore.line(Component.literal(" ").append(connected()
+                ? Component.translatable("fogged.goggles.per_second_one", AirCompressorCore.amount(feedFlow()))
+                : Component.translatable("fogged.goggles.not_connected"))
+                .withStyle(connected() ? ChatFormatting.AQUA : ChatFormatting.RED)));
         tooltip.add(AirCompressorCore.line(Component.translatable("fogged.goggles.filter").withStyle(ChatFormatting.GRAY)));
         tooltip.add(AirCompressorCore.line(Component.literal(" ")
                 .append(filter().isEmpty() ? Component.translatable("fogged.goggles.filter.none") : filter().getHoverName())

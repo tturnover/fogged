@@ -51,6 +51,14 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.compressor", "Air Compressor:");
         add("fogged.goggles.compressors", "Compressors In The Room:");
         add("fogged.goggles.this_one", "This Compressor:");
+        add("fogged.goggles.running", " %s of %s running");
+        add("fogged.goggles.losing", "Losing Air:");
+        add("fogged.goggles.per_second_one", "%s blocks/s");
+        add("fogged.goggles.intakes", "Intakes:");
+        add("fogged.goggles.filters", "Filters:");
+        add("fogged.goggles.filters_state", " %s%% polluted, %s of %s clogged");
+        add("fogged.goggles.air_out", "Air Out:");
+        add("fogged.goggles.not_connected", "Not connected to a compressor");
         add("fogged.goggles.own_air", " %s blocks/s, %s");
         add("fogged.goggles.source.clean", "clean air");
         add("fogged.goggles.source.filtered", "filtered");

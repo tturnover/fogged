@@ -50,7 +50,7 @@ public final class FoggedTooltip {
         if (Screen.hasShiftDown()) {
             section.add(Component.empty());
             for (String key : lineKeys) {
-                section.add(highlighted(Component.translatable(key).getString()));
+                section.addAll(wrapped(Component.translatable(key).getString()));
             }
         }
         if (!section.isEmpty()) {
@@ -58,22 +58,44 @@ public final class FoggedTooltip {
         }
     }
 
+    /** Widest a description line runs, in pixels: Create's own (TooltipHelper's per-line width). */
+    private static final int MAX_WIDTH = 200;
+
     /**
-     * Build a description line from a translated string, colouring words wrapped in {@code _underscores_}
-     * with {@link #HIGHLIGHT} and the rest with {@link #BODY} -- the same markup Create uses in its
-     * {@code .tooltip.summary} lang entries. Text outside underscores is body-coloured; every second
-     * segment (inside a pair of underscores) is highlighted.
+     * A description from a translated string, broken into lines no wider than {@link #MAX_WIDTH} at word
+     * boundaries, as Create breaks its summaries -- each word keeping its body or highlight colour.
      */
-    private static Component highlighted(String raw) {
+    private static List<Component> wrapped(String raw) {
+        net.minecraft.client.gui.Font font = Minecraft.getInstance().font;
+        List<Component> lines = new ArrayList<>();
         MutableComponent line = Component.empty();
+        int width = 0;
         String[] parts = raw.split("_", -1);
         for (int i = 0; i < parts.length; i++) {
-            if (parts[i].isEmpty()) {
-                continue;
+            Style style = i % 2 == 1 ? HIGHLIGHT : BODY;
+            // Words with the space after them, so a line ends where a space was.
+            for (String word : parts[i].split("(?<= )")) {
+                if (word.isEmpty()) {
+                    continue;
+                }
+                int w = font.width(word.stripTrailing());
+                if (width > 0 && width + w > MAX_WIDTH) {
+                    lines.add(line);
+                    line = Component.empty();
+                    width = 0;
+                }
+                String shown = width == 0 ? word.stripLeading() : word;
+                if (shown.isEmpty()) {
+                    continue;
+                }
+                line.append(Component.literal(shown).withStyle(style));
+                width += font.width(shown);
             }
-            line.append(Component.literal(parts[i]).withStyle(i % 2 == 1 ? HIGHLIGHT : BODY));
         }
-        return line;
+        if (width > 0) {
+            lines.add(line);
+        }
+        return lines;
     }
 
     /**

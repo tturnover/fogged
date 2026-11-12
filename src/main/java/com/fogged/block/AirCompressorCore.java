@@ -186,6 +186,12 @@ public final class AirCompressorCore {
     private int shownCount = 1; // the compressors working the room together
     private double shownOwnFlow; // this compressor's own air in
     private int shownOwnSource;  // where it comes from: 1 clean, 2 filtered, 3 both, 0 none
+    private double shownLoss;    // blocks/s the room is losing
+    private int shownRunning;    // of the room's compressors, how many run
+    private int shownIntakes;    // the room's intakes
+    private int shownFilters;    // of them, how many have a filter
+    private int shownPolluted;   // their filters' average pollution, percent
+    private int shownClogged;    // and how many are clogged
     /** Ticks between keeping the client's readout current. */
     private static final int READOUT_INTERVAL = 10;
 
@@ -287,6 +293,11 @@ public final class AirCompressorCore {
         }
         State supply = supply(level);
         updateSignal(level, members);
+        if (ownSeeds.isEmpty() || level.getGameTime() % FAST_RECHECK == Math.floorMod(pos().asLong(), FAST_RECHECK)) {
+            Set<BlockPos> ducts = new HashSet<>();
+            registerSeeds(level, computeSeeds(level, members, facing, ducts));
+            outletDucts = ducts;
+        }
 
         // Sharing a room another unit holds: keep this unit's part current for it, and no more.
         if (leaderPos != null) {
@@ -364,11 +375,6 @@ public final class AirCompressorCore {
     // A unit sharing a room another holds: its outlets current for the leader's fill, its own air given
     // over, and nothing else -- the leader reads its power, capacity and intakes.
     private void followerTick(ServerLevel level, List<BlockPos> members, Direction facing) {
-        if (ownSeeds.isEmpty() || level.getGameTime() % FAST_RECHECK == Math.floorMod(pos().asLong(), FAST_RECHECK)) {
-            Set<BlockPos> ducts = new HashSet<>();
-            registerSeeds(level, computeSeeds(level, members, facing, ducts));
-            outletDucts = ducts;
-        }
         space.cells().clear();
         draining = false;
         pending = new LongArrayList();
@@ -509,11 +515,18 @@ public final class AirCompressorCore {
             if (leader.space != null && space != null) {
                 leader.space.cells().addAll(space.cells());
             }
-            if (!leader.group.contains(pos())) {
-                List<BlockPos> grown = new ArrayList<>(leader.group);
+            List<BlockPos> grown = new ArrayList<>(leader.group);
+            if (!grown.contains(pos())) {
                 grown.add(pos().immutable());
-                leader.group = grown;
             }
+            // This one's own followers go across with it.
+            for (AirCompressorCore m : mates(level)) {
+                m.leaderPos = lead.immutable();
+                if (!grown.contains(m.pos())) {
+                    grown.add(m.pos().immutable());
+                }
+            }
+            leader.group = grown;
             if (leader.space != null) {
                 leader.space.markDirty();
             }
@@ -545,16 +558,23 @@ public final class AirCompressorCore {
             space.markDirty();      // and this one at what is left of its own
         }
         boolean grew = false;
+        Set<BlockPos> joined = new java.util.LinkedHashSet<>(found);
         for (BlockPos o : found) {
             AirCompressorCore other = coreAt(level, o);
             if (!pos().equals(other.leaderPos)) {
                 if (other.space != null && space != null) {
                     space.cells().addAll(other.space.cells());
                 }
+                // A leader of its own: its followers come across with it.
+                for (AirCompressorCore m : other.mates(level)) {
+                    m.leaderPos = pos().immutable();
+                    joined.add(m.pos().immutable());
+                }
                 other.follow(pos());
                 grew = true;
             }
         }
+        found = joined;
         group = new ArrayList<>(found);
         if (grew) {
             space.markDirty(); // with their capacity and outlets, look again
@@ -614,6 +634,17 @@ public final class AirCompressorCore {
             }
         }
         return c;
+    }
+
+    // Blocks a second the room this compressor holds is losing now.
+    private double lossRate() {
+        if (draining) {
+            return state == State.STOPPED ? Config.COMPRESSOR_VENT_RATE.get() : Config.COMPRESSOR_DRAIN_RATE.get();
+        }
+        if (shrinking && heldBlocks() > roomCapacity) {
+            return Config.COMPRESSOR_DRAIN_RATE.get();
+        }
+        return 0.0;
     }
 
     /** Blocks of room this unit pays to hold: its share of the room it holds or shares. */
@@ -825,6 +856,10 @@ public final class AirCompressorCore {
                 continue;
             }
             AirCompressorIntakeBlock.Supply supply = AirCompressorIntakeBlock.supply(level, in, s);
+            if (level.getBlockEntity(in) instanceof AirCompressorIntakeBlockEntity ib) {
+                ib.feeding(level.getGameTime(), contributes() && supply.clean()
+                        ? AirCompressorIntakeBlock.flow(level, in, s, supply, entry.getValue()) : 0.0);
+            }
             switch (supply) {
                 case CLEAN, FILTERED -> {
                     liveMouths.add(AirCompressorIntakeBlock.mouth(in, s));
@@ -1250,6 +1285,32 @@ public final class AirCompressorCore {
             filtered |= in.filtered();
         }
         tag.putInt("OwnSource", (clean ? 1 : 0) | (filtered ? 2 : 0));
+        // The room's air going out (draining, venting, shrinking), its compressors running, and every
+        // intake's filter together.
+        tag.putDouble("Loss", h.lossRate());
+        int running = h.contributes() ? 1 : 0;
+        Level level = level();
+        if (level != null) {
+            for (BlockPos p : h.group) {
+                AirCompressorCore m = coreAt(level, p);
+                if (m != null && m.contributes()) {
+                    running++;
+                }
+            }
+            List<BlockPos> roomIntakes = roomIntakes();
+            int fitted = 0;
+            for (BlockPos in : roomIntakes) {
+                BlockState st = level.getBlockState(in);
+                if (st.getBlock() instanceof AirCompressorIntakeBlock && st.getValue(AirCompressorIntakeBlock.FILTERED)) {
+                    fitted++;
+                }
+            }
+            tag.putInt("Intakes", roomIntakes.size());
+            tag.putInt("Filters", fitted);
+            tag.putInt("Polluted", (int) Math.round(averagePollution(level) * 100));
+            tag.putInt("Clogged", cloggedFilters());
+        }
+        tag.putInt("Running", running);
     }
 
     /** Read what {@link #writeClient} wrote. */
@@ -1264,6 +1325,12 @@ public final class AirCompressorCore {
         shownCount = Math.max(1, tag.getInt("Count"));
         shownOwnFlow = tag.getDouble("OwnFlow");
         shownOwnSource = tag.getInt("OwnSource");
+        shownLoss = tag.getDouble("Loss");
+        shownRunning = tag.getInt("Running");
+        shownIntakes = tag.getInt("Intakes");
+        shownFilters = tag.getInt("Filters");
+        shownPolluted = tag.getInt("Polluted");
+        shownClogged = tag.getInt("Clogged");
     }
 
     /**
@@ -1280,8 +1347,10 @@ public final class AirCompressorCore {
         if (c.shownCount > 1) {
             tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.compressors")
                     .withStyle(net.minecraft.ChatFormatting.GRAY)));
-            tooltip.add(line(net.minecraft.network.chat.Component.literal(" " + c.shownCount)
-                    .withStyle(net.minecraft.ChatFormatting.AQUA)));
+            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.running",
+                    c.shownRunning, c.shownCount)
+                    .withStyle(c.shownRunning < c.shownCount ? net.minecraft.ChatFormatting.GOLD
+                            : net.minecraft.ChatFormatting.AQUA)));
         }
         State shown = State.of(c.shownState);
         // Each a grey label over its value, as Create and Create Crafts & Additions lay theirs out.
@@ -1298,6 +1367,13 @@ public final class AirCompressorCore {
             tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.blocks_of",
                     amount(c.shownHeld), amount(c.shownVolume)).withStyle(net.minecraft.ChatFormatting.AQUA)));
         }
+        if (c.shownLoss > 0.0 && c.shownHeld > 0) {
+            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.losing")
+                    .withStyle(net.minecraft.ChatFormatting.GRAY)));
+            tooltip.add(line(net.minecraft.network.chat.Component.literal(" ").append(
+                    net.minecraft.network.chat.Component.translatable("fogged.goggles.per_second_one", amount(c.shownLoss)))
+                    .withStyle(net.minecraft.ChatFormatting.GOLD)));
+        }
         tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.capacity")
                 .withStyle(net.minecraft.ChatFormatting.GRAY)));
         tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.blocks",
@@ -1309,6 +1385,19 @@ public final class AirCompressorCore {
                 amount(c.shownFlow), amount(c.shownNeed))
                 .withStyle(c.shownFlow + 0.5 >= c.shownNeed ? net.minecraft.ChatFormatting.AQUA
                         : net.minecraft.ChatFormatting.GOLD)));
+        // The room's intakes, and their filters together.
+        tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.intakes")
+                .withStyle(net.minecraft.ChatFormatting.GRAY)));
+        tooltip.add(line(net.minecraft.network.chat.Component.literal(" " + c.shownIntakes)
+                .withStyle(c.shownIntakes == 0 ? net.minecraft.ChatFormatting.RED : net.minecraft.ChatFormatting.AQUA)));
+        if (c.shownFilters > 0) {
+            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.filters")
+                    .withStyle(net.minecraft.ChatFormatting.GRAY)));
+            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.filters_state",
+                    c.shownPolluted, c.shownClogged, c.shownFilters)
+                    .withStyle(c.shownClogged > 0 ? net.minecraft.ChatFormatting.RED
+                            : c.shownPolluted >= 75 ? net.minecraft.ChatFormatting.GOLD : net.minecraft.ChatFormatting.AQUA)));
+        }
         // Working a room with others: this compressor's own part, and where its air comes from.
         if (c.shownCount > 1) {
             String source = switch (c.shownOwnSource) {
@@ -1392,8 +1481,46 @@ public final class AirCompressorCore {
     public void onRemoved() {
         Level level = level();
         if (level != null && !level.isClientSide && !unloading) {
+            handOff(level);
             dropRoom();
         }
+    }
+
+    // Going while leading a room others share: the next lowest takes the room over, air and all, and
+    // the rest follow it -- the room does not lose a breath.
+    private void handOff(Level level) {
+        List<AirCompressorCore> mates = mates(level);
+        if (mates.isEmpty() || space == null) {
+            return;
+        }
+        AirCompressorCore next = mates.get(0);
+        for (AirCompressorCore m : mates) {
+            if (m.pos().compareTo(next.pos()) < 0) {
+                next = m;
+            }
+        }
+        List<BlockPos> rest = new ArrayList<>();
+        for (AirCompressorCore m : mates) {
+            if (m != next) {
+                m.leaderPos = next.pos().immutable();
+                rest.add(m.pos().immutable());
+            }
+        }
+        next.leaderPos = null;
+        next.share = 1.0;
+        next.group = rest;
+        next.roomOrder = roomOrder;
+        next.drainCursor = drainCursor;
+        next.roomVolume = roomVolume;
+        next.draining = draining;
+        next.shrinking = shrinking;
+        if (next.space != null) {
+            next.space.cells().addAll(space.cells());
+            next.space.markDirty();
+        }
+        next.setState(space.cells().isEmpty() ? State.OFF : state == State.SHARED ? State.SEALED : state);
+        space.cells().clear();
+        group = List.of();
     }
 
     /** The block entity's chunk is unloading. */

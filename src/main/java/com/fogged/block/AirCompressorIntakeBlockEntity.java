@@ -83,6 +83,45 @@ public class AirCompressorIntakeBlockEntity extends BlockEntity {
         }
     };
 
+    // What the intake sends its compressor: told every tick by the compressor drawing on it; not told for
+    // a second, it is not connected to one. Synced as it changes, for the goggles.
+    private long feedTick = Long.MIN_VALUE;
+    private double feedFlow;
+    private boolean connected;
+    private int syncedFeed = -1;
+
+    /** Its compressor drawing on it at {@code gameTime}: {@code flow} blocks/s of clean air, maybe none. */
+    void feeding(long gameTime, double flow) {
+        feedTick = gameTime;
+        feedFlow = flow;
+        int now = (int) Math.round(flow * 10);
+        if (!connected || now != syncedFeed) {
+            connected = true;
+            syncedFeed = now;
+            changed();
+        }
+    }
+
+    // Once a tick, server side: drawn on by no compressor for a second, it is on its own.
+    void checkFeed(long gameTime) {
+        if (connected && gameTime - feedTick > 20) {
+            connected = false;
+            feedFlow = 0.0;
+            syncedFeed = -1;
+            changed();
+        }
+    }
+
+    /** Whether a compressor draws on it. Either side. */
+    public boolean connected() {
+        return connected;
+    }
+
+    /** Blocks/s of clean air it sends its compressor. Either side. */
+    public double feedFlow() {
+        return feedFlow;
+    }
+
     /** The intake's inventory, for the item-handler capability; any side. */
     public net.neoforged.neoforge.items.IItemHandler inventory() {
         return inventory;
@@ -181,12 +220,18 @@ public class AirCompressorIntakeBlockEntity extends BlockEntity {
         super.loadAdditional(tag, registries);
         filter = tag.contains("Filter") ? ItemStack.parseOptional(registries, tag.getCompound("Filter")) : ItemStack.EMPTY;
         wear = tag.getDouble("Wear");
+        if (tag.contains("Connected")) { // only in what is sent to the client
+            connected = tag.getBoolean("Connected");
+            feedFlow = tag.getDouble("Feed");
+        }
     }
 
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         saveAdditional(tag, registries);
+        tag.putBoolean("Connected", connected);
+        tag.putDouble("Feed", feedFlow);
         return tag;
     }
 

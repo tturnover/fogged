@@ -55,6 +55,14 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.compressor", "Повітряний компресор:");
         add("fogged.goggles.compressors", "Компресорів у приміщенні:");
         add("fogged.goggles.this_one", "Цей компресор:");
+        add("fogged.goggles.running", " %s з %s працюють");
+        add("fogged.goggles.losing", "Втрачається повітря:");
+        add("fogged.goggles.per_second_one", "%s блоків/с");
+        add("fogged.goggles.intakes", "Забори:");
+        add("fogged.goggles.filters", "Фільтри:");
+        add("fogged.goggles.filters_state", " забруднені на %s%%, забито %s з %s");
+        add("fogged.goggles.air_out", "Видає повітря:");
+        add("fogged.goggles.not_connected", "Не під'єднаний до компресора");
         add("fogged.goggles.own_air", " %s блоків/с, %s");
         add("fogged.goggles.source.clean", "чисте повітря");
         add("fogged.goggles.source.filtered", "через фільтр");

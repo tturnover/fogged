@@ -278,6 +278,7 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
      * ({@link Config#FILTER_CLEAN_RATE}), clogged or not -- a clogged one clears and lets air by again.
      */
     static void cleanTick(Level level, BlockPos pos, BlockState state, AirCompressorIntakeBlockEntity be) {
+        be.checkFeed(level.getGameTime());
         if (level.getGameTime() % 20 != Math.floorMod(pos.asLong(), 20) || !state.getValue(FILTERED)
                 || be.worn() <= 0.0) {
             return;
