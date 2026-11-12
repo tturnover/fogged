@@ -177,8 +177,9 @@ public final class AirCompressorCore {
     private double groupFlow;                         // the leader's: blocks/s the group's intakes supply
     private List<AirFill.Seed> ownSeeds = List.of();  // where this unit's own air comes out
     private Set<BlockPos> outletDucts = Set.of();     // the ducts it goes out through
-    // Per level, the cell each unit's air comes out into -> that unit: a fill reaching one has found it.
-    private static final java.util.Map<Level, it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<BlockPos>> SEED_OWNERS =
+    // Per level, each cell units' air comes out into -> those units: a fill reaching one has found them.
+    // Several can own one cell -- units on the same duct network let their air out of the same ends.
+    private static final java.util.Map<Level, it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<Set<BlockPos>>> SEED_OWNERS =
             new java.util.WeakHashMap<>();
 
     // --- Lifecycle ---
@@ -587,23 +588,33 @@ public final class AirCompressorCore {
 
     // Record where this unit's air comes out, so a fill reaching there knows it is in the same room.
     private void registerSeeds(Level level, List<AirFill.Seed> seeds) {
-        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<BlockPos> owners =
+        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<Set<BlockPos>> owners =
                 SEED_OWNERS.computeIfAbsent(level, l -> new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>());
-        for (AirFill.Seed seed : ownSeeds) {
-            owners.remove(seed.pos().asLong(), pos());
-        }
+        forget(owners);
         ownSeeds = seeds;
         for (AirFill.Seed seed : seeds) {
-            owners.put(seed.pos().asLong(), pos().immutable());
+            owners.computeIfAbsent(seed.pos().asLong(), k -> new HashSet<>()).add(pos().immutable());
+        }
+    }
+
+    // Take this unit off the cells its air last came out into.
+    private void forget(it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<Set<BlockPos>> owners) {
+        for (AirFill.Seed seed : ownSeeds) {
+            long key = seed.pos().asLong();
+            Set<BlockPos> set = owners.get(key);
+            if (set != null) {
+                set.remove(pos());
+                if (set.isEmpty()) {
+                    owners.remove(key);
+                }
+            }
         }
     }
 
     private void unregisterSeeds(Level level) {
-        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<BlockPos> owners = SEED_OWNERS.get(level);
+        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<Set<BlockPos>> owners = SEED_OWNERS.get(level);
         if (owners != null) {
-            for (AirFill.Seed seed : ownSeeds) {
-                owners.remove(seed.pos().asLong(), pos());
-            }
+            forget(owners);
         }
         ownSeeds = List.of();
     }
@@ -614,16 +625,21 @@ public final class AirCompressorCore {
      * handed to the leader, so the room does not lose a breath on the way.
      */
     private boolean elect(ServerLevel level, AirFill result) {
-        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<BlockPos> owners = SEED_OWNERS.get(level);
+        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<Set<BlockPos>> owners = SEED_OWNERS.get(level);
         Set<BlockPos> found = new java.util.LinkedHashSet<>();
         if (owners != null) {
             LongArrayList order = result.order();
             for (int i = 0; i < order.size(); i++) {
-                BlockPos owner = owners.get(order.getLong(i));
-                if (owner != null && !owner.equals(pos())) {
-                    AirCompressorCore other = coreAt(level, owner);
-                    if (other != null && other.isController()) {
-                        found.add(owner);
+                Set<BlockPos> here = owners.get(order.getLong(i));
+                if (here == null) {
+                    continue;
+                }
+                for (BlockPos owner : here) {
+                    if (!owner.equals(pos())) {
+                        AirCompressorCore other = coreAt(level, owner);
+                        if (other != null && other.isController()) {
+                            found.add(owner);
+                        }
                     }
                 }
             }
