@@ -35,7 +35,7 @@ public class FogModifier {
         // biome fog that happens to be shorter (IMB11's Fog does this) left the world under the plane
         // fogged in that biome's colour with the murk nowhere in it. Above the boundary every other
         // mod's fog is untouched.
-        float far = Config.FOG_DISTANCE.getAsInt();
+        float far = Config.synced(Config.FOG_DISTANCE);
         // In a sealed room the murk starts past its walls rather than at the camera (AirtightView).
         float clear = AirtightView.clearRadius(event.getCamera().getPosition());
         event.setNearPlaneDistance(far * 0.25F + clear);
@@ -83,7 +83,7 @@ public class FogModifier {
         if (mc.level == null || !belowBoundary(mc.gameRenderer.getMainCamera())) {
             return;
         }
-        float murkEnd = Config.FOG_DISTANCE.getAsInt();
+        float murkEnd = Config.synced(Config.FOG_DISTANCE);
         float clear = AirtightView.clearRadius(mc.gameRenderer.getMainCamera().getPosition());
         float[] c = Config.planeColor();
         RenderSystem.setShaderFogStart(murkEnd * 0.25F + clear);

@@ -82,7 +82,7 @@ public final class FogVapor {
         Vec3 cam = event.getCamera().getPosition();
         double surfaceY = Config.breathHeight(mc.level) + Config.PLANE_SURFACE_OFFSET;
         float relY = (float) (surfaceY - cam.y);
-        boolean below = (cam.y < surfaceY) != Config.FLIP_FOG.getAsBoolean();
+        boolean below = (cam.y < surfaceY) != Config.synced(Config.FLIP_FOG);
         // Same fade range the plane uses (see FogPlaneRenderer#visibleReach).
         float fogFar = FogPlaneRenderer.visibleReach(mc, event.getCamera(), below);
 
@@ -238,7 +238,7 @@ public final class FogVapor {
         // that is flips with flipFog, which is what moves the murk to the other side of the boundary.
         // Without this the mist stayed above a murk that had gone above it: inside the ceiling, where
         // there is nothing to see it, and absent from the open air below where it belongs.
-        float clearSide = Config.FLIP_FOG.getAsBoolean() ? -1.0F : 1.0F;
+        float clearSide = Config.synced(Config.FLIP_FOG) ? -1.0F : 1.0F;
         for (float face : Config.VAPOR_UNDERSIDE.getAsBoolean() ? BOTH_SIDES : CLEAR_ONLY) {
             float side = face * clearSide;
             for (int i = 0; i < sheets; i++) {
@@ -312,7 +312,7 @@ public final class FogVapor {
         int depthTex = depth.depthTextureId();
 
         double spacing = undulation / sheets;
-        float clearSide = Config.FLIP_FOG.getAsBoolean() ? -1.0F : 1.0F;
+        float clearSide = Config.synced(Config.FLIP_FOG) ? -1.0F : 1.0F;
         for (float face : Config.VAPOR_UNDERSIDE.getAsBoolean() ? BOTH_SIDES : CLEAR_ONLY) {
             float side = face * clearSide;
             for (int i = 0; i < sheets; i++) {

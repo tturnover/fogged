@@ -185,7 +185,7 @@ final class SableBuoyancy {
     }
 
     private static void prePhysicsTick(SubLevelPhysicsSystem system, double timeStep) {
-        if (!Config.SABLE_BUOYANCY.get() || Config.FLIP_FOG.getAsBoolean()) {
+        if (!Config.SABLE_BUOYANCY.get() || Config.synced(Config.FLIP_FOG)) {
             return;
         }
         Level level = system.getLevel();

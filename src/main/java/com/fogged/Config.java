@@ -2,7 +2,9 @@ package com.fogged;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -1000,7 +1002,7 @@ public class Config {
         if (peak == Double.NEGATIVE_INFINITY) {
             peak = 0.0; // empty schedule: breathHeight() falls back the same way
         }
-        return peak + Math.max(OVERDAY_OFFSET_NOON.get(), OVERDAY_OFFSET_MIDNIGHT.get());
+        return peak + Math.max(synced(OVERDAY_OFFSET_NOON), synced(OVERDAY_OFFSET_MIDNIGHT));
     }
 
     /**
@@ -1011,7 +1013,7 @@ public class Config {
      * that treat the plane as ground should check for that rather than assume a surface exists.
      */
     public static int planeSurfaceY(Level level) {
-        if (!dimensionEnabled(level) || !RENDER_PLANE.getAsBoolean() || FLIP_FOG.getAsBoolean()) {
+        if (!dimensionEnabled(level) || !RENDER_PLANE.getAsBoolean() || synced(FLIP_FOG)) {
             return Integer.MIN_VALUE;
         }
         return (int) Math.ceil(breathHeight(level) + PLANE_SURFACE_OFFSET);
@@ -1034,8 +1036,8 @@ public class Config {
         if (!dimensionEnabled(level)) {
             return false;
         }
-        double fogLine = breathHeight(level) + PLANE_SURFACE_OFFSET + FOG_START_RAISE.get();
-        return (y < fogLine) != FLIP_FOG.getAsBoolean();
+        double fogLine = breathHeight(level) + PLANE_SURFACE_OFFSET + synced(FOG_START_RAISE);
+        return (y < fogLine) != synced(FLIP_FOG);
     }
 
     // --- depth scaling ---
@@ -1043,10 +1045,10 @@ public class Config {
     // How many depthScalingBlocks steps deep world height y sits below the boundary. 0 at or above the
     // boundary; fractional, so the scaling below eases in instead of jumping at every step.
     private static double depthSteps(Level level, double y) {
-        if (!DEPTH_SCALING.get() || !dimensionEnabled(level)) {
+        if (!synced(DEPTH_SCALING) || !dimensionEnabled(level)) {
             return 0.0;
         }
-        double step = DEPTH_SCALING_BLOCKS.get();
+        double step = synced(DEPTH_SCALING_BLOCKS);
         if (step <= 0.0) {
             return 0.0;
         }
@@ -1057,7 +1059,7 @@ public class Config {
     // Air-loss multiplier at world height y: compounds +percent per step of depth.
     public static double depthAirFactor(Level level, double y) {
         double steps = depthSteps(level, y);
-        return steps <= 0.0 ? 1.0 : Math.pow(1.0 + DEPTH_SCALING_PERCENT.get() / 100.0, steps);
+        return steps <= 0.0 ? 1.0 : Math.pow(1.0 + synced(DEPTH_SCALING_PERCENT) / 100.0, steps);
     }
 
     // Breathing-sphere radius multiplier at world height y: compounds -percent per step of depth, so a
@@ -1067,7 +1069,7 @@ public class Config {
         if (steps <= 0.0) {
             return 1.0;
         }
-        return Math.pow(Math.max(0.0, 1.0 - DEPTH_SCALING_PERCENT.get() / 100.0), steps);
+        return Math.pow(Math.max(0.0, 1.0 - synced(DEPTH_SCALING_PERCENT) / 100.0), steps);
     }
 
     // Linear interpolation of the day -> height schedule, clamped flat outside the listed range.
@@ -1080,7 +1082,7 @@ public class Config {
         }
         // Cycle mode: fold the day count into a triangle wave over [first, last] so the height
         // ping-pongs instead of holding flat. The folded day stays in range for the interpolation below.
-        if (PLANE_HEIGHT_CYCLE.get() && days.length >= 2) {
+        if (synced(PLANE_HEIGHT_CYCLE) && days.length >= 2) {
             double lo = days[0];
             double span = days[days.length - 1] - lo;
             if (span > 0.0) {
@@ -1107,8 +1109,8 @@ public class Config {
 
     // Offset eased from the noon value to the midnight value and back over one day.
     private static double overdayOffset(int timeOfDay) {
-        double min = OVERDAY_OFFSET_NOON.get();
-        double max = OVERDAY_OFFSET_MIDNIGHT.get();
+        double min = synced(OVERDAY_OFFSET_NOON);
+        double max = synced(OVERDAY_OFFSET_MIDNIGHT);
         // f = 0 at noon (6000), 1 at midnight (18000); smooth cosine in between.
         double f = (1.0 - Math.cos(2.0 * Math.PI * (timeOfDay - NOON_TICK) / TICKS_PER_DAY)) / 2.0;
         return min + (max - min) * f;
@@ -1124,7 +1126,7 @@ public class Config {
     private static double[] schedHeights = new double[0];
 
     private static void ensureSchedule() {
-        List<? extends String> raw = PLANE_HEIGHT_SCHEDULE.get();
+        List<? extends String> raw = synced(PLANE_HEIGHT_SCHEDULE);
         if (raw == cachedScheduleRaw) {
             return;
         }
@@ -1183,7 +1185,7 @@ public class Config {
     private static boolean everyDimension;
 
     private static void ensureDimensions() {
-        List<? extends String> raw = DIMENSIONS.get();
+        List<? extends String> raw = synced(DIMENSIONS);
         if (raw == cachedDimensionList) {
             return;
         }
@@ -1535,8 +1537,10 @@ public class Config {
     private static int foamColorRaw = 0;
     private static float[] foamColorCache;
 
+    // Also read server-side (FogScour/ItemScour steam, nozzle filter puffs), where the CLIENT config is
+    // never loaded on a dedicated server -- reading it there throws, so fall back to the default colour.
     public static float[] foamColor() {
-        int packed = FOAM_COLOR.getAsInt();
+        int packed = CLIENT_SPEC.isLoaded() ? FOAM_COLOR.getAsInt() : FOAM_COLOR.getDefault();
         if (foamColorCache == null || packed != foamColorRaw) {
             foamColorRaw = packed;
             foamColorCache = unpackArgb(packed);
@@ -1583,5 +1587,59 @@ public class Config {
                 ((packed >> 8) & 0xFF) / 255.0F,
                 (packed & 0xFF) / 255.0F,
                 ((packed >>> 24) & 0xFF) / 255.0F };
+    }
+
+    // --- the server's values, on a remote client ---
+    //
+    // NeoForge only syncs SERVER-type configs, and this spec is COMMON, so without help a client
+    // connected to a dedicated server would draw the murk from its OWN fogged-common.toml: a server
+    // that moved the boundary or changed the dimension list would have players see the surface in
+    // one place and suffocate at another. ConfigSync sends the gameplay values the client also reads
+    // (to draw, or to predict breathing before the server corrects it); every such read goes through
+    // synced(), which prefers the server's copy while one is held. Never set on a server, or on the
+    // client of an integrated server -- that client shares this very spec with its own server.
+
+    /** The gameplay options a client reads, and so the ones a server sends it. */
+    static final List<ModConfigSpec.ConfigValue<?>> SYNCED = List.of(
+            DIMENSIONS, PLANE_HEIGHT_SCHEDULE, PLANE_HEIGHT_CYCLE,
+            OVERDAY_OFFSET_NOON, OVERDAY_OFFSET_MIDNIGHT,
+            FOG_DISTANCE, FOG_START_RAISE, FLIP_FOG,
+            PLAYER_SUFFOCATION, AIR_LOSS_PER_TICK,
+            DEPTH_SCALING, DEPTH_SCALING_BLOCKS, DEPTH_SCALING_PERCENT);
+
+    private static volatile Map<ModConfigSpec.ConfigValue<?>, Object> serverValues;
+
+    /** {@code value}'s setting: the server's while one is held (see above), this side's own otherwise. */
+    @SuppressWarnings("unchecked")
+    public static <T> T synced(ModConfigSpec.ConfigValue<T> value) {
+        Map<ModConfigSpec.ConfigValue<?>, Object> server = serverValues;
+        if (server != null) {
+            Object v = server.get(value);
+            if (v != null) {
+                return (T) v;
+            }
+        }
+        return value.get();
+    }
+
+    /**
+     * Takes the server's values (keyed by dotted config path), or drops them with {@code null}. A value
+     * that fails its option's own validation -- a newer server's option, say -- is skipped, so that
+     * option falls back to this side's file rather than trusting it.
+     */
+    static void acceptServerValues(Map<String, Object> byPath) {
+        if (byPath == null) {
+            serverValues = null;
+        } else {
+            Map<ModConfigSpec.ConfigValue<?>, Object> accepted = new IdentityHashMap<>();
+            for (ModConfigSpec.ConfigValue<?> value : SYNCED) {
+                Object v = byPath.get(String.join(".", value.getPath()));
+                if (v != null && value.getSpec().test(v)) {
+                    accepted.put(value, v);
+                }
+            }
+            serverValues = accepted;
+        }
+        cachedHeightLevel = null; // the boundary height is memoized per day time; the schedule may differ
     }
 }

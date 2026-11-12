@@ -16,6 +16,7 @@ import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
@@ -39,6 +40,8 @@ public class FoggedClient {
         modEventBus.addListener(FoggedClient::registerRenderers);
         modEventBus.addListener(FoggedClient::registerReloadListeners);
         AirtightDebugRenderer.init(); // hooks the airtight payloads up to the client
+        // The server's gameplay values (ConfigSync) belong to that connection only.
+        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut e) -> Config.acceptServerValues(null));
         if (RigAssets.live()) {
             // Dev client only (see RigAssets): picks up a new Blockbench export without F3+T.
             NeoForge.EVENT_BUS.addListener(RigAssets::onClientTick);

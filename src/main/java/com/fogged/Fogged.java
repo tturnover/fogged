@@ -49,6 +49,8 @@ public class Fogged {
         // Gameplay config only. Everything the client draws lives in a CLIENT spec registered from
         // FoggedClient, so a server never dictates someone's visuals.
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.COMMON_SPEC);
+        // ...and the parts of it a client reads, sent over so it draws the server's murk (see ConfigSync).
+        ConfigSync.register(modEventBus);
 
         // Cold Sweat is optional; its classes are named only inside ColdSweatCompatibility, which this
         // check keeps from ever loading without it.
