@@ -47,7 +47,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
 
         add("fogged.tooltip.air_compressor.desc1", "Вбудуйте в _стіну герметичного приміщення_ виходом усередину, і він викачає _каламуть_. Потрібен _забір повітря_ ззаду чи через повітропровід.");
         add("fogged.tooltip.air_intake.desc1", "Живить _компресор_ чи _повітропровід_, до якого приставлений, і тягне повітря _відкритим кінцем_.");
-        add("fogged.tooltip.air_intake.desc2", "Поза _каламуттю_ бере чисте повітря; у ній вставте _вовняний_ фільтр, що _зношується_. Більшим компресорам треба _більше заборів_.");
+        add("fogged.tooltip.air_intake.desc2", "Поза _каламуттю_ бере чисте повітря; у ній вставте блок-_фільтр_, що з часом _забивається_ й потребує заміни. Більшим компресорам треба _більше заборів_.");
         add("fogged.tooltip.air_compressor.desc2", "Працює від _FE_ у його _боки_; з Create _ключ_ на боці ставить _гніздо для вала_. Поєднайте _2x2_ чи _3x3_.");
         // The kinetic compressor is only registered with Create, so it is outside ModBlocks: named here.
         add("block.fogged.kinetic_air_compressor", "Кінетичний повітряний компресор");
@@ -56,6 +56,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.state.off", "Немає живлення");
         add("fogged.goggles.state.no_intake", "Немає забору повітря");
         add("fogged.goggles.state.unfiltered", "Забір тягне каламуть: потрібен фільтр");
+        add("fogged.goggles.state.clogged", "Фільтри заборів забиті: замініть їх");
         add("fogged.goggles.intake", "Забір повітря:");
         add("fogged.goggles.intake.air", "Тягне:");
         add("fogged.goggles.intake.clean", "Чисте повітря");
@@ -63,9 +64,12 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.intake.murk", "Каламуть: потрібен фільтр");
         add("fogged.goggles.intake.blocked", "Отвір перекрито");
         add("fogged.goggles.intake.unknown", "...");
+        add("fogged.goggles.intake.clogged", "Фільтр забитий");
         add("fogged.goggles.filter", "Фільтр:");
         add("fogged.goggles.filter.none", "Немає");
-        add("fogged.goggles.filter.left", "Лишилося %s%%");
+        add("fogged.goggles.filter.polluted", "Забруднено на %s%%");
+        add("fogged.goggles.filter.clogged", "Забитий: замініть");
+        add("fogged.tooltip.filter_polluted", "Забруднення: %s%%");
         add("fogged.goggles.air_in", "Надходить повітря:");
         add("fogged.goggles.per_second", " %s / %s блоків/с");
         add("fogged.goggles.state.blocked", "Вихід замуровано");
@@ -179,12 +183,20 @@ public class ModLanguageProviderUk extends LanguageProvider {
                 "Скільки блоків приміщення тримає одна грань компресора на повній потужності. 2x2 тримає вчетверо більше, 3x3 — вдев'ятеро. Більші приміщення вважаються дірявими.");
         cfg("compressorFillRate", "Швидкість наповнення на грань",
                 "Скільки блоків за секунду нагнітає одна грань компресора на повній потужності. Повітрям можна дихати всюди, куди воно дійшло.");
+        cfg("intakeFilters", "Фільтри заборів",
+                "Що забір повітря бере за фільтр і скільки блоків каламуті той очищає, поки не заб'ється: id предмета чи #тег, '=', місткість. Лише повні блоки.");
+        cfg("intakeFilterPollutionColor", "Колір бруду фільтра",
+                "Колір, до якого темнішає фільтр, наповнюючись каламуттю; ним же малюється смужка забруднення.");
+        cfg("intakeFitSounds", "Звуки встановлення фільтра",
+                "Звуки, коли фільтр вставляють у забір: id звуку, далі за бажання ',гучність' і ',висота'. Порожньо = тиша.");
+        cfg("intakeRemoveSounds", "Звуки виймання фільтра",
+                "Звуки, коли фільтр виймають із забору, як і звуки встановлення.");
+        cfg("intakeClogSounds", "Звуки забиття фільтра",
+                "Звуки, коли фільтр забору забивається, як і звуки встановлення.");
         cfg("intakeFlow", "Повітря на забір",
                 "Скільки блоків повітря за секунду дає один забір. Компресор наповнює не швидше, ніж його забори подають.");
         cfg("intakeDuctLossPercent", "Втрата на повітропровід",
                 "Відсоток потоку забору, втрачений на кожному повітропроводі між ним і компресором. Накопичується.");
-        cfg("intakeFilterLife", "Ресурс фільтра",
-                "Скільки блоків повітря фільтр очищає від каламуті, поки не зноситься. 0 = фільтри не зношуються.");
         cfg("compressorHoldFePerBlock", "FE на утримання, на блок",
                 "Скільки FE за тік витрачає FE-компресор на кожен блок приміщення, яке тримає. Коли бракує — тримає відповідну частку.");
         cfg("compressorFilterFePerBlock", "FE на фільтрацію, на блок",

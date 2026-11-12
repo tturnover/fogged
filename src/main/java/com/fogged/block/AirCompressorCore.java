@@ -66,7 +66,9 @@ public final class AirCompressorCore {
     public enum State {
         OFF, NO_INTAKE, BLOCKED, OVERSIZE, LEAK, PRESSURIZING, SEALED,
         /** Every intake feeding it is in the murk without a filter. */
-        UNFILTERED;
+        UNFILTERED,
+        /** Every intake that could feed it has a clogged filter: change them. */
+        CLOGGED;
 
         static State of(int ordinal) {
             return ordinal >= 0 && ordinal < values().length ? values()[ordinal] : OFF;
@@ -412,7 +414,8 @@ public final class AirCompressorCore {
             // An intake's mouth is in a chunk not loaded yet: wait for it rather than call it shut.
         } else if (supply != State.PRESSURIZING) {
             settle(supply);
-        } else if (recheck || state == State.OFF || state == State.NO_INTAKE || state == State.UNFILTERED) {
+        } else if (recheck || state == State.OFF || state == State.NO_INTAKE || state == State.UNFILTERED
+                || state == State.CLOGGED) {
             check(level, members, facing);
         }
 
@@ -495,6 +498,7 @@ public final class AirCompressorCore {
         supplyFlow = 0.0;
         boolean unknown = false;
         boolean murk = false;
+        boolean clogged = false;
         boolean gone = false;
         for (java.util.Map.Entry<BlockPos, Integer> entry : intakes.entrySet()) {
             BlockPos in = entry.getKey();
@@ -512,6 +516,7 @@ public final class AirCompressorCore {
                     supplyFlow += flow;
                 }
                 case MURK -> murk = true;
+                case CLOGGED -> clogged = true;
                 case UNKNOWN -> unknown = true;
                 case BLOCKED -> {
                 }
@@ -528,7 +533,7 @@ public final class AirCompressorCore {
         if (unknown) {
             return null;
         }
-        return murk ? State.UNFILTERED : State.NO_INTAKE;
+        return clogged ? State.CLOGGED : murk ? State.UNFILTERED : State.NO_INTAKE;
     }
 
     // Whether every clean intake draws from inside the room the outlet fills: the unit would breathe

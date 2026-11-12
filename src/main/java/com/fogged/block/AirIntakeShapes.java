@@ -13,7 +13,23 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * from the intake models (voxelized at a pixel, then each quarter of the height boxed) -- regenerate rather
  * than edit. The block it feeds (a compressor, a duct) seals the way through, not this.
  */
-final class AirIntakeShapes {
+public final class AirIntakeShapes {
+
+    /**
+     * Where the filter plane sits in a model, as authored: its one face, the box, the face's uv (0..16),
+     * and the element's turn (axis, degrees, origin). Drawn by AirIntakeRenderer with the fitted block's
+     * texture.
+     */
+    public record Plane(Direction face, float[] from, float[] to, float[] uv, Direction.Axis axis, float angle,
+            float[] origin) {}
+
+    /** The hood's filter plane, authored feeding south. */
+    public static final Plane HOOD_PLANE = new Plane(Direction.NORTH, new float[] {1.9F, 0.5F, 14.0F}, new float[] {14.1F, 14.9F, 14.0F},
+            new float[] {0.9F, 14.0F, 12.1F, 1.4F}, Direction.Axis.X, -22.5F, new float[] {8.0F, 0.5F, 14.0F});
+
+    /** The frame's filter plane, authored feeding down. */
+    public static final Plane FRAME_PLANE = new Plane(Direction.UP, new float[] {2.1F, 7.0F, 2.1F}, new float[] {13.9F, 8.3F, 13.9F},
+            new float[] {2.1F, 2.1F, 13.9F, 13.9F}, Direction.Axis.X, 0.0F, new float[] {11.0F, 15.0F, 11.0F});
 
     // The hood, authored feeding south: 4 boxes.
     private static final int[][] HOOD = {
@@ -31,7 +47,7 @@ final class AirIntakeShapes {
     };
 
     /** Per the way the intake feeds. */
-    static final Map<Direction, VoxelShape> SHAPES = new EnumMap<>(Direction.class);
+    public static final Map<Direction, VoxelShape> SHAPES = new EnumMap<>(Direction.class);
 
     static {
         for (Direction feeds : Direction.values()) {

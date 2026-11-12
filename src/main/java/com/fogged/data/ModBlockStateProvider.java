@@ -101,20 +101,10 @@ public class ModBlockStateProvider extends BlockStateProvider {
 
     // The intake (models hand-made from the Blockbench sources, under resources): fed sideways it is a
     // hood on the wall, authored feeding south; fed up or down it is a frame, authored feeding down. A
-    // fitted filter fills the plane behind the mesh with its wool -- one model per colour, as the nozzle
-    // filter's -- turned the same way.
+    // fitted filter is drawn on the plane behind the mesh by AirIntakeRenderer, in its own block's texture.
     private void airIntake() {
         ModelFile hood = models().getExistingFile(modLoc("block/air_intake/horizontal"));
         ModelFile frame = models().getExistingFile(modLoc("block/air_intake/vertical"));
-        java.util.Map<DyeColor, ModelFile> hoodFilter = new java.util.EnumMap<>(DyeColor.class);
-        java.util.Map<DyeColor, ModelFile> frameFilter = new java.util.EnumMap<>(DyeColor.class);
-        for (DyeColor color : DyeColor.values()) {
-            String wool = "block/" + color.getSerializedName() + "_wool";
-            hoodFilter.put(color, models().withExistingParent("air_intake/horizontal_filter_" + color.getSerializedName(),
-                    modLoc("block/air_intake/horizontal_filter")).texture("filter", mcLoc(wool)).texture("particle", mcLoc(wool)));
-            frameFilter.put(color, models().withExistingParent("air_intake/vertical_filter_" + color.getSerializedName(),
-                    modLoc("block/air_intake/vertical_filter")).texture("filter", mcLoc(wool)).texture("particle", mcLoc(wool)));
-        }
         var builder = getMultipartBuilder(ModBlocks.AIR_COMPRESSOR_INTAKE.get());
         for (Direction feeds : Direction.values()) {
             boolean vertical = feeds.getAxis() == Direction.Axis.Y;
@@ -122,12 +112,6 @@ public class ModBlockStateProvider extends BlockStateProvider {
             int y = vertical ? 0 : ((int) feeds.toYRot()) % 360; // south 0, west 90, north 180, east 270
             builder.part().modelFile(vertical ? frame : hood).rotationX(x).rotationY(y).addModel()
                     .condition(AirCompressorIntakeBlock.FACING, feeds).end();
-            for (DyeColor color : DyeColor.values()) {
-                builder.part().modelFile((vertical ? frameFilter : hoodFilter).get(color)).rotationX(x).rotationY(y).addModel()
-                        .condition(AirCompressorIntakeBlock.FACING, feeds)
-                        .condition(AirCompressorIntakeBlock.FILTERED, true)
-                        .condition(AirCompressorIntakeBlock.COLOR, color).end();
-            }
         }
     }
 

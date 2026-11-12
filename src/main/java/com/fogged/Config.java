@@ -558,11 +558,127 @@ public class Config {
                     "Compounds: 20 ducts at 2 percent leave two thirds of it.")
             .defineInRange("intakeDuctLossPercent", 2.0, 0.0, 100.0);
 
-    public static final ModConfigSpec.IntValue FILTER_LIFE = COMMON
-            .comment("Blocks of air an intake's filter cleans of the murk before it is spent and gone. The",
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> INTAKE_FILTERS = COMMON
+            .comment("What an air intake takes as a filter, and how much it holds: each entry an item id or,",
+                    "with a leading '#', an item tag, then '=' and its capacity -- the blocks of murk it cleans",
+                    "out of the air before it is clogged and must be changed. 0 = never clogs. Only items that",
+                    "place a full block count, whatever is listed. The first entry that matches wins. The",
                     "air a compressor draws is shared among its intakes by their flow; an intake drawing",
-                    "clean air out of the murk wears no filter. 0 = filters never wear out.")
-            .defineInRange("intakeFilterLife", 2000, 0, 10_000_000);
+                    "clean air out of the murk pollutes no filter.",
+                    "Example: intakeFilters = [\"#minecraft:wool=2000\", \"minecraft:sponge=8000\"]")
+            .defineListAllowEmpty("intakeFilters", () -> List.of("#minecraft:wool=2000"), () -> "minecraft:white_wool=2000",
+                    o -> o instanceof String s && parseFilter(s) != null);
+
+    public static final ModConfigSpec.IntValue FILTER_POLLUTION_COLOR = COMMON
+            .comment("The colour a filter darkens toward as it fills with murk, as a packed RGB integer: its",
+                    "texture is shaded by it in step with how polluted it is, from none when clean to all of",
+                    "it clogged; the pollution bar in a slot is drawn in it too. Default is hex 4A4234.")
+            .defineInRange("intakeFilterPollutionColor", 0xFF4A4234, Integer.MIN_VALUE, Integer.MAX_VALUE);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> INTAKE_FIT_SOUNDS = COMMON
+            .comment("Sounds played when a filter is fitted to an air intake: each a sound event id,",
+                    "optionally followed by ',volume' and ',pitch'. Empty = silent.")
+            .defineListAllowEmpty("intakeFitSounds", () -> List.of("minecraft:block.wool.place"),
+                    () -> "minecraft:block.wool.place", o -> o instanceof String s && parseSound(s) != null);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> INTAKE_REMOVE_SOUNDS = COMMON
+            .comment("Sounds played when a filter is taken out of an air intake, as intakeFitSounds.")
+            .defineListAllowEmpty("intakeRemoveSounds", () -> List.of("minecraft:block.wool.break"),
+                    () -> "minecraft:block.wool.break", o -> o instanceof String s && parseSound(s) != null);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> INTAKE_CLOG_SOUNDS = COMMON
+            .comment("Sounds played when an air intake's filter clogs, as intakeFitSounds.")
+            .defineListAllowEmpty("intakeClogSounds",
+                    () -> List.of("minecraft:block.wool.hit,1.0,0.5", "minecraft:block.fire.extinguish,0.35,0.6"),
+                    () -> "minecraft:block.wool.hit", o -> o instanceof String s && parseSound(s) != null);
+
+    private record SoundEntry(ResourceLocation id, float volume, float pitch) {}
+
+    // "id[,volume[,pitch]]"; null when it does not read.
+    private static SoundEntry parseSound(String raw) {
+        String[] parts = raw.trim().split(",");
+        ResourceLocation id = ResourceLocation.tryParse(withNamespace(parts[0].trim()));
+        if (id == null || parts.length > 3) {
+            return null;
+        }
+        try {
+            float volume = parts.length > 1 ? Float.parseFloat(parts[1].trim()) : 1.0F;
+            float pitch = parts.length > 2 ? Float.parseFloat(parts[2].trim()) : 1.0F;
+            return volume < 0 || pitch <= 0 ? null : new SoundEntry(id, volume, pitch);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Play each of {@code sounds} (a sound list from this config) at {@code pos}, for everyone near. */
+    public static void playSounds(Level level, net.minecraft.core.BlockPos pos, List<? extends String> sounds) {
+        for (String s : sounds) {
+            SoundEntry e = parseSound(s);
+            if (e != null) {
+                level.playSound(null, pos, net.minecraft.sounds.SoundEvent.createVariableRangeEvent(e.id()),
+                        net.minecraft.sounds.SoundSource.BLOCKS, e.volume(), e.pitch());
+            }
+        }
+    }
+
+    /** {@link #FILTER_POLLUTION_COLOR} as 0xRRGGBB. */
+    public static int filterPollutionColor() {
+        return FILTER_POLLUTION_COLOR.getAsInt() & 0xFFFFFF;
+    }
+
+    private record FilterEntry(ResourceLocation id, boolean tag, int capacity) {}
+
+    // "id=capacity" or "#tag=capacity"; null when it does not read.
+    private static FilterEntry parseFilter(String raw) {
+        String s = raw.trim();
+        int eq = s.lastIndexOf('=');
+        if (eq <= 0) {
+            return null;
+        }
+        boolean tag = s.startsWith("#");
+        ResourceLocation id = ResourceLocation.tryParse(withNamespace(s.substring(tag ? 1 : 0, eq).trim()));
+        int capacity;
+        try {
+            capacity = Integer.parseInt(s.substring(eq + 1).trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        return id == null || capacity < 0 ? null : new FilterEntry(id, tag, capacity);
+    }
+
+    private static List<? extends String> cachedFilterList;
+    private static List<FilterEntry> filterEntries = List.of();
+
+    /**
+     * The capacity of {@code stack} as an intake filter, in blocks of murk ({@link #INTAKE_FILTERS}): 0
+     * for one that never clogs, -1 when it is no filter at all -- not listed, or not a full block.
+     */
+    public static int filterCapacity(net.minecraft.world.item.ItemStack stack) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof net.minecraft.world.item.BlockItem block)
+                || !block.getBlock().defaultBlockState().isCollisionShapeFullBlock(
+                        net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)) {
+            return -1;
+        }
+        List<? extends String> raw = INTAKE_FILTERS.get();
+        if (raw != cachedFilterList) {
+            List<FilterEntry> entries = new ArrayList<>();
+            for (String s : raw) {
+                FilterEntry e = parseFilter(s);
+                if (e != null) {
+                    entries.add(e);
+                }
+            }
+            filterEntries = List.copyOf(entries);
+            cachedFilterList = raw;
+        }
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        for (FilterEntry e : filterEntries) {
+            if (e.tag() ? stack.is(TagKey.create(Registries.ITEM, e.id())) : e.id().equals(id)) {
+                return e.capacity();
+            }
+        }
+        return -1;
+    }
 
     public static final ModConfigSpec.DoubleValue COMPRESSOR_HOLD_FE = COMMON
             .comment("FE an FE compressor spends per tick for every block of room it holds. A room of",

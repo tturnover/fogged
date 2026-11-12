@@ -36,11 +36,14 @@ public class GoggledIntakeBlockEntity extends AirCompressorIntakeBlockEntity imp
         tooltip.add(AirCompressorCore.line(Component.literal(" ")
                 .append(filter().isEmpty() ? Component.translatable("fogged.goggles.filter.none") : filter().getHoverName())
                 .withStyle(ChatFormatting.AQUA)));
-        if (!filter().isEmpty() && com.fogged.Config.FILTER_LIFE.getAsInt() > 0) {
-            int left = (int) Math.round((1.0 - worn()) * 100);
+        if (!filter().isEmpty() && capacity() > 0) {
+            int polluted = (int) Math.round(worn() * 100);
             tooltip.add(AirCompressorCore.line(Component.literal(" ")
-                    .append(Component.translatable("fogged.goggles.filter.left", left))
-                    .withStyle(left > 25 ? ChatFormatting.AQUA : ChatFormatting.GOLD)));
+                    .append(supply == AirCompressorIntakeBlock.Supply.CLOGGED
+                            ? Component.translatable("fogged.goggles.filter.clogged")
+                            : Component.translatable("fogged.goggles.filter.polluted", polluted))
+                    .withStyle(polluted >= 100 ? ChatFormatting.RED : polluted >= 75 ? ChatFormatting.GOLD
+                            : ChatFormatting.AQUA)));
         }
         return true;
     }

@@ -35,6 +35,7 @@ public class Fogged {
         // Registries are declared in one place each (ModBlocks / ModItems); datagen reads them.
         ModBlocks.register(modEventBus);
         ModItems.register(modEventBus);
+        com.fogged.registry.ModDataComponents.register(modEventBus);
         ModBlockEntities.register(modEventBus);
         ModEntities.register(modEventBus);
         ModParticles.register(modEventBus);

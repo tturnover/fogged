@@ -39,6 +39,7 @@ public class FoggedClient {
         modEventBus.addListener(FoggedClient::modifyBakingResult);
         modEventBus.addListener(FoggedClient::registerRenderers);
         modEventBus.addListener(FoggedClient::registerReloadListeners);
+        modEventBus.addListener(FilterPollution.Client::registerDecorations);
         AirtightDebugRenderer.init(); // hooks the airtight payloads up to the client
         // The server's gameplay values (ConfigSync) belong to that connection only.
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut e) -> Config.acceptServerValues(null));
@@ -51,6 +52,7 @@ public class FoggedClient {
     // Rigged entities: one line each, naming the model under assets/fogged/geo/entity/.
     private static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.AIR_COMPRESSOR.get(), AirCompressorRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.AIR_COMPRESSOR_INTAKE.get(), AirIntakeRenderer::new);
         if (ModList.get().isLoaded("create")) {
             com.fogged.create.CreateClient.registerRenderers(event);
         }

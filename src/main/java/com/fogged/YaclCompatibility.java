@@ -126,11 +126,15 @@ final class YaclCompatibility {
                 .option(integer("compressorFillRate", Config.COMPRESSOR_FILL_RATE, 1, 2_000, 1))
                 .option(integer("intakeFlow", Config.INTAKE_FLOW, 1, 2_000, 1))
                 .option(dbl("intakeDuctLossPercent", Config.INTAKE_DUCT_LOSS, 0.0, 25.0, 0.5))
-                .option(integer("intakeFilterLife", Config.FILTER_LIFE, 0, 100_000, 100))
+                .option(color("intakeFilterPollutionColor", Config.FILTER_POLLUTION_COLOR, false))
                 .option(dbl("compressorHoldFePerBlock", Config.COMPRESSOR_HOLD_FE, 0.0, 10.0, 0.05))
                 .option(dbl("compressorFilterFePerBlock", Config.COMPRESSOR_FILTER_FE, 0.0, 100.0, 0.5))
                 .option(dbl("kineticStressPerBlock", Config.KINETIC_STRESS_PER_BLOCK, 0.0, 16.0, 0.05))
                 .option(dbl("airtightGraceSeconds", Config.AIRTIGHT_GRACE, 0.0, 10.0, 0.25))
+                .group(strings("intakeFilters", Config.INTAKE_FILTERS))
+                .group(strings("intakeFitSounds", Config.INTAKE_FIT_SOUNDS))
+                .group(strings("intakeRemoveSounds", Config.INTAKE_REMOVE_SOUNDS))
+                .group(strings("intakeClogSounds", Config.INTAKE_CLOG_SOUNDS))
                 .build();
     }
 

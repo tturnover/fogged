@@ -1,7 +1,0 @@
-{
-  "parent": "fogged:block/air_intake/horizontal_filter",
-  "textures": {
-    "filter": "minecraft:block/gray_wool",
-    "particle": "minecraft:block/gray_wool"
-  }
-}

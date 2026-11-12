@@ -1,6 +1,7 @@
 package com.fogged.block;
 
 import com.fogged.registry.ModBlockEntities;
+import com.fogged.registry.ModDataComponents;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -77,7 +78,7 @@ public class AirCompressorIntakeBlockEntity extends BlockEntity {
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return slot == 0 && stack.is(com.fogged.registry.ModTags.FILTER_MEDIA);
+            return slot == 0 && com.fogged.Config.filterCapacity(stack) >= 0;
         }
     };
 
@@ -91,37 +92,67 @@ public class AirCompressorIntakeBlockEntity extends BlockEntity {
         return filter;
     }
 
+    /** Fit {@code stack} as the filter, as polluted as the stack says ({@link ModDataComponents#POLLUTION}). */
     void setFilter(ItemStack stack) {
-        filter = stack;
-        wear = 0.0;
+        int steps = stack.getOrDefault(ModDataComponents.POLLUTION.get(), 0);
+        filter = stack.copy();
+        filter.remove(ModDataComponents.POLLUTION.get());
+        wear = (double) steps / ModDataComponents.MAX_POLLUTION * Math.max(0, capacity());
         changed();
     }
 
-    /** Take the filter out: returns it, leaving none. A worn filter comes out as it is, and a new one starts fresh. */
+    /**
+     * Take the filter out: returns it, leaving none, carrying how polluted it is -- rounded up to a whole
+     * step, so it stacks with others as dirty.
+     */
     public ItemStack takeFilter() {
         ItemStack out = filter;
+        int steps = (int) Math.ceil(worn() * ModDataComponents.MAX_POLLUTION - 1.0E-6);
+        if (!out.isEmpty() && steps > 0) {
+            out.set(ModDataComponents.POLLUTION.get(), Math.min(ModDataComponents.MAX_POLLUTION, steps));
+        }
         filter = ItemStack.EMPTY;
         wear = 0.0;
         changed();
         return out;
     }
 
-    /** Wear the filter by {@code blocks} of air cleaned, out of {@code life}; true once it is spent. */
-    boolean wear(double blocks, int life) {
-        wear += blocks;
-        setChanged();
-        int percent = (int) Math.min(100, wear * 100 / life);
-        if (percent != syncedPercent) {
-            syncedPercent = percent;
-            changed(); // the goggles read it
-        }
-        return wear >= life;
+    /** The fitted filter's capacity, in blocks of murk (Config#filterCapacity): 0 never clogs. */
+    public int capacity() {
+        return Math.max(0, com.fogged.Config.filterCapacity(filter));
     }
 
-    /** How much of the filter is used up, 0..1. Either side. */
+    /** Pollute the filter by {@code blocks} of murk cleaned out of the air. */
+    void wear(double blocks) {
+        int capacity = capacity();
+        if (capacity <= 0) {
+            return;
+        }
+        wear = Math.min(capacity, wear + blocks);
+        setChanged();
+        int percent = (int) Math.min(100, wear * 100 / capacity);
+        if (percent != syncedPercent) {
+            syncedPercent = percent;
+            changed(); // the goggles and the renderer read it
+        }
+    }
+
+    /**
+     * The filter's pollution in the intake's steps ({@link AirCompressorIntakeBlock#POLLUTION}): 0 clean
+     * up to {@link AirCompressorIntakeBlock#CLOGGED}, reached only when it is wholly spent.
+     */
+    int pollutionStep() {
+        double worn = worn();
+        if (worn >= 1.0) {
+            return AirCompressorIntakeBlock.CLOGGED;
+        }
+        return Math.min(AirCompressorIntakeBlock.CLOGGED - 1, (int) (worn * AirCompressorIntakeBlock.CLOGGED));
+    }
+
+    /** How polluted the filter is, 0..1. Either side. */
     public double worn() {
-        int life = com.fogged.Config.FILTER_LIFE.getAsInt();
-        return life <= 0 ? 0.0 : Math.min(1.0, wear / life);
+        int capacity = capacity();
+        return capacity <= 0 ? 0.0 : Math.min(1.0, wear / capacity);
     }
 
     private void changed() {

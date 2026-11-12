@@ -4,12 +4,9 @@ package com.fogged.block;
 import com.fogged.AirFill;
 import com.fogged.Config;
 import com.fogged.PlaneSensor;
-import com.fogged.registry.ModTags;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -28,8 +25,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
-import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -42,7 +38,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * <p>{@link #FACING} points at what it feeds (a compressor's back, or a duct); the air comes in at
  * its mouth, the open end the other way, from the cell beyond ({@link #mouth}). That air has to be
  * clean for the room: either the mouth is out of the murk, or the intake has a filter in it -- the
- * same filter media a nozzle filter takes ({@link ModTags#FILTER_MEDIA}, wool by default). A filter
+ * full block the config lists with a capacity ({@link Config#filterCapacity}, wool by default). A filter
  * goes in with a right-click and comes back out with an empty hand. See {@link #supply}.
  */
 public class AirCompressorIntakeBlock extends Block implements EntityBlock {
@@ -50,8 +46,13 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
     public static final DirectionProperty FACING = AirCompressorBlock.FACING;
     /** Whether a filter is fitted. Kept in the state so the model shows it and the room re-checks. */
     public static final BooleanProperty FILTERED = BooleanProperty.create("filtered");
-    /** The fitted filter's colour, for the filter plane behind the mesh: a wool's own, white otherwise. */
-    public static final EnumProperty<DyeColor> COLOR = EnumProperty.create("color", DyeColor.class);
+    /** The top {@link #POLLUTION} step: the filter is spent and clogs the intake. */
+    public static final int CLOGGED = 7;
+    /**
+     * How polluted the fitted filter is, in steps up to {@link #CLOGGED}: the filter plane darkens with it
+     * (a tint, see FoggedClient), and the last step stops the air.
+     */
+    public static final IntegerProperty POLLUTION = IntegerProperty.create("pollution", 0, CLOGGED);
 
     /** What an intake is drawing in. */
     public enum Supply {
@@ -64,7 +65,9 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         /** Something stands against the mouth. */
         BLOCKED,
         /** The mouth is in a chunk not loaded yet. */
-        UNKNOWN;
+        UNKNOWN,
+        /** Its filter is spent: nothing gets through it until it is changed. */
+        CLOGGED;
 
         public boolean clean() {
             return this == CLEAN || this == FILTERED;
@@ -74,12 +77,12 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
     public AirCompressorIntakeBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(FILTERED, false)
-                .setValue(COLOR, DyeColor.WHITE));
+                .setValue(POLLUTION, 0));
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, FILTERED, COLOR);
+        builder.add(FACING, FILTERED, POLLUTION);
     }
 
     /**
@@ -127,6 +130,9 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         if (AirFill.closes(level, mouth, level.getBlockState(mouth), state.getValue(FACING))) {
             return Supply.BLOCKED;
         }
+        if (state.getValue(FILTERED) && state.getValue(POLLUTION) >= CLOGGED) {
+            return Supply.CLOGGED; // a spent filter stops the air, murk or not
+        }
         if (!Config.fogged(level, PlaneSensor.worldY(level, mouth))) {
             return Supply.CLEAN;
         }
@@ -152,27 +158,31 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
     }
 
     /**
-     * Wear the filter of the intake at {@code pos} by {@code blocks} blocks of air cleaned. Spent
-     * ({@link Config#FILTER_LIFE}), it falls apart and is gone, and the intake draws murk again.
+     * Pollute the filter of the intake at {@code pos} by {@code blocks} blocks of murk cleaned out of the
+     * air. It darkens as it goes, and once full (its capacity, {@link Config#filterCapacity}) it clogs the intake --
+     * with a choke and a puff of murk -- until it is changed.
      */
     public static void wear(Level level, BlockPos pos, double blocks) {
-        int life = Config.FILTER_LIFE.getAsInt();
         BlockState state = level.getBlockState(pos);
-        if (life <= 0 || !(state.getBlock() instanceof AirCompressorIntakeBlock) || !state.getValue(FILTERED)
+        if (!(state.getBlock() instanceof AirCompressorIntakeBlock) || !state.getValue(FILTERED)
+                || state.getValue(POLLUTION) >= CLOGGED
                 || !(level.getBlockEntity(pos) instanceof AirCompressorIntakeBlockEntity be)) {
             return;
         }
-        if (!be.wear(blocks, life)) {
+        be.wear(blocks);
+        int step = be.pollutionStep();
+        if (step == state.getValue(POLLUTION)) {
             return;
         }
-        ItemStack spent = be.takeFilter();
-        level.setBlock(pos, state.setValue(FILTERED, false), 3);
-        level.playSound(null, pos, SoundEvents.WOOL_BREAK, SoundSource.BLOCKS, 1.0F, 0.8F);
-        if (level instanceof net.minecraft.server.level.ServerLevel server && !spent.isEmpty()) {
-            net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atCenterOf(mouth(pos, state))
-                    .add(net.minecraft.world.phys.Vec3.atCenterOf(pos)).scale(0.5);
-            server.sendParticles(new net.minecraft.core.particles.ItemParticleOption(
-                    net.minecraft.core.particles.ParticleTypes.ITEM, spent), at.x, at.y, at.z, 12, 0.2, 0.2, 0.2, 0.05);
+        level.setBlock(pos, state.setValue(POLLUTION, step), 3);
+        if (step >= CLOGGED) {
+            Config.playSounds(level, pos, Config.INTAKE_CLOG_SOUNDS.get());
+            if (level instanceof net.minecraft.server.level.ServerLevel server) {
+                net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atCenterOf(mouth(pos, state))
+                        .add(net.minecraft.world.phys.Vec3.atCenterOf(pos)).scale(0.5);
+                server.sendParticles(net.minecraft.core.particles.ParticleTypes.LARGE_SMOKE,
+                        at.x, at.y, at.z, 8, 0.2, 0.2, 0.2, 0.01);
+            }
         }
     }
 
@@ -181,7 +191,7 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
             Player player, InteractionHand hand, BlockHitResult hit) {
-        if (!stack.is(ModTags.FILTER_MEDIA) || state.getValue(FILTERED)) {
+        if (Config.filterCapacity(stack) < 0 || state.getValue(FILTERED)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (!level.isClientSide && fit(level, pos, stack)) {
@@ -193,19 +203,18 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
     /**
      * Fit one of {@code stack} as the filter of the intake at {@code pos}, server side: by a player's
      * (or a Deployer's) hand, or put in through its inventory by a Mechanical Arm, hopper or funnel.
-     * False, nothing done, when it is no filter media or a filter is in already. Takes nothing from
+     * False, nothing done, when it is no filter (Config#filterCapacity) or a filter is in already. Takes nothing from
      * {@code stack}; the caller does.
      */
     public static boolean fit(Level level, BlockPos pos, ItemStack stack) {
         BlockState state = level.getBlockState(pos);
-        if (stack.isEmpty() || !stack.is(ModTags.FILTER_MEDIA) || !(state.getBlock() instanceof AirCompressorIntakeBlock)
+        if (Config.filterCapacity(stack) < 0 || !(state.getBlock() instanceof AirCompressorIntakeBlock)
                 || state.getValue(FILTERED) || !(level.getBlockEntity(pos) instanceof AirCompressorIntakeBlockEntity be)) {
             return false;
         }
         be.setFilter(stack.copyWithCount(1));
-        level.setBlock(pos, state.setValue(FILTERED, true)
-                .setValue(COLOR, com.fogged.NozzleFilterEvents.woolColor(stack)), 3);
-        level.playSound(null, pos, SoundEvents.WOOL_PLACE, SoundSource.BLOCKS, 1.0F, 1.0F);
+        level.setBlock(pos, state.setValue(FILTERED, true).setValue(POLLUTION, be.pollutionStep()), 3);
+        Config.playSounds(level, pos, Config.INTAKE_FIT_SOUNDS.get());
         return true;
     }
 
@@ -217,11 +226,11 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         }
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof AirCompressorIntakeBlockEntity be) {
             ItemStack filter = be.takeFilter();
-            level.setBlock(pos, state.setValue(FILTERED, false), 3);
+            level.setBlock(pos, state.setValue(FILTERED, false).setValue(POLLUTION, 0), 3);
             if (!filter.isEmpty()) {
                 player.getInventory().placeItemBackInInventory(filter);
             }
-            level.playSound(null, pos, SoundEvents.WOOL_BREAK, SoundSource.BLOCKS, 1.0F, 1.0F);
+            Config.playSounds(level, pos, Config.INTAKE_REMOVE_SOUNDS.get());
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

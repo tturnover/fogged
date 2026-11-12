@@ -43,7 +43,7 @@ public class ModLanguageProvider extends LanguageProvider {
 
         add("fogged.tooltip.air_compressor.desc1", "Set into a _sealed room's wall_, outlet in, it pumps the _murk_ out. Needs an _Air Intake_ on its back, or ducted to it.");
         add("fogged.tooltip.air_intake.desc1", "Feeds the _compressor_ or _duct_ it is set against, drawing through its _open end_.");
-        add("fogged.tooltip.air_intake.desc2", "Out of the _murk_ it draws clean air; in it, fit a _Wool_ filter, which _wears out_. Bigger compressors want _more intakes_.");
+        add("fogged.tooltip.air_intake.desc2", "Out of the _murk_ it draws clean air; in it, fit a _filter_ block, which _clogs_ in time and must be changed. Bigger compressors want _more intakes_.");
         add("fogged.tooltip.air_compressor.desc2", "Runs on _FE_ into its _sides_; with Create, a _Wrench_ on a side fits a _shaft socket_. Join _2x2_ or _3x3_.");
         // The kinetic compressor is only registered with Create, so it is outside ModBlocks: named here.
         add("block.fogged.kinetic_air_compressor", "Kinetic Air Compressor");
@@ -52,6 +52,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.state.off", "No power");
         add("fogged.goggles.state.no_intake", "No air intake");
         add("fogged.goggles.state.unfiltered", "Intake draws murk: fit a filter");
+        add("fogged.goggles.state.clogged", "Intake filters clogged: change them");
         // Create goggles on an air intake (GoggledIntakeBlockEntity).
         add("fogged.goggles.intake", "Air Intake:");
         add("fogged.goggles.intake.air", "Drawing:");
@@ -60,9 +61,12 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.intake.murk", "Murk: needs a filter");
         add("fogged.goggles.intake.blocked", "Mouth blocked");
         add("fogged.goggles.intake.unknown", "...");
+        add("fogged.goggles.intake.clogged", "Filter clogged");
         add("fogged.goggles.filter", "Filter:");
         add("fogged.goggles.filter.none", "None");
-        add("fogged.goggles.filter.left", "%s%% left");
+        add("fogged.goggles.filter.polluted", "%s%% polluted");
+        add("fogged.goggles.filter.clogged", "Clogged: change it");
+        add("fogged.tooltip.filter_polluted", "Polluted: %s%%");
         add("fogged.goggles.air_in", "Air In:");
         add("fogged.goggles.per_second", " %s / %s blocks/s");
         add("fogged.goggles.state.blocked", "Outlet walled off");
@@ -177,12 +181,20 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Blocks of room one compressor face holds at full power. A 2x2 holds four times this, a 3x3 nine. Bigger rooms count as leaking.");
         cfg("compressorFillRate", "Fill Rate Per Face",
                 "Blocks per second one compressor face pressurizes, at full power. The air is breathable wherever it has reached.");
+        cfg("intakeFilters", "Intake Filters",
+                "What an air intake takes as a filter, and how many blocks of murk it cleans before it clogs: item id or #tag, '=', capacity. Full blocks only.");
+        cfg("intakeFilterPollutionColor", "Filter Grime Colour",
+                "The colour a filter darkens toward as it fills with murk, and the pollution bar's colour.");
+        cfg("intakeFitSounds", "Filter Fitted Sounds",
+                "Sounds when a filter goes into an intake: sound id, then optionally ',volume' and ',pitch'. Empty = silent.");
+        cfg("intakeRemoveSounds", "Filter Removed Sounds",
+                "Sounds when a filter is taken out of an intake, as the fitted sounds.");
+        cfg("intakeClogSounds", "Filter Clogged Sounds",
+                "Sounds when an intake's filter clogs, as the fitted sounds.");
         cfg("intakeFlow", "Air Per Intake",
                 "Blocks of air one intake supplies per second. A compressor fills only as fast as its intakes supply.");
         cfg("intakeDuctLossPercent", "Flow Lost Per Duct",
                 "Percent of an intake's flow lost for each duct between it and its compressor. Compounds.");
-        cfg("intakeFilterLife", "Filter Life",
-                "Blocks of air a filter cleans of the murk before it is spent. 0 = filters never wear out.");
         cfg("compressorHoldFePerBlock", "FE To Hold, Per Block",
                 "FE an FE compressor spends per tick for each block of room it holds. Short of it, it holds that share.");
         cfg("compressorFilterFePerBlock", "FE To Filter, Per Block",
