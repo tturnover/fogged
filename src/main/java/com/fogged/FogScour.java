@@ -136,7 +136,7 @@ public final class FogScour {
         }
         if (Config.ENABLE_EXTINGUISH.get() && extinguishable(state)) {
             extinguish(level, pos, state);
-        } else if (wantsSlow(level, state, pos.getY())) {
+        } else if (wantsSlow(level, pos, state)) {
             schedule(level, pos);
         }
     }
@@ -175,7 +175,7 @@ public final class FogScour {
                             rot(level, pos);
                         } else if (extinguish && extinguishable(state)) {
                             extinguish(level, pos, state);
-                        } else if (wantsSlow(level, state, pos.getY())) {
+                        } else if (wantsSlow(level, pos, state)) {
                             schedule(level, pos);
                         }
                     }
@@ -203,7 +203,7 @@ public final class FogScour {
                 continue;
             }
             BlockState state = level.getBlockState(pos);
-            if (pos.getY() > FogBand.activeTopY(level) || !wantsSlow(level, state, pos.getY())
+            if (pos.getY() > FogBand.activeTopY(level) || !wantsSlow(level, pos, state)
                     || Shelter.shelters(level, pos)) {
                 it.remove();
                 continue;
@@ -257,8 +257,8 @@ public final class FogScour {
     }
 
     // What takes the slow path: a transform, a scoured block, or farmland. Fire is not slow.
-    private static boolean wantsSlow(Level level, BlockState state, int y) {
-        return ScourRules.wants(level, state, y)
+    private static boolean wantsSlow(Level level, BlockPos pos, BlockState state) {
+        return ScourRules.wants(level, pos, state)
                 || (Config.ENABLE_SCOUR.get() && state.is(Blocks.FARMLAND) && !ScourRules.immune(state));
     }
 

@@ -71,6 +71,7 @@ public final class MurkTransformLoader {
     @SubscribeEvent
     static void onServerStopped(ServerStoppedEvent event) {
         ScourRules.setDataTransforms(List.of());
+        ScourRules.setDataSequences(List.of());
     }
 
     private static void apply(RecipeManager recipes) {
@@ -79,8 +80,14 @@ public final class MurkTransformLoader {
             entries.add(holder.value().toEntry());
         }
         ScourRules.setDataTransforms(entries);
-        if (!entries.isEmpty()) {
-            Fogged.LOGGER.debug("Fogged: {} murk transforms from datapacks", entries.size());
+        List<MurkSequenceRecipe> sequences = new ArrayList<>();
+        for (RecipeHolder<MurkSequenceRecipe> holder : recipes.getAllRecipesFor(ModRecipes.MURK_SEQUENCE.get())) {
+            sequences.add(holder.value());
+        }
+        ScourRules.setDataSequences(sequences);
+        if (!entries.isEmpty() || !sequences.isEmpty()) {
+            Fogged.LOGGER.debug("Fogged: {} murk transforms and {} murk sequences from datapacks",
+                    entries.size(), sequences.size());
         }
     }
 }

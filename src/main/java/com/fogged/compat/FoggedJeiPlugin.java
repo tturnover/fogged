@@ -1,11 +1,13 @@
 package com.fogged.compat;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import com.fogged.Config;
 import com.fogged.Fogged;
 import com.fogged.ScourRules;
+import com.fogged.SequenceRules;
 
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
@@ -28,6 +30,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
 
 /**
  * Shows the murk's block conversions as JEI recipes -- the ones in {@link Config#RECIPE_TRANSFORMS},
@@ -51,6 +55,21 @@ public class FoggedJeiPlugin implements IModPlugin {
     public static final RecipeType<MurkTransform> MURK_TRANSFORM =
             RecipeType.create(Fogged.MODID, "murk_transform", MurkTransform.class);
 
+    /**
+     * One shown sequence, a row per block from the top of the pattern down: what may stand there, and
+     * what it becomes -- empty for a block that only has to be there.
+     */
+    public record MurkSequence(List<Row> rows, int minDepth) {}
+
+    public record Row(List<ItemStack> from, ItemStack to) {
+        boolean condition() {
+            return to.isEmpty();
+        }
+    }
+
+    public static final RecipeType<MurkSequence> MURK_SEQUENCE =
+            RecipeType.create(Fogged.MODID, "murk_sequence", MurkSequence.class);
+
     @Override
     public ResourceLocation getPluginUid() {
         return ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "jei");
@@ -58,7 +77,8 @@ public class FoggedJeiPlugin implements IModPlugin {
 
     @Override
     public void registerCategories(IRecipeCategoryRegistration registration) {
-        registration.addRecipeCategories(new MurkTransformCategory(registration.getJeiHelpers().getGuiHelper()));
+        IGuiHelper gui = registration.getJeiHelpers().getGuiHelper();
+        registration.addRecipeCategories(new MurkTransformCategory(gui), new MurkSequenceCategory(gui));
     }
 
     @Override
@@ -81,6 +101,54 @@ public class FoggedJeiPlugin implements IModPlugin {
         // item and a '!silent' entry all look the same from the outside -- an empty category.
         Fogged.LOGGER.debug("Fogged: showing {} of {} transforms in JEI",
                 recipes.size(), Config.TRANSFORMS.get().size());
+
+        List<MurkSequence> sequences = new ArrayList<>();
+        for (SequenceRules.Shown shown : ScourRules.shownSequences()) {
+            MurkSequence sequence = sequence(shown);
+            if (sequence != null) {
+                sequences.add(sequence);
+            }
+        }
+        registration.addRecipes(MURK_SEQUENCE, sequences);
+    }
+
+    // Top of the pattern first, the way the blocks stand, so a column reads as it is built. A part with
+    // nothing to draw on its left is not worth a picture of the rest, so such a sequence is left out.
+    private static MurkSequence sequence(SequenceRules.Shown shown) {
+        List<SequenceRules.ShownPart> parts = new ArrayList<>(shown.parts());
+        parts.sort(Comparator.comparingInt((SequenceRules.ShownPart p) -> -p.offset().getY())
+                .thenComparingInt(p -> p.offset().getX())
+                .thenComparingInt(p -> p.offset().getZ()));
+        List<Row> rows = new ArrayList<>();
+        for (SequenceRules.ShownPart part : parts) {
+            List<ItemStack> from = blockStacks(part.blocks(), part.tags());
+            if (from.isEmpty()) {
+                return null;
+            }
+            ItemStack to = part.to() == null || part.to() == Items.AIR ? ItemStack.EMPTY : new ItemStack(part.to());
+            rows.add(new Row(from, to));
+        }
+        return new MurkSequence(List.copyOf(rows), shown.minDepth());
+    }
+
+    // What a block is held as -- a crop as its seed, which is what JEI knows it by.
+    private static List<ItemStack> blockStacks(List<Block> blocks, List<TagKey<Block>> tags) {
+        List<ItemStack> out = new ArrayList<>();
+        for (Block block : blocks) {
+            addBlock(out, block);
+        }
+        for (TagKey<Block> tag : tags) {
+            BuiltInRegistries.BLOCK.getTag(tag)
+                    .ifPresent(holders -> holders.forEach(h -> addBlock(out, h.value())));
+        }
+        return out;
+    }
+
+    private static void addBlock(List<ItemStack> out, Block block) {
+        ItemStack stack = new ItemStack(block.asItem());
+        if (!stack.isEmpty() && out.stream().noneMatch(s -> s.is(stack.getItem()))) {
+            out.add(stack);
+        }
     }
 
     // Tags are expanded here rather than when the config is read: their contents come from the
@@ -197,6 +265,74 @@ public class FoggedJeiPlugin implements IModPlugin {
             graphics.fill(x + 2, y + 6, x + 3, y + 7, DEPTH_COLOR);
             graphics.drawString(Minecraft.getInstance().font, Integer.toString(blocks),
                     x + 7, y, DEPTH_COLOR, false);
+        }
+    }
+
+    // The same picture as a single conversion, with a column of blocks either side of the mark: what
+    // stands there on the left, what it becomes on the right, row for row. A block that only has to be
+    // there sits on the left alone, as a catalyst -- needed, and not used up.
+    private static class MurkSequenceCategory extends AbstractRecipeCategory<MurkSequence> {
+        private static final int PAD = MurkTransformCategory.PAD;
+        private static final int SLOT = MurkTransformCategory.IN_BG;
+        private static final int MARK_W = MurkTransformCategory.MARK_W;
+        private static final int MARK_H = MurkTransformCategory.MARK_H;
+        // A category is one size for all its recipes, so it is sized for this many rows: enough for a
+        // crop on its soil with room above, without making the common two-block case a tall frame.
+        // A taller pattern shows its top rows only.
+        private static final int MOST_ROWS = 4;
+        private static final int HEIGHT = Math.max(MARK_H + 2 * 2, MOST_ROWS * SLOT + 2 * PAD);
+        private static final int MARK_Y = (HEIGHT - MARK_H) / 2;
+
+        private static final int WIDTH = PAD + SLOT + PAD + MARK_W + PAD + SLOT + PAD;
+        private static final int MARK_X = PAD + SLOT + PAD;
+        private static final int IN_X = PAD + 1;
+        private static final int OUT_X = MARK_X + MARK_W + PAD + 1;
+
+        private final IDrawable mark;
+
+        MurkSequenceCategory(IGuiHelper guiHelper) {
+            super(MURK_SEQUENCE,
+                    Component.translatable("fogged.jei.murk_sequence"),
+                    guiHelper.drawableBuilder(MurkTransformCategory.ICON_TEXTURE, MurkTransformCategory.ICON_U,
+                                    MurkTransformCategory.ICON_V, MurkTransformCategory.ICON_W,
+                                    MurkTransformCategory.ICON_H)
+                            .setTextureSize(MurkTransformCategory.ICON_SHEET, MurkTransformCategory.ICON_SHEET)
+                            .build(),
+                    WIDTH, HEIGHT);
+            this.mark = guiHelper.drawableBuilder(MurkTransformCategory.MARK_TEXTURE, MurkTransformCategory.MARK_U,
+                            MurkTransformCategory.MARK_V, MARK_W, MARK_H)
+                    .setTextureSize(MurkTransformCategory.MARK_SHEET, MurkTransformCategory.MARK_SHEET)
+                    .build();
+        }
+
+        @Override
+        public void setRecipe(IRecipeLayoutBuilder builder, MurkSequence recipe, IFocusGroup focuses) {
+            int rows = Math.min(recipe.rows().size(), MOST_ROWS);
+            int top = (HEIGHT - rows * SLOT) / 2 + 1; // +1: the 18x18 frame's inset
+            for (int i = 0; i < rows; i++) {
+                Row row = recipe.rows().get(i);
+                int y = top + i * SLOT;
+                builder.addSlot(row.condition() ? RecipeIngredientRole.CATALYST : RecipeIngredientRole.INPUT, IN_X, y)
+                        .setStandardSlotBackground()
+                        .addItemStacks(row.from());
+                if (!row.condition()) {
+                    builder.addSlot(RecipeIngredientRole.OUTPUT, OUT_X, y)
+                            .setStandardSlotBackground()
+                            .addItemStack(row.to());
+                }
+            }
+        }
+
+        @Override
+        public void draw(MurkSequence recipe, IRecipeSlotsView slots, GuiGraphics graphics,
+                double mouseX, double mouseY) {
+            mark.draw(graphics, MARK_X, MARK_Y);
+            if (recipe.minDepth() > 0) {
+                graphics.pose().pushPose();
+                graphics.pose().translate(0, MARK_Y - MurkTransformCategory.MARK_Y, 0);
+                MurkTransformCategory.drawDepth(graphics, recipe.minDepth());
+                graphics.pose().popPose();
+            }
         }
     }
 }

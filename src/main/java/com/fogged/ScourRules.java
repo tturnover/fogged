@@ -32,7 +32,9 @@ import net.minecraft.world.level.block.SporeBlossomBlock;
 import net.minecraft.world.level.block.SugarCaneBlock;
 import net.minecraft.world.level.block.VineBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.material.Fluids;
 
 import com.fogged.registry.ModTags;
 
@@ -63,6 +65,7 @@ public final class ScourRules {
     // The same lines, from the datapacks in force rather than from the config (see
     // MurkTransformRecipe). Replaced wholesale on a reload, which is also what makes the rules stale.
     private static List<String> dataTransforms = List.of();
+    private static List<MurkSequenceRecipe> dataSequences = List.of();
     private static boolean dataChanged;
 
     private static Set<Block> scouredBlocks = Set.of();
@@ -107,11 +110,34 @@ public final class ScourRules {
     }
 
     /**
+     * The multi-block conversions to display (see {@link MurkSequenceRecipe}), in priority order. Never
+     * null; empty under the same switch as {@link #shownTransforms()}.
+     */
+    public static List<SequenceRules.Shown> shownSequences() {
+        if (!Config.ENABLE_TRANSFORMS.get()) {
+            return List.of();
+        }
+        ensureRules();
+        return SequenceRules.shown();
+    }
+
+    /**
      * Apply the configured rules to one placed block, most specific first. Returns true when this block
      * has been dealt with and the built-in scour should leave it alone.
+     *
+     * <p>Sequences come first of all: they name a block AND what stands around it, which is more
+     * specific than any rule for the block alone -- and the single rules would otherwise take the
+     * pattern apart one block at a time before it could be seen whole.
      */
     public static boolean apply(Level level, BlockPos pos, BlockState state) {
         ensureRules();
+        if (Config.ENABLE_TRANSFORMS.get()) {
+            SequenceRules.Match match = SequenceRules.find(level, pos, state);
+            if (match != null) {
+                SequenceRules.apply(level, match);
+                return true;
+            }
+        }
         Rule rule = Config.ENABLE_TRANSFORMS.get() ? ruleFor(state) : null;
         if (rule != null) {
             if (!deepEnough(level, rule, pos.getY())) {
@@ -142,8 +168,12 @@ public final class ScourRules {
      * not already, or a scoured block. The sweep asks this before it commits to a block, so nothing is
      * announced (see FogScour's steaming) that then turns out to be a no-op.
      */
-    public static boolean wants(Level level, BlockState state, int y) {
+    public static boolean wants(Level level, BlockPos pos, BlockState state) {
         ensureRules();
+        if (Config.ENABLE_TRANSFORMS.get() && SequenceRules.find(level, pos, state) != null) {
+            return true;
+        }
+        int y = pos.getY();
         Rule rule = Config.ENABLE_TRANSFORMS.get() ? ruleFor(state) : null;
         if (rule != null) {
             return deepEnough(level, rule, y) && (rule.toBlock() == null || !state.is(rule.toBlock()));
@@ -154,7 +184,7 @@ public final class ScourRules {
     /** Whether any rule names this block at all, at any depth -- the palette-level test of a section. */
     public static boolean mayTouch(BlockState state) {
         ensureRules();
-        return ruleFor(state) != null || isScoured(state);
+        return ruleFor(state) != null || isScoured(state) || SequenceRules.mayTouch(state);
     }
 
     /**
@@ -188,8 +218,12 @@ public final class ScourRules {
     // sitting at some fixed Y: fifty blocks under the murk stays fifty blocks under it as the plane
     // rises and falls.
     private static boolean deepEnough(Level level, Rule rule, double y) {
-        return rule.minDepth() <= 0
-                || Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET - y >= rule.minDepth();
+        return deepEnough(level, rule.minDepth(), y);
+    }
+
+    static boolean deepEnough(Level level, int minDepth, double y) {
+        return minDepth <= 0
+                || Config.breathHeight(level) + Config.PLANE_SURFACE_OFFSET - y >= minDepth;
     }
 
     /**
@@ -197,13 +231,22 @@ public final class ScourRules {
      * shape and half, a slab which half it is, a door its hinge and whether it is open. Without this a
      * transform snaps everything it touches to a default state, which for copper stairs and doors --
      * the whole point of the copper defaults -- rearranges the build it is weathering.
+     *
+     * <p>Whether it is waterlogged is the one property taken from where it stands rather than from the
+     * old block, when the old block had no say: dead coral, say, is waterlogged by default, and a crop
+     * turned into it on dry farmland would otherwise come out standing in a block of water.
      */
-    private static BlockState carryOver(BlockState from, BlockState to) {
+    static BlockState carryOver(BlockState from, BlockState to) {
         BlockState out = to;
         for (Property<?> property : from.getProperties()) {
             if (out.hasProperty(property)) {
                 out = copy(from, out, property);
             }
+        }
+        if (out.hasProperty(BlockStateProperties.WATERLOGGED)
+                && !from.hasProperty(BlockStateProperties.WATERLOGGED)) {
+            out = out.setValue(BlockStateProperties.WATERLOGGED,
+                    from.getFluidState().isSourceOfType(Fluids.WATER));
         }
         return out;
     }
@@ -302,6 +345,12 @@ public final class ScourRules {
         dataChanged = true;
     }
 
+    /** The datapacks' {@link MurkSequenceRecipe}s, handed over the same way and at the same times. */
+    public static void setDataSequences(List<MurkSequenceRecipe> sequences) {
+        dataSequences = List.copyOf(sequences);
+        dataChanged = true;
+    }
+
     // Rebuilt only when the lists themselves change: the config's (replaced wholesale on a reload) or
     // the datapacks' (replaced wholesale on theirs).
     private static void ensureRules() {
@@ -353,8 +402,21 @@ public final class ScourRules {
         Map<Item, Rule> items = new HashMap<>();
         List<ItemTagRule> itemTags = new ArrayList<>();
         List<Shown> display = new ArrayList<>();
+        List<MurkSequenceRecipe> sequences = new ArrayList<>();
 
         for (String entry : raw) {
+            if (Config.isSequence(entry)) {
+                // A '+' line is a column of blocks, not one block: it goes to the sequences, which keep
+                // the config-first order this list is built in.
+                MurkSequenceRecipe sequence = Config.parseSequence(entry);
+                if (sequence == null) {
+                    Fogged.LOGGER.warn("Fogged: ignoring malformed transforms entry \"{}\" -- expected "
+                            + "\"a+b[+...]=x+y[+...] [@depth] [!silent]\", one target per block.", entry);
+                } else {
+                    sequences.add(sequence);
+                }
+                continue;
+            }
             Config.Transform parsed = Config.parseTransform(entry);
             if (parsed == null) {
                 Fogged.LOGGER.warn("Fogged: ignoring malformed transforms entry \"{}\" -- expected "
@@ -426,11 +488,14 @@ public final class ScourRules {
         itemRules = Map.copyOf(items);
         itemTagRules = List.copyOf(itemTags);
         shown = List.copyOf(display);
+
+        sequences.addAll(dataSequences);
+        SequenceRules.rebuild(sequences);
     }
 
     // Every registered block whose id matches one of these patterns. One walk of the registry per
     // config change, so the per-block test above is a map lookup.
-    private static Set<Block> matchingBlocks(List<Pattern> patterns) {
+    static Set<Block> matchingBlocks(List<Pattern> patterns) {
         if (patterns.isEmpty()) {
             return Set.of();
         }
@@ -457,7 +522,7 @@ public final class ScourRules {
         return List.copyOf(found);
     }
 
-    private static Block block(String id) {
+    static Block block(String id) {
         ResourceLocation key = ResourceLocation.tryParse(id);
         if (key == null) {
             return null;
@@ -465,7 +530,7 @@ public final class ScourRules {
         return BuiltInRegistries.BLOCK.getOptional(key).orElse(null);
     }
 
-    private static Item item(String id) {
+    static Item item(String id) {
         ResourceLocation key = ResourceLocation.tryParse(id);
         if (key == null) {
             return null;
@@ -475,7 +540,7 @@ public final class ScourRules {
 
     // A tag is never resolved against a registry here: it may be empty, or not exist at all, until a
     // datapack says otherwise, and that can change on a reload without the config changing.
-    private static TagKey<Block> blockTag(String id) {
+    static TagKey<Block> blockTag(String id) {
         ResourceLocation key = ResourceLocation.tryParse(Config.withNamespace(id));
         if (key == null) {
             Fogged.LOGGER.warn("Fogged: ignoring \"#{}\" -- not a valid tag id.", id);

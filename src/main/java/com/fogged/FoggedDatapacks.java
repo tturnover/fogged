@@ -23,7 +23,9 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
  * it), <b>Moss Scourch</b> (moss blocks, prismoss, mossy stone and brick with their cuts), <b>Copper
  * Oxidation</b> (every unwaxed copper block weathered the whole way through), <b>Silverfish
  * Suffocation</b> (infested blocks back to the plain stone the silverfish were hiding in) and <b>Coal
- * Remover</b> (coal ore back to its own rock, blocks of coal taken outright).
+ * Remover</b> (coal ore back to its own rock, blocks of coal taken outright). A sixth, <b>Dead
+ * Farms</b>, is a {@code fogged:murk_sequence} rather than a single conversion: a crop and the farmland
+ * under it turn together, into dead coral (see {@link MurkSequenceRecipe}).
  *
  * <p>Three more hold tags rather than recipes: <b>Plant Scouring</b> is what the murk wilts,
  * <b>Device Snuffing</b> is the burners it puts out and <b>Mushroom Survival</b> is what it spares,
@@ -62,7 +64,7 @@ public final class FoggedDatapacks {
 
     private static final String[] PACKS = {
             "grass_scourch", "moss_scourch", "copper_oxidation", "silverfish_suffocation", "coal_remover",
-            "plant_scouring", "device_snuffing", "mushroom_survival",
+            "dead_farms", "plant_scouring", "device_snuffing", "mushroom_survival",
     };
 
     @SubscribeEvent

@@ -1,0 +1,19 @@
+{
+  "type": "fogged:murk_sequence",
+  "neoforge:conditions": [
+    {
+      "type": "fogged:pack_enabled",
+      "pack": "dead_farms"
+    }
+  ],
+  "pattern": [
+    {
+      "from": "minecraft:farmland",
+      "to": "minecraft:dead_brain_coral_block"
+    },
+    {
+      "from": "#minecraft:crops",
+      "to": "minecraft:dead_brain_coral"
+    }
+  ]
+}

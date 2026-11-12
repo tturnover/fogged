@@ -104,6 +104,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
 
         // Категорія JEI для перетворень блоків каламуттю (див. FoggedJeiPlugin).
         add("fogged.jei.murk_transform", "Перетворення каламуттю");
+        add("fogged.jei.murk_sequence", "Послідовне перетворення каламуттю");
         add("fogged.datapack.grass_scourch", "Здирання трави");
         add("fogged.datapack.moss_scourch", "Здирання моху");
         cfg("datapacks", "Набори перетворень",
@@ -118,8 +119,11 @@ public class ModLanguageProviderUk extends LanguageProvider {
                 "Під каламуттю не дихає ніхто, а лусківниці й поготів: заражений блок повертається до звичайного каменю, у якому вони ховалися.");
         cfg("coalRemover", "Вигризання вугілля",
                 "Каламуть їсть вугілля. Руда повертається до породи, у якій сиділа, будь-яка вугільна руда з інших модів — через спільний тег, а вугільний блок зникає геть.");
+        cfg("deadFarms", "Мертві поля",
+                "Поле, до якого дісталася каламуть, гине, як риф: оброблена земля з посівом стає мертвим коралом, а посів — мертвим кораловим кущиком на ньому. Гола рілля, як і раніше, стає землею.");
         add("fogged.datapack.silverfish_suffocation", "Задуха лусківниць");
         add("fogged.datapack.coal_remover", "Вигризання вугілля");
+        add("fogged.datapack.dead_farms", "Мертві поля");
         add("fogged.datapack.plant_scouring", "Здирання рослин");
         add("fogged.datapack.device_snuffing", "Гасіння пристроїв");
         add("fogged.datapack.mushroom_survival", "Живучість грибів");

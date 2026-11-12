@@ -1,6 +1,7 @@
 package com.fogged.registry;
 
 import com.fogged.Fogged;
+import com.fogged.MurkSequenceRecipe;
 import com.fogged.MurkTransformRecipe;
 
 import net.minecraft.core.registries.Registries;
@@ -34,6 +35,16 @@ public final class ModRecipes {
 
     public static final DeferredHolder<RecipeSerializer<?>, MurkTransformRecipe.Serializer> MURK_TRANSFORM_SERIALIZER =
             SERIALIZERS.register("murk_transform", id -> new MurkTransformRecipe.Serializer());
+
+    /**
+     * {@code "type": "fogged:murk_sequence"}: several blocks standing together, turned together (see
+     * {@link MurkSequenceRecipe}).
+     */
+    public static final DeferredHolder<RecipeType<?>, RecipeType<MurkSequenceRecipe>> MURK_SEQUENCE =
+            TYPES.register("murk_sequence", id -> RecipeType.simple(id));
+
+    public static final DeferredHolder<RecipeSerializer<?>, MurkSequenceRecipe.Serializer> MURK_SEQUENCE_SERIALIZER =
+            SERIALIZERS.register("murk_sequence", id -> new MurkSequenceRecipe.Serializer());
 
     public static void register(IEventBus modEventBus) {
         TYPES.register(modEventBus);

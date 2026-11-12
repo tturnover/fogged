@@ -268,6 +268,20 @@ public class Config {
                     "  \"create:*_casing=minecraft:mud @20\"            wildcards match a whole family",
                     "  \"copper_block,exposed_copper=oxidized_copper\"  so do commas, for what globs cannot",
                     "",
+                    "SEQUENCES: blocks standing on one another, joined by '+' from the bottom up, turn",
+                    "  together -- and only together, so a rule can hang on what a block stands under or on.",
+                    "  Each '+' on the left needs one on the right, giving what that block becomes; '~' on",
+                    "  the right leaves that one as it is, so it is only a condition. No counts. Sequences",
+                    "  go before every other entry, and are found from whichever of their blocks the murk",
+                    "  reaches first.",
+                    "  \"farmland+#crops=dead_brain_coral_block+dead_brain_coral\"  a farm dies as a reef",
+                    "  \"#sand+cactus=~+dead_bush\"                     a cactus on sand dries to a bush",
+                    "  A datapack can say more -- blocks beside each other, facing any way -- as a",
+                    "  fogged:murk_sequence recipe: {\"type\": \"fogged:murk_sequence\", \"rotate\": true,",
+                    "  \"pattern\": [{\"from\": \"#logs\"}, {\"offset\": [1, 0, 0], \"from\": \"torch\",",
+                    "  \"to\": \"stick\"}]} -- a part with no \"to\" is a condition, and one with no",
+                    "  \"offset\" sits on top of the one before it.",
+                    "",
                     "Applied before the built-in scour, so an entry here overrides what the murk would",
                     "otherwise do to that block. A transform whose result matches another rule is itself",
                     "converted on the next pass, so do not point one at something another rule takes.",
@@ -284,7 +298,8 @@ public class Config {
                     "Needs enableWorldChanges.")
             .defineListAllowEmpty("transforms", Config::defaultTransforms,
                     () -> "minecraft:coal_ore=minecraft:stone !silent",
-                    o -> o instanceof String s && parseTransform(s) != null);
+                    o -> o instanceof String s
+                            && (isSequence(s) ? parseSequence(s) != null : parseTransform(s) != null));
 
     static { COMMON.pop(); }   // [boundary]
 
@@ -330,6 +345,13 @@ public class Config {
                     "coal is taken outright, which this pack arranges by adding it to #fogged:scoured.")
             .define("coalRemover", true);
 
+    public static final ModConfigSpec.BooleanValue PACK_DEAD_FARMS = COMMON
+            .comment("Dead Farms: a farm the murk reaches dies as a reef would. Tilled soil with a crop on",
+                    "it turns to dead coral, and the crop to a dead coral plant standing on it -- one",
+                    "fogged:murk_sequence recipe, the two blocks judged together. Bare farmland still goes",
+                    "back to dirt. Shown in JEI.")
+            .define("deadFarms", true);
+
     static { COMMON.pop(); }   // [datapacks]
 
     // Keyed by the pack's folder name, which is what its recipes name in their condition (see
@@ -339,7 +361,8 @@ public class Config {
             "moss_scourch", PACK_MOSS_SCOURCH,
             "copper_oxidation", PACK_COPPER_OXIDATION,
             "silverfish_suffocation", PACK_SILVERFISH_SUFFOCATION,
-            "coal_remover", PACK_COAL_REMOVER);
+            "coal_remover", PACK_COAL_REMOVER,
+            "dead_farms", PACK_DEAD_FARMS);
 
     /**
      * Whether one of the mod's own conversion packs is switched on here. A pack this does not know is
@@ -1428,6 +1451,78 @@ public class Config {
         }
         return new Transform(Integer.parseInt(left[0]), List.copyOf(from),
                 Integer.parseInt(right[0]), right[1], depth, silent);
+    }
+
+    /** Whether a {@link #TRANSFORMS} line is a column of blocks rather than one: it has a '+'. */
+    static boolean isSequence(String entry) {
+        return entry.indexOf('+') >= 0;
+    }
+
+    /** What a sequence line writes for a block it leaves as it is. */
+    private static final String KEEP = "~";
+
+    /**
+     * Parse one '+' line of {@link #TRANSFORMS} -- "a+b[+...]=x+y[+...] [@depth] [!silent]", the bottom
+     * block first -- into the same {@link MurkSequenceRecipe} a datapack would write for that column, or
+     * null if it is not usable. Neither '+' nor '~' can appear in a resource location, so neither can be
+     * mistaken for part of an id.
+     */
+    static MurkSequenceRecipe parseSequence(String rawEntry) {
+        String entry = rawEntry.trim();
+        boolean silent = false;
+        int flag = entry.toLowerCase(java.util.Locale.ROOT).indexOf(FLAG_SILENT);
+        if (flag >= 0) {
+            silent = true;
+            entry = (entry.substring(0, flag) + entry.substring(flag + FLAG_SILENT.length())).trim();
+        }
+        if (entry.indexOf('!') >= 0) {
+            return null;
+        }
+        int depth = 0;
+        int at = entry.lastIndexOf('@');
+        if (at >= 0) {
+            Integer parsed = number(entry.substring(at + 1), MAX_TRANSFORM_DEPTH);
+            if (parsed == null) {
+                return null;
+            }
+            depth = parsed;
+            entry = entry.substring(0, at).trim();
+        }
+        int eq = entry.indexOf('=');
+        if (eq <= 0 || eq == entry.length() - 1 || entry.indexOf('=', eq + 1) >= 0) {
+            return null;
+        }
+        String[] left = entry.substring(0, eq).split("\\+", -1);
+        String[] right = entry.substring(eq + 1).split("\\+", -1);
+        if (left.length != right.length || left.length < 2 || left.length > MurkSequenceRecipe.MAX_PARTS) {
+            return null; // one target per block, and a column of one is an ordinary line
+        }
+        List<MurkSequenceRecipe.Part> parts = new ArrayList<>();
+        boolean changes = false;
+        for (int i = 0; i < left.length; i++) {
+            List<String> from = new ArrayList<>();
+            for (String part : left[i].split(",", -1)) {
+                String id = idOrTag(part.trim(), true);
+                if (id == null) {
+                    return null; // a count, a stray space or an empty slot: none is a block
+                }
+                from.add(id);
+            }
+            String target = right[i].trim();
+            java.util.Optional<String> to;
+            if (target.equals(KEEP)) {
+                to = java.util.Optional.empty();
+            } else {
+                String id = idOrTag(target, false);
+                if (id == null) {
+                    return null;
+                }
+                to = java.util.Optional.of(id);
+                changes = true;
+            }
+            parts.add(new MurkSequenceRecipe.Part(java.util.Optional.empty(), List.copyOf(from), to));
+        }
+        return changes ? new MurkSequenceRecipe(List.copyOf(parts), depth, false, silent) : null;
     }
 
     // One side of the '=': an optional count, then an id. Returns {count, id} or null.

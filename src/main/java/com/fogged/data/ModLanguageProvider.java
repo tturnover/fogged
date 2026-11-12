@@ -103,6 +103,7 @@ public class ModLanguageProvider extends LanguageProvider {
         // Custom death messages (keyed by each damage type's message_id).
         // JEI category for the murk's block conversions (see FoggedJeiPlugin); only shown when JEI is in.
         add("fogged.jei.murk_transform", "Murk Conversion");
+        add("fogged.jei.murk_sequence", "Murk Sequence");
         add("fogged.datapack.grass_scourch", "Grass Scourch");
         add("fogged.datapack.moss_scourch", "Moss Scourch");
         cfg("datapacks", "Conversion Packs",
@@ -117,8 +118,11 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Nothing breathes under the murk, silverfish least of all: an infested block comes back as the plain stone it was hiding in.");
         cfg("coalRemover", "Coal Remover",
                 "The murk eats coal. Ore goes back to the rock it sat in, any mod's coal ore through the common tag, and a block of coal is taken outright.");
+        cfg("deadFarms", "Dead Farms",
+                "A farm the murk reaches dies as a reef would: tilled soil with a crop on it turns to dead coral, and the crop to a dead coral plant standing on it. Bare farmland still goes back to dirt.");
         add("fogged.datapack.silverfish_suffocation", "Silverfish Suffocation");
         add("fogged.datapack.coal_remover", "Coal Remover");
+        add("fogged.datapack.dead_farms", "Dead Farms");
         add("fogged.datapack.plant_scouring", "Plant Scouring");
         add("fogged.datapack.device_snuffing", "Device Snuffing");
         add("fogged.datapack.mushroom_survival", "Mushroom Survival");
