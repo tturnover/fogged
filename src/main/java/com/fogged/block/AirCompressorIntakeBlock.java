@@ -177,7 +177,7 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         }
         level.setBlock(pos, state.setValue(POLLUTION, step), 3);
         if (step >= CLOGGED) {
-            Config.playSounds(level, pos, Config.INTAKE_CLOG_SOUNDS.get());
+            filterSound(level, pos, be.filter(), Sound.CLOG);
             if (level instanceof net.minecraft.server.level.ServerLevel server) {
                 net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atCenterOf(mouth(pos, state))
                         .add(net.minecraft.world.phys.Vec3.atCenterOf(pos)).scale(0.5);
@@ -215,6 +215,24 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
 
     // --- The filter ---------------------------------------------------------------------------------
 
+    private enum Sound { FIT, REMOVE, CLOG }
+
+    // The filter block's own sounds: set in as it is placed, taken out as it is broken, and clogging with a
+    // dull, low knock -- its hit sound, deep. Wool sounds like wool; any other filter like itself.
+    private static void filterSound(Level level, BlockPos pos, ItemStack filter, Sound sound) {
+        net.minecraft.world.level.block.SoundType type = filter.getItem() instanceof net.minecraft.world.item.BlockItem block
+                ? block.getBlock().defaultBlockState().getSoundType()
+                : net.minecraft.world.level.block.SoundType.WOOL;
+        net.minecraft.sounds.SoundEvent event = switch (sound) {
+            case FIT -> type.getPlaceSound();
+            case REMOVE -> type.getBreakSound();
+            case CLOG -> type.getHitSound();
+        };
+        float volume = (type.getVolume() + 1.0F) / 2.0F;
+        float pitch = type.getPitch() * (sound == Sound.CLOG ? 0.5F : 0.8F);
+        level.playSound(null, pos, event, net.minecraft.sounds.SoundSource.BLOCKS, volume, pitch);
+    }
+
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
             Player player, InteractionHand hand, BlockHitResult hit) {
@@ -241,7 +259,7 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         }
         be.setFilter(stack.copyWithCount(1));
         level.setBlock(pos, state.setValue(FILTERED, true).setValue(POLLUTION, be.pollutionStep()), 3);
-        Config.playSounds(level, pos, Config.INTAKE_FIT_SOUNDS.get());
+        filterSound(level, pos, stack, Sound.FIT);
         return true;
     }
 
@@ -254,10 +272,10 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof AirCompressorIntakeBlockEntity be) {
             ItemStack filter = be.takeFilter();
             level.setBlock(pos, state.setValue(FILTERED, false).setValue(POLLUTION, 0), 3);
+            filterSound(level, pos, filter, Sound.REMOVE);
             if (!filter.isEmpty()) {
                 player.getInventory().placeItemBackInInventory(filter);
             }
-            Config.playSounds(level, pos, Config.INTAKE_REMOVE_SOUNDS.get());
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

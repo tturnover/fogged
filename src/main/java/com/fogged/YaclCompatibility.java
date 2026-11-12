@@ -132,16 +132,6 @@ final class YaclCompatibility {
                 .option(dbl("kineticStressPerBlock", Config.KINETIC_STRESS_PER_BLOCK, 0.0, 16.0, 0.05))
                 .option(dbl("airtightGraceSeconds", Config.AIRTIGHT_GRACE, 0.0, 10.0, 0.25))
                 .group(strings("intakeFilters", Config.INTAKE_FILTERS))
-                // Looks and sounds only, apart and collapsed: nothing in them changes how the air works.
-                .group(OptionGroup.createBuilder()
-                        .name(Component.translatable(KEY + "group.cosmetic"))
-                        .description(describe("group.cosmetic"))
-                        .collapsed(true)
-                        .option(color("intakeFilterPollutionColor", Config.FILTER_POLLUTION_COLOR, false))
-                        .build())
-                .group(strings("intakeFitSounds", Config.INTAKE_FIT_SOUNDS))
-                .group(strings("intakeRemoveSounds", Config.INTAKE_REMOVE_SOUNDS))
-                .group(strings("intakeClogSounds", Config.INTAKE_CLOG_SOUNDS))
                 .build();
     }
 

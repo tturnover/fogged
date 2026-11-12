@@ -201,16 +201,6 @@ public class ModLanguageProvider extends LanguageProvider {
                 "What an air intake takes as a filter, and how many blocks of murk it cleans before it clogs: item id or #tag, '=', capacity. Full blocks only.");
         cfg("intakeFilterCleanRate", "Filter Cleaning In Clean Air",
                 "Blocks of murk a filter sheds per second out of the murk, in an intake or set down as a block. A clogged filter clears again. 0 = never.");
-        cfg("intakeFilterPollutionColor", "Filter Grime Colour",
-                "The colour a filter darkens toward as it fills with murk, and the pollution bar's colour.");
-        cfg("intakeFitSounds", "Filter Fitted Sounds",
-                "Sounds when a filter goes into an intake: sound id, then optionally ',volume' and ',pitch'. Empty = silent.");
-        cfg("intakeRemoveSounds", "Filter Removed Sounds",
-                "Sounds when a filter is taken out of an intake, as the fitted sounds.");
-        cfg("intakeClogSounds", "Filter Clogged Sounds",
-                "Sounds when an intake's filter clogs, as the fitted sounds.");
-        cfg("group.cosmetic", "Cosmetic",
-                "Looks and sounds only: the filter's grime colour, and the sound lists after it. Nothing here changes how the air works.");
         cfg("compressorDrainRate", "Air Loss",
                 "Blocks of a room's air lost per second with no clean air coming in, or too big for its compressors. Redstone vents ten times as fast. 0 = kept.");
         cfg("intakeDuctLossPercent", "Flow Lost Per Duct",

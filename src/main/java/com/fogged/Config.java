@@ -581,70 +581,13 @@ public class Config {
                     "clogged filter clears and lets air through again. 0 = filters stay as dirty as they are.")
             .defineInRange("intakeFilterCleanRate", 5.0, 0.0, 100_000.0);
 
-    // Looks and sounds only: nothing here changes how the air works.
-    static {
-        COMMON.push("cosmetic");
-    }
-
-    public static final ModConfigSpec.IntValue FILTER_POLLUTION_COLOR = COMMON
-            .comment("The colour a filter darkens toward as it fills with murk, as a packed RGB integer: its",
-                    "texture is shaded by it in step with how polluted it is, from none when clean to all of",
-                    "it clogged; the pollution bar in a slot is drawn in it too. Default is hex 4A4234.")
-            .defineInRange("intakeFilterPollutionColor", 0xFF4A4234, Integer.MIN_VALUE, Integer.MAX_VALUE);
-
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> INTAKE_FIT_SOUNDS = COMMON
-            .comment("Sounds played when a filter is fitted to an air intake: each a sound event id,",
-                    "optionally followed by ',volume' and ',pitch'. Empty = silent.")
-            .defineListAllowEmpty("intakeFitSounds", () -> List.of("minecraft:block.wool.place"),
-                    () -> "minecraft:block.wool.place", o -> o instanceof String s && parseSound(s) != null);
-
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> INTAKE_REMOVE_SOUNDS = COMMON
-            .comment("Sounds played when a filter is taken out of an air intake, as intakeFitSounds.")
-            .defineListAllowEmpty("intakeRemoveSounds", () -> List.of("minecraft:block.wool.break"),
-                    () -> "minecraft:block.wool.break", o -> o instanceof String s && parseSound(s) != null);
-
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> INTAKE_CLOG_SOUNDS = COMMON
-            .comment("Sounds played when an air intake's filter clogs, as intakeFitSounds.")
-            .defineListAllowEmpty("intakeClogSounds",
-                    () -> List.of("minecraft:block.wool.hit,1.0,0.5", "minecraft:block.fire.extinguish,0.35,0.6"),
-                    () -> "minecraft:block.wool.hit", o -> o instanceof String s && parseSound(s) != null);
-
-    static {
-        COMMON.pop(); // cosmetic
-    }
-
-    private record SoundEntry(ResourceLocation id, float volume, float pitch) {}
-
-    // "id[,volume[,pitch]]"; null when it does not read.
-    private static SoundEntry parseSound(String raw) {
-        String[] parts = raw.trim().split(",");
-        ResourceLocation id = ResourceLocation.tryParse(withNamespace(parts[0].trim()));
-        if (id == null || parts.length > 3) {
-            return null;
-        }
-        try {
-            float volume = parts.length > 1 ? Float.parseFloat(parts[1].trim()) : 1.0F;
-            float pitch = parts.length > 2 ? Float.parseFloat(parts[2].trim()) : 1.0F;
-            return volume < 0 || pitch <= 0 ? null : new SoundEntry(id, volume, pitch);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    /** Play each of {@code sounds} (a sound list from this config) at {@code pos}, for everyone near. */
-    public static void playSounds(Level level, net.minecraft.core.BlockPos pos, List<? extends String> sounds) {
-        for (String s : sounds) {
-            SoundEntry e = parseSound(s);
-            if (e != null) {
-                level.playSound(null, pos, net.minecraft.sounds.SoundEvent.createVariableRangeEvent(e.id()),
-                        net.minecraft.sounds.SoundSource.BLOCKS, e.volume(), e.pitch());
-            }
-        }
-    }
-
-    /** {@link #FILTER_POLLUTION_COLOR} as 0xRRGGBB. */
+    /**
+     * The colour a filter darkens toward as it fills with murk, 0xRRGGBB: the murk's own -- the fog plane's
+     * colour ({@link #PLANE_COLOR}) -- so a polluted filter shows the murk caught in it. Client side.
+     */
     public static int filterPollutionColor() {
-        return FILTER_POLLUTION_COLOR.getAsInt() & 0xFFFFFF;
+        float[] c = planeColor();
+        return ((int) (c[0] * 255) << 16) | ((int) (c[1] * 255) << 8) | (int) (c[2] * 255);
     }
 
     private record FilterEntry(ResourceLocation id, boolean tag, int capacity) {}

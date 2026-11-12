@@ -22,7 +22,7 @@ import net.neoforged.neoforge.client.model.data.ModelData;
 /**
  * Draws an air intake's filter: the plane behind its mesh (AirIntakeShapes#HOOD_PLANE / FRAME_PLANE),
  * in the fitted block's own texture -- any full block the config lists can be a filter -- shaded toward
- * the configured grime colour as it fills with murk (Config#filterPollutionColor).
+ * the murk's own colour as it fills with it (Config#filterPollutionColor).
  */
 public class AirIntakeRenderer implements BlockEntityRenderer<AirCompressorIntakeBlockEntity> {
 
