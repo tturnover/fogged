@@ -124,6 +124,7 @@ final class YaclCompatibility {
                 .tooltip(Component.translatable(KEY + "compressor.tooltip"))
                 .option(integer("compressorVolumePerFace", Config.COMPRESSOR_VOLUME, 8, 20_000, 8))
                 .option(integer("compressorFillRate", Config.COMPRESSOR_FILL_RATE, 1, 2_000, 1))
+                .option(dbl("compressorDrainRate", Config.COMPRESSOR_DRAIN_RATE, 0.0, 100.0, 0.5))
                 .option(integer("intakeFlow", Config.INTAKE_FLOW, 1, 2_000, 1))
                 .option(dbl("intakeDuctLossPercent", Config.INTAKE_DUCT_LOSS, 0.0, 25.0, 0.5))
                 .option(color("intakeFilterPollutionColor", Config.FILTER_POLLUTION_COLOR, false))

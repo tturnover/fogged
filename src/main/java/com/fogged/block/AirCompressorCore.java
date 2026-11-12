@@ -152,6 +152,12 @@ public final class AirCompressorCore {
     private record Live(BlockPos pos, double flow, boolean filtered) {}
     private final List<Live> live = new ArrayList<>();
     private double supplyFlow; // blocks/s, all the live intakes together
+    // No clean air coming in, but the room still sealed: it holds what it has and loses it slowly
+    // (Config#COMPRESSOR_DRAIN_RATE), farthest from the outlet first.
+    private boolean draining;
+    private LongArrayList roomOrder = new LongArrayList(); // the room as last found sealed, ducts first
+    private int drainCursor;     // roomOrder is drained from the end down to here
+    private double drainCarry;   // the part of a block owed from earlier ticks
 
     // --- Lifecycle ---
     private boolean fresh = true;  // placed, not loaded from disk: joins its neighbours once in the level
@@ -413,17 +419,32 @@ public final class AirCompressorCore {
         } else if (supply == null) {
             // An intake's mouth is in a chunk not loaded yet: wait for it rather than call it shut.
         } else if (supply != State.PRESSURIZING) {
-            settle(supply);
-        } else if (recheck || state == State.OFF || state == State.NO_INTAKE || state == State.UNFILTERED
-                || state == State.CLOGGED) {
-            check(level, members, facing);
+            if (draining || state == State.SEALED || state == State.PRESSURIZING) {
+                // No clean air coming in: the room keeps what it has and loses it slowly. Still looked
+                // at, so opening it floods it at once as ever.
+                draining = true;
+                if (recheck) {
+                    check(level, members, facing);
+                }
+                if (draining) {
+                    setState(supply);
+                    drain(area);
+                }
+            } else {
+                settle(supply);
+            }
+        } else if (recheck || draining || state == State.OFF || state == State.NO_INTAKE
+                || state == State.UNFILTERED || state == State.CLOGGED) {
+            check(level, members, facing); // keeps what a draining room still holds, fills the rest
+            draining = false;
         }
 
         if (state == State.PRESSURIZING) {
             pressurize(level, area);
         }
         emit(level);
-        space.report(state.ordinal(), state == State.SEALED, roomVolume, capacity, leakPath);
+        // A draining room is still a sealed room: saved with the world, to go on draining after a load.
+        space.report(state.ordinal(), state == State.SEALED || draining, roomVolume, capacity, leakPath);
         // Keep the goggles' readout current: the room and the drive change all the time.
         if (level.getGameTime() % READOUT_INTERVAL == Math.floorMod(pos().asLong(), READOUT_INTERVAL)) {
             host.syncToClient();
@@ -539,6 +560,9 @@ public final class AirCompressorCore {
     // Whether every clean intake draws from inside the room the outlet fills: the unit would breathe
     // its own air back in. One intake drawing from outside is enough.
     private boolean intakesInside(LongArrayList room) {
+        if (liveMouths.isEmpty()) {
+            return false; // nothing drawing at all: that is the supply's to say, not this
+        }
         LongOpenHashSet cells = new LongOpenHashSet(room);
         for (BlockPos mouth : liveMouths) {
             if (!cells.contains(mouth.asLong())) {
@@ -593,12 +617,14 @@ public final class AirCompressorCore {
                 }
                 order.addAll(result.order());
                 roomVolume = order.size();
+                roomOrder = order;
+                drainCursor = 0;
                 LongOpenHashSet cells = space.cells();
                 if (savedState == State.SEALED) {
                     // Saved sealed and found sealed again on load: the air never left, so it is not
                     // pumped in again -- a base under the murk is breathable the moment it loads.
                     cells.addAll(order);
-                } else if (state == State.SEALED || state == State.PRESSURIZING) {
+                } else if (state == State.SEALED || state == State.PRESSURIZING || draining) {
                     // Still sealed: keep the air already in, drop what was walled off, carry on with the rest.
                     LongOpenHashSet room = new LongOpenHashSet(order);
                     cells.removeIf((java.util.function.LongPredicate) c -> !room.contains(c));
@@ -667,7 +693,35 @@ public final class AirCompressorCore {
         }
     }
 
+    // Lose a little of a draining room's air: Config#COMPRESSOR_DRAIN_RATE blocks a second, farthest from
+    // the outlet first -- the cells last reached by the fill. Gone entirely, the room floods.
+    private void drain(int area) {
+        LongOpenHashSet cells = space.cells();
+        drainCarry += Config.COMPRESSOR_DRAIN_RATE.get() / 20.0;
+        int lose = (int) drainCarry;
+        drainCarry -= lose;
+        for (int i = roomOrder.size() - 1 - drainCursor; lose > 0 && i >= 0; i--) {
+            drainCursor++;
+            if (cells.remove(roomOrder.getLong(i))) {
+                lose--;
+            }
+        }
+        // The room as it was found when loaded with the world, before any fill told its order.
+        java.util.Iterator<Long> it = cells.iterator();
+        while (lose > 0 && it.hasNext()) {
+            it.next();
+            it.remove();
+            lose--;
+        }
+        if (cells.isEmpty()) {
+            flood(state);
+        }
+    }
+
     private void flood(State why) {
+        draining = false;
+        roomOrder = new LongArrayList();
+        drainCursor = 0;
         if (space != null) {
             space.cells().clear();
         }
@@ -924,6 +978,7 @@ public final class AirCompressorCore {
         writeUnit(tag);
         tag.putInt("Air", state.ordinal());
         tag.putFloat("Power", power);
+        tag.putBoolean("Draining", draining);
     }
 
     /** Read what {@link #save} wrote, as the block entity loads. */
@@ -931,6 +986,7 @@ public final class AirCompressorCore {
         fresh = false;
         readUnit(tag);
         savedState = State.of(tag.getInt("Air"));
+        draining = tag.getBoolean("Draining"); // the room comes back with the world, still draining
         // The smoothed power picks up where it left off, so a loaded unit does not start from nothing
         // and call its room too big while it spins up.
         power = Mth.clamp(tag.getFloat("Power"), 0.0F, 1.0F);

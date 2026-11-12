@@ -546,6 +546,13 @@ public class Config {
                     "volume. The room is breathable wherever the air has reached so far.")
             .defineInRange("compressorFillRate", 80, 1, 100_000);
 
+    public static final ModConfigSpec.DoubleValue COMPRESSOR_DRAIN_RATE = COMMON
+            .comment("Blocks of a sealed room's air lost per second while its compressor gets no clean air in",
+                    "-- no intake, intakes in the murk unfiltered, filters clogged. The room keeps the rest,",
+                    "losing it farthest from the outlet first, and fills back up when the air comes back.",
+                    "0 = the room keeps its air for as long as the compressor runs.")
+            .defineInRange("compressorDrainRate", 2.0, 0.0, 100_000.0);
+
     public static final ModConfigSpec.IntValue INTAKE_FLOW = COMMON
             .comment("Blocks of air one air intake supplies per second. A compressor fills only as fast as",
                     "its intakes supply: at the default a face's worth each, so a 2x2 wants four intakes and",

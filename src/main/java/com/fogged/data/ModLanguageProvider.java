@@ -191,6 +191,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Sounds when a filter is taken out of an intake, as the fitted sounds.");
         cfg("intakeClogSounds", "Filter Clogged Sounds",
                 "Sounds when an intake's filter clogs, as the fitted sounds.");
+        cfg("compressorDrainRate", "Air Lost Without Intake",
+                "Blocks of a sealed room's air lost per second while no clean air comes in. The rest stays, farthest from the outlet going first. 0 = kept.");
         cfg("intakeFlow", "Air Per Intake",
                 "Blocks of air one intake supplies per second. A compressor fills only as fast as its intakes supply.");
         cfg("intakeDuctLossPercent", "Flow Lost Per Duct",
