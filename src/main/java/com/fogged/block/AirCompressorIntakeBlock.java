@@ -30,6 +30,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -50,6 +52,8 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
     public static final DirectionProperty FACING = AirCompressorBlock.FACING;
     /** Whether a filter is fitted. Kept in the state so the model shows it and the room re-checks. */
     public static final BooleanProperty FILTERED = BooleanProperty.create("filtered");
+    /** The fitted filter's colour, for the filter plane behind the mesh: a wool's own, white otherwise. */
+    public static final EnumProperty<DyeColor> COLOR = EnumProperty.create("color", DyeColor.class);
 
     /** What an intake is drawing in. */
     public enum Supply {
@@ -81,12 +85,13 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
 
     public AirCompressorIntakeBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(FILTERED, false));
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(FILTERED, false)
+                .setValue(COLOR, DyeColor.WHITE));
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, FILTERED);
+        builder.add(FACING, FILTERED, COLOR);
     }
 
     /**
@@ -149,7 +154,8 @@ public class AirCompressorIntakeBlock extends Block implements EntityBlock {
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof AirCompressorIntakeBlockEntity be) {
             be.setFilter(stack.copyWithCount(1));
             stack.consume(1, player);
-            level.setBlock(pos, state.setValue(FILTERED, true), 3);
+            level.setBlock(pos, state.setValue(FILTERED, true)
+                    .setValue(COLOR, com.fogged.NozzleFilterEvents.woolColor(stack)), 3);
             level.playSound(null, pos, SoundEvents.WOOL_PLACE, SoundSource.BLOCKS, 1.0F, 1.0F);
         }
         return ItemInteractionResult.sidedSuccess(level.isClientSide);

@@ -175,7 +175,7 @@ public final class NozzleFilterEvents {
     }
 
     /** Dye colour of a wool item, read from its registry path ({@code red_wool} -> RED); white otherwise. */
-    private static DyeColor woolColor(ItemStack stack) {
+    public static DyeColor woolColor(ItemStack stack) {
         ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
         String path = id.getPath();
         if (path.endsWith("_wool")) {

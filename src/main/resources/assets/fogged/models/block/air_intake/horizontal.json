@@ -6,6 +6,7 @@
     "intake_back": "fogged:block/air_intake/intake_back",
     "intake_base": "fogged:block/air_intake/intake_base",
     "intake_sides": "fogged:block/air_intake/intake_sides",
+    "net": "fogged:block/air_intake/net",
     "particle": "fogged:block/air_intake/air_casing"
   },
   "elements": [
@@ -209,12 +210,12 @@
       "from": [
         1.85,
         8,
-        9
+        14
       ],
       "to": [
         14.15,
         14,
-        14
+        9
       ],
       "faces": {
         "east": {
@@ -331,12 +332,12 @@
       "from": [
         1.9,
         0,
-        12
+        18
       ],
       "to": [
         14.1,
         14.05,
-        18
+        12
       ],
       "faces": {
         "east": {
@@ -376,6 +377,38 @@
           8,
           0,
           12
+        ]
+      }
+    },
+    {
+      "from": [
+        1.9,
+        0,
+        13
+      ],
+      "to": [
+        14.1,
+        14.4,
+        13
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0.9,
+            14,
+            12.1,
+            1.4
+          ],
+          "texture": "#net"
+        }
+      },
+      "rotation": {
+        "angle": -22.5,
+        "axis": "x",
+        "origin": [
+          8,
+          0,
+          13
         ]
       }
     }

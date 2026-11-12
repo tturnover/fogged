@@ -2,9 +2,9 @@
   "multipart": [
     {
       "when": {
-        "south": "duct|rim",
+        "south": "duct|rim|flange",
         "north": "none",
-        "up": "duct|rim",
+        "up": "duct|rim|flange",
         "down": "none"
       },
       "apply": {
@@ -14,8 +14,8 @@
     {
       "when": {
         "south": "none",
-        "north": "duct|rim",
-        "up": "duct|rim",
+        "north": "duct|rim|flange",
+        "up": "duct|rim|flange",
         "down": "none"
       },
       "apply": {
@@ -24,10 +24,10 @@
     },
     {
       "when": {
-        "south": "duct|rim",
+        "south": "duct|rim|flange",
         "north": "none",
         "up": "none",
-        "down": "duct|rim"
+        "down": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_ld_x"
@@ -36,9 +36,9 @@
     {
       "when": {
         "south": "none",
-        "north": "duct|rim",
+        "north": "duct|rim|flange",
         "up": "none",
-        "down": "duct|rim"
+        "down": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_rd_x"
@@ -48,8 +48,8 @@
       "when": {
         "south": "none",
         "north": "none",
-        "up": "duct|rim",
-        "down": "duct|rim"
+        "up": "duct|rim|flange",
+        "down": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_ud_x"
@@ -59,7 +59,7 @@
       "when": {
         "south": "none",
         "north": "none",
-        "up": "duct|rim",
+        "up": "duct|rim|flange",
         "down": "none"
       },
       "apply": {
@@ -71,7 +71,7 @@
         "south": "none",
         "north": "none",
         "up": "none",
-        "down": "duct|rim"
+        "down": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_d_x"
@@ -79,8 +79,8 @@
     },
     {
       "when": {
-        "south": "duct|rim",
-        "north": "duct|rim",
+        "south": "duct|rim|flange",
+        "north": "duct|rim|flange",
         "up": "none",
         "down": "none"
       },
@@ -90,7 +90,7 @@
     },
     {
       "when": {
-        "south": "duct|rim",
+        "south": "duct|rim|flange",
         "north": "none",
         "up": "none",
         "down": "none"
@@ -102,7 +102,7 @@
     {
       "when": {
         "south": "none",
-        "north": "duct|rim",
+        "north": "duct|rim|flange",
         "up": "none",
         "down": "none"
       },
@@ -114,33 +114,33 @@
       "when": {
         "OR": [
           {
-            "south": "duct|rim",
-            "north": "duct|rim",
-            "up": "duct|rim",
-            "down": "duct|rim"
+            "south": "duct|rim|flange",
+            "north": "duct|rim|flange",
+            "up": "duct|rim|flange",
+            "down": "duct|rim|flange"
           },
           {
             "south": "none",
-            "north": "duct|rim",
-            "up": "duct|rim",
-            "down": "duct|rim"
+            "north": "duct|rim|flange",
+            "up": "duct|rim|flange",
+            "down": "duct|rim|flange"
           },
           {
-            "south": "duct|rim",
+            "south": "duct|rim|flange",
             "north": "none",
-            "up": "duct|rim",
-            "down": "duct|rim"
+            "up": "duct|rim|flange",
+            "down": "duct|rim|flange"
           },
           {
-            "south": "duct|rim",
-            "north": "duct|rim",
+            "south": "duct|rim|flange",
+            "north": "duct|rim|flange",
             "up": "none",
-            "down": "duct|rim"
+            "down": "duct|rim|flange"
           },
           {
-            "south": "duct|rim",
-            "north": "duct|rim",
-            "up": "duct|rim",
+            "south": "duct|rim|flange",
+            "north": "duct|rim|flange",
+            "up": "duct|rim|flange",
             "down": "none"
           }
         ]
@@ -151,9 +151,9 @@
     },
     {
       "when": {
-        "east": "duct|rim",
+        "east": "duct|rim|flange",
         "west": "none",
-        "south": "duct|rim",
+        "south": "duct|rim|flange",
         "north": "none"
       },
       "apply": {
@@ -163,8 +163,8 @@
     {
       "when": {
         "east": "none",
-        "west": "duct|rim",
-        "south": "duct|rim",
+        "west": "duct|rim|flange",
+        "south": "duct|rim|flange",
         "north": "none"
       },
       "apply": {
@@ -173,10 +173,10 @@
     },
     {
       "when": {
-        "east": "duct|rim",
+        "east": "duct|rim|flange",
         "west": "none",
         "south": "none",
-        "north": "duct|rim"
+        "north": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_ld_y"
@@ -185,9 +185,9 @@
     {
       "when": {
         "east": "none",
-        "west": "duct|rim",
+        "west": "duct|rim|flange",
         "south": "none",
-        "north": "duct|rim"
+        "north": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_rd_y"
@@ -197,8 +197,8 @@
       "when": {
         "east": "none",
         "west": "none",
-        "south": "duct|rim",
-        "north": "duct|rim"
+        "south": "duct|rim|flange",
+        "north": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_ud_y"
@@ -208,7 +208,7 @@
       "when": {
         "east": "none",
         "west": "none",
-        "south": "duct|rim",
+        "south": "duct|rim|flange",
         "north": "none"
       },
       "apply": {
@@ -220,7 +220,7 @@
         "east": "none",
         "west": "none",
         "south": "none",
-        "north": "duct|rim"
+        "north": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_d_y"
@@ -228,8 +228,8 @@
     },
     {
       "when": {
-        "east": "duct|rim",
-        "west": "duct|rim",
+        "east": "duct|rim|flange",
+        "west": "duct|rim|flange",
         "south": "none",
         "north": "none"
       },
@@ -239,7 +239,7 @@
     },
     {
       "when": {
-        "east": "duct|rim",
+        "east": "duct|rim|flange",
         "west": "none",
         "south": "none",
         "north": "none"
@@ -251,7 +251,7 @@
     {
       "when": {
         "east": "none",
-        "west": "duct|rim",
+        "west": "duct|rim|flange",
         "south": "none",
         "north": "none"
       },
@@ -263,33 +263,33 @@
       "when": {
         "OR": [
           {
-            "east": "duct|rim",
-            "west": "duct|rim",
-            "south": "duct|rim",
-            "north": "duct|rim"
+            "east": "duct|rim|flange",
+            "west": "duct|rim|flange",
+            "south": "duct|rim|flange",
+            "north": "duct|rim|flange"
           },
           {
             "east": "none",
-            "west": "duct|rim",
-            "south": "duct|rim",
-            "north": "duct|rim"
+            "west": "duct|rim|flange",
+            "south": "duct|rim|flange",
+            "north": "duct|rim|flange"
           },
           {
-            "east": "duct|rim",
+            "east": "duct|rim|flange",
             "west": "none",
-            "south": "duct|rim",
-            "north": "duct|rim"
+            "south": "duct|rim|flange",
+            "north": "duct|rim|flange"
           },
           {
-            "east": "duct|rim",
-            "west": "duct|rim",
+            "east": "duct|rim|flange",
+            "west": "duct|rim|flange",
             "south": "none",
-            "north": "duct|rim"
+            "north": "duct|rim|flange"
           },
           {
-            "east": "duct|rim",
-            "west": "duct|rim",
-            "south": "duct|rim",
+            "east": "duct|rim|flange",
+            "west": "duct|rim|flange",
+            "south": "duct|rim|flange",
             "north": "none"
           }
         ]
@@ -300,9 +300,9 @@
     },
     {
       "when": {
-        "east": "duct|rim",
+        "east": "duct|rim|flange",
         "west": "none",
-        "up": "duct|rim",
+        "up": "duct|rim|flange",
         "down": "none"
       },
       "apply": {
@@ -312,8 +312,8 @@
     {
       "when": {
         "east": "none",
-        "west": "duct|rim",
-        "up": "duct|rim",
+        "west": "duct|rim|flange",
+        "up": "duct|rim|flange",
         "down": "none"
       },
       "apply": {
@@ -322,10 +322,10 @@
     },
     {
       "when": {
-        "east": "duct|rim",
+        "east": "duct|rim|flange",
         "west": "none",
         "up": "none",
-        "down": "duct|rim"
+        "down": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_ld_z"
@@ -334,9 +334,9 @@
     {
       "when": {
         "east": "none",
-        "west": "duct|rim",
+        "west": "duct|rim|flange",
         "up": "none",
-        "down": "duct|rim"
+        "down": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_rd_z"
@@ -346,8 +346,8 @@
       "when": {
         "east": "none",
         "west": "none",
-        "up": "duct|rim",
-        "down": "duct|rim"
+        "up": "duct|rim|flange",
+        "down": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_ud_z"
@@ -357,7 +357,7 @@
       "when": {
         "east": "none",
         "west": "none",
-        "up": "duct|rim",
+        "up": "duct|rim|flange",
         "down": "none"
       },
       "apply": {
@@ -369,7 +369,7 @@
         "east": "none",
         "west": "none",
         "up": "none",
-        "down": "duct|rim"
+        "down": "duct|rim|flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/core_d_z"
@@ -377,8 +377,8 @@
     },
     {
       "when": {
-        "east": "duct|rim",
-        "west": "duct|rim",
+        "east": "duct|rim|flange",
+        "west": "duct|rim|flange",
         "up": "none",
         "down": "none"
       },
@@ -388,7 +388,7 @@
     },
     {
       "when": {
-        "east": "duct|rim",
+        "east": "duct|rim|flange",
         "west": "none",
         "up": "none",
         "down": "none"
@@ -400,7 +400,7 @@
     {
       "when": {
         "east": "none",
-        "west": "duct|rim",
+        "west": "duct|rim|flange",
         "up": "none",
         "down": "none"
       },
@@ -412,33 +412,33 @@
       "when": {
         "OR": [
           {
-            "east": "duct|rim",
-            "west": "duct|rim",
-            "up": "duct|rim",
-            "down": "duct|rim"
+            "east": "duct|rim|flange",
+            "west": "duct|rim|flange",
+            "up": "duct|rim|flange",
+            "down": "duct|rim|flange"
           },
           {
             "east": "none",
-            "west": "duct|rim",
-            "up": "duct|rim",
-            "down": "duct|rim"
+            "west": "duct|rim|flange",
+            "up": "duct|rim|flange",
+            "down": "duct|rim|flange"
           },
           {
-            "east": "duct|rim",
+            "east": "duct|rim|flange",
             "west": "none",
-            "up": "duct|rim",
-            "down": "duct|rim"
+            "up": "duct|rim|flange",
+            "down": "duct|rim|flange"
           },
           {
-            "east": "duct|rim",
-            "west": "duct|rim",
+            "east": "duct|rim|flange",
+            "west": "duct|rim|flange",
             "up": "none",
-            "down": "duct|rim"
+            "down": "duct|rim|flange"
           },
           {
-            "east": "duct|rim",
-            "west": "duct|rim",
-            "up": "duct|rim",
+            "east": "duct|rim|flange",
+            "west": "duct|rim|flange",
+            "up": "duct|rim|flange",
             "down": "none"
           }
         ]
@@ -465,6 +465,14 @@
     },
     {
       "when": {
+        "north": "flange"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct/rim"
+      }
+    },
+    {
+      "when": {
         "east": "duct"
       },
       "apply": {
@@ -475,6 +483,15 @@
     {
       "when": {
         "east": "rim"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct/rim",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "east": "flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/rim",
@@ -501,6 +518,15 @@
     },
     {
       "when": {
+        "south": "flange"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct/rim",
+        "y": 180
+      }
+    },
+    {
+      "when": {
         "west": "duct"
       },
       "apply": {
@@ -511,6 +537,15 @@
     {
       "when": {
         "west": "rim"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct/rim",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "west": "flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/rim",
@@ -537,6 +572,15 @@
     },
     {
       "when": {
+        "up": "flange"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct/rim",
+        "x": 270
+      }
+    },
+    {
+      "when": {
         "down": "duct"
       },
       "apply": {
@@ -547,6 +591,15 @@
     {
       "when": {
         "down": "rim"
+      },
+      "apply": {
+        "model": "fogged:block/air_duct/rim",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "down": "flange"
       },
       "apply": {
         "model": "fogged:block/air_duct/rim",

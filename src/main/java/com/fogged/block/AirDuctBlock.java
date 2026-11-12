@@ -39,7 +39,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * <li>joined to nothing, it runs straight along the way it was placed (or keeps the two ends it had);
  * <li>an open side with nothing to join -- an open end -- is where the air comes out ({@link #ends}).
  * </ul>
- * Each side is {@link Side#NONE} (closed), {@link Side#DUCT} (joined to another duct: a collar) or
+ * Each side is {@link Side#NONE} (closed), {@link Side#DUCT} (joined to another duct on a straight run: a collar), {@link Side#FLANGE} (joined to another duct where it bends or branches: a flange, as Create flanges its pipes there) or
  * {@link Side#RIM} (an open end, or fed into a compressor or intake: a rim), which picks its model the
  * way Create's pipe picks its attachments. Its outline is the tube, but it collides as a full block, so
  * a duct run through a wall is as tight as the wall.
@@ -56,10 +56,12 @@ public class AirDuctBlock extends Block {
     public enum Side implements StringRepresentable {
         /** Closed. */
         NONE,
-        /** Joined to another duct. */
+        /** Joined to another duct, on a straight run: a plain collar. */
         DUCT,
         /** Open, onto something that is not a duct: a compressor, an intake, or the world (a vent). */
-        RIM;
+        RIM,
+        /** Joined to another duct where this one bends or branches: a flange. */
+        FLANGE;
 
         @Override
         public String getSerializedName() {
@@ -68,6 +70,11 @@ public class AirDuctBlock extends Block {
 
         public boolean open() {
             return this != NONE;
+        }
+
+        /** Joined to another duct. */
+        public boolean duct() {
+            return this == DUCT || this == FLANGE;
         }
     }
 
@@ -184,15 +191,30 @@ public class AirDuctBlock extends Block {
         return withKinds(state, level, pos);
     }
 
-    // Each open side a collar where a duct is beside it, a rim anywhere else.
+    // Each open side a collar where a duct is beside it -- a flange, if this one bends or branches -- and
+    // a rim anywhere else.
     private static BlockState withKinds(BlockState state, BlockGetter level, BlockPos pos) {
+        Side joined = straight(state) ? Side.DUCT : Side.FLANGE;
         for (Direction d : Direction.values()) {
             if (isOpen(state, d)) {
                 boolean duct = level.getBlockState(pos.relative(d)).getBlock() instanceof AirDuctBlock;
-                state = state.setValue(SIDES.get(d), duct ? Side.DUCT : Side.RIM);
+                state = state.setValue(SIDES.get(d), duct ? joined : Side.RIM);
             }
         }
         return state;
+    }
+
+    // Open on exactly two opposite sides.
+    private static boolean straight(BlockState state) {
+        int open = 0;
+        Direction one = null;
+        for (Direction d : Direction.values()) {
+            if (isOpen(state, d)) {
+                open++;
+                one = d;
+            }
+        }
+        return open == 2 && isOpen(state, one.getOpposite());
     }
 
     @Override
@@ -221,7 +243,7 @@ public class AirDuctBlock extends Block {
                 Side side = s.getValue(SIDES.get(d));
                 if (side == Side.DUCT) {
                     shape = Shapes.or(shape, STUBS.get(d));
-                } else if (side == Side.RIM) {
+                } else if (side == Side.RIM || side == Side.FLANGE) {
                     shape = Shapes.or(shape, STUBS.get(d), RIMS.get(d));
                 }
             }
@@ -299,7 +321,7 @@ public class AirDuctBlock extends Block {
             BlockPos at = queue.get(i);
             BlockState here = level.getBlockState(at);
             for (Direction d : Direction.values()) {
-                if (here.getValue(SIDES.get(d)) != Side.DUCT) {
+                if (!here.getValue(SIDES.get(d)).duct()) {
                     continue;
                 }
                 BlockPos next = at.relative(d);

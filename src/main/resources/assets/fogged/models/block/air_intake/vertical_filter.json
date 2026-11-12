@@ -1,19 +1,19 @@
 {
   "render_type": "minecraft:cutout",
   "textures": {
-    "net": "fogged:block/air_intake/net",
-    "particle": "fogged:block/air_intake/net"
+    "filter": "minecraft:block/white_wool",
+    "particle": "minecraft:block/white_wool"
   },
   "elements": [
     {
       "from": [
         2.1,
-        8,
+        7,
         2.1
       ],
       "to": [
         13.9,
-        9.3,
+        8.3,
         13.9
       ],
       "faces": {
@@ -24,7 +24,7 @@
             13.9,
             13.9
           ],
-          "texture": "#net"
+          "texture": "#filter"
         }
       }
     }

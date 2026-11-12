@@ -6,6 +6,7 @@
     "intake_base": "fogged:block/air_intake/intake_base",
     "intake_sides": "fogged:block/air_intake/intake_sides",
     "intake_vertical_frame": "fogged:block/air_intake/intake_vertical_frame",
+    "net": "fogged:block/air_intake/net",
     "particle": "fogged:block/air_intake/air_casing"
   },
   "elements": [
@@ -361,6 +362,29 @@
             16
           ],
           "texture": "#intake_vertical_frame"
+        }
+      }
+    },
+    {
+      "from": [
+        2.1,
+        8,
+        2.1
+      ],
+      "to": [
+        13.9,
+        9.3,
+        13.9
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            2.1,
+            2.1,
+            13.9,
+            13.9
+          ],
+          "texture": "#net"
         }
       }
     }

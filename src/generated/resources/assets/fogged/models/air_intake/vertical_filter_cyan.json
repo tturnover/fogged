@@ -1,0 +1,7 @@
+{
+  "parent": "fogged:block/air_intake/vertical_filter",
+  "textures": {
+    "filter": "minecraft:block/cyan_wool",
+    "particle": "minecraft:block/cyan_wool"
+  }
+}

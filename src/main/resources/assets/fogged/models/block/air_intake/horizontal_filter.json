@@ -1,20 +1,20 @@
 {
   "render_type": "minecraft:cutout",
   "textures": {
-    "net": "fogged:block/air_intake/net",
-    "particle": "fogged:block/air_intake/net"
+    "filter": "minecraft:block/white_wool",
+    "particle": "minecraft:block/white_wool"
   },
   "elements": [
     {
       "from": [
         1.9,
-        0,
-        13
+        0.5,
+        14
       ],
       "to": [
         14.1,
-        14.4,
-        13
+        14.9,
+        14
       ],
       "faces": {
         "north": {
@@ -24,7 +24,7 @@
             12.1,
             1.4
           ],
-          "texture": "#net"
+          "texture": "#filter"
         }
       },
       "rotation": {
@@ -32,8 +32,8 @@
         "axis": "x",
         "origin": [
           8,
-          0,
-          13
+          0.5,
+          14
         ]
       }
     }
