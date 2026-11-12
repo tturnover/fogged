@@ -148,6 +148,9 @@ public final class AirCompressorCore {
     private int drainCursor;     // roomOrder is drained from the end down to here
     private double drainCarry;   // the part of a block owed from earlier ticks
     private boolean stopped;     // a redstone signal into the unit
+    // The room grew past what the group can hold (capacity fell -- a compressor failed, power dropped):
+    // it keeps the air nearest the outlets, up to what it can hold, and loses the rest slowly.
+    private boolean shrinking;
     private int filterSignal;    // the comparator reading, see updateSignal
 
     // --- Sharing a room: units whose outlets open into the same room work it as one (see elect). The
@@ -181,6 +184,8 @@ public final class AirCompressorCore {
     private double shownFlow;
     private int shownNeed;
     private int shownCount = 1; // the compressors working the room together
+    private double shownOwnFlow; // this compressor's own air in
+    private int shownOwnSource;  // where it comes from: 1 clean, 2 filtered, 3 both, 0 none
     /** Ticks between keeping the client's readout current. */
     private static final int READOUT_INTERVAL = 10;
 
@@ -338,9 +343,13 @@ public final class AirCompressorCore {
         if (state == State.PRESSURIZING) {
             pressurize(level, mates);
         }
+        if (shrinking && state == State.OVERSIZE) {
+            drainTo(Config.COMPRESSOR_DRAIN_RATE.get(), Math.max(0, roomCapacity));
+        }
         emit(level);
-        // A draining room is still a sealed room: saved with the world, to go on draining after a load.
-        space.report(state.ordinal(), state == State.SEALED || draining, roomVolume, roomCapacity, leakPath);
+        // A draining or shrinking room is still a sealed room: saved with the world, to go on after a load.
+        space.report(state.ordinal(), state == State.SEALED || draining || shrinking, roomVolume, roomCapacity,
+                leakPath);
         // Keep the goggles' readout current: the room and the drive change all the time.
         if (level.getGameTime() % READOUT_INTERVAL == Math.floorMod(pos().asLong(), READOUT_INTERVAL)) {
             host.syncToClient();
@@ -511,6 +520,30 @@ public final class AirCompressorCore {
             follow(lead);
             return true;
         }
+        // Members no longer reached -- a door shut between them -- take the air on their side with them,
+        // and hold it themselves from here.
+        LongOpenHashSet reached = new LongOpenHashSet(result.order());
+        for (BlockPos p : group) {
+            if (found.contains(p)) {
+                continue;
+            }
+            AirCompressorCore gone = coreAt(level, p);
+            if (gone == null || gone.space == null || !pos().equals(gone.leaderPos) || space == null) {
+                continue;
+            }
+            LongOpenHashSet cut = new LongOpenHashSet();
+            for (long c : space.cells()) {
+                if (!reached.contains(c)) {
+                    cut.add(c);
+                }
+            }
+            gone.leaderPos = null;
+            gone.share = 1.0;
+            gone.space.cells().addAll(cut);
+            gone.setState(cut.isEmpty() ? State.OFF : State.SEALED);
+            gone.space.markDirty(); // look at its own room straight away, keeping the air it took
+            space.markDirty();      // and this one at what is left of its own
+        }
         boolean grew = false;
         for (BlockPos o : found) {
             AirCompressorCore other = coreAt(level, o);
@@ -527,6 +560,32 @@ public final class AirCompressorCore {
             space.markDirty(); // with their capacity and outlets, look again
         }
         return false;
+    }
+
+    // The capacity of every other compressor in the level whose air comes out somewhere, outside this
+    // group: the most a room this one cannot hold alone could gain by finding them.
+    private int othersCapacity(Level level, List<AirCompressorCore> mates) {
+        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<Set<BlockPos>> owners = SEED_OWNERS.get(level);
+        if (owners == null) {
+            return 0;
+        }
+        Set<BlockPos> counted = new HashSet<>();
+        counted.add(pos());
+        for (AirCompressorCore m : mates) {
+            counted.add(m.pos());
+        }
+        int sum = 0;
+        for (Set<BlockPos> set : owners.values()) {
+            for (BlockPos o : set) {
+                if (counted.add(o)) {
+                    AirCompressorCore other = coreAt(level, o);
+                    if (other != null) {
+                        sum += Math.max(other.capacity, Config.COMPRESSOR_VOLUME.getAsInt());
+                    }
+                }
+            }
+        }
+        return sum;
     }
 
     // Follow the unit at `lead`: its room is held there now.
@@ -572,14 +631,17 @@ public final class AirCompressorCore {
     // once as ever; with no room held, the unit just says why.
     private void starve(ServerLevel level, List<BlockPos> members, Direction facing, int area, State why,
             boolean recheck) {
-        if (draining || state == State.SEALED || state == State.PRESSURIZING) {
+        if (draining || shrinking || state == State.SEALED || state == State.PRESSURIZING) {
             draining = true;
+            shrinking = false;
             if (recheck) {
                 check(level, members, facing);
             }
             if (draining) {
                 setState(why);
-                drain(area);
+                // Stopped by redstone it vents, fast enough to cycle an airlock; starved of air, it
+                // only loses it slowly.
+                drainTo(why == State.STOPPED ? Config.COMPRESSOR_VENT_RATE.get() : Config.COMPRESSOR_DRAIN_RATE.get(), 0);
             }
         } else {
             settle(why);
@@ -837,7 +899,19 @@ public final class AirCompressorCore {
             retryIn = 10;
             return;
         }
-        if (elect(level, result)) {
+        // Who shares this room is told by a fill from this compressor's own outlets alone: the group's
+        // fill starts at every member's, so it reaches each of them even after a door shut between them.
+        // It looks on as far as every other compressor about could add -- a room too big for this group
+        // alone may hold another compressor past where its capacity stopped the fill.
+        AirFill reach = result;
+        if (!mates.isEmpty() || result.result() == AirFill.Result.OVERSIZE) {
+            AirFill own = AirFill.run(level, ownSeeds,
+                    Math.max(1, limit + othersCapacity(level, mates) - allDucts.size()));
+            if (own.result() != AirFill.Result.UNLOADED) {
+                reach = own;
+            }
+        }
+        if (elect(level, reach)) {
             return; // another unit holds this room: this one follows it now
         }
         mates = mates(level);
@@ -867,7 +941,7 @@ public final class AirCompressorCore {
                     // Saved sealed and found sealed again on load: the air never left, so it is not
                     // pumped in again -- a base under the murk is breathable the moment it loads.
                     cells.addAll(order);
-                } else if (state == State.SEALED || state == State.PRESSURIZING || draining) {
+                } else if (state == State.SEALED || state == State.PRESSURIZING || draining || shrinking) {
                     // Still sealed: keep the air already in, drop what was walled off, carry on with the rest.
                     LongOpenHashSet room = new LongOpenHashSet(order);
                     cells.removeIf((java.util.function.LongPredicate) c -> !room.contains(c));
@@ -884,13 +958,30 @@ public final class AirCompressorCore {
                 }
                 cursor = 0;
                 leakPath = new long[0];
+                shrinking = false;
                 setState(pending.isEmpty() ? State.SEALED : State.PRESSURIZING);
             }
             case LEAK -> {
                 leakPath = result.leakPath();
                 flood(State.LEAK);
             }
-            case OVERSIZE -> flood(State.OVERSIZE);
+            case OVERSIZE -> {
+                // Too big for what the group holds now. A room that was held keeps the air nearest the
+                // outlets and loses the rest slowly, to what fits (see tickController); one never held
+                // has nothing to keep.
+                boolean held = space.cells().size() > 0 && (state == State.SEALED || state == State.PRESSURIZING
+                        || state == State.OVERSIZE || draining || shrinking);
+                if (held) {
+                    shrinking = true;
+                    draining = false;
+                    pending = new LongArrayList();
+                    cursor = 0;
+                    leakPath = new long[0];
+                    setState(State.OVERSIZE);
+                } else {
+                    flood(State.OVERSIZE);
+                }
+            }
             case BLOCKED -> flood(State.BLOCKED);
             default -> {
             }
@@ -947,13 +1038,17 @@ public final class AirCompressorCore {
         }
     }
 
-    // Lose a little of a draining room's air: Config#COMPRESSOR_DRAIN_RATE blocks a second, farthest from
-    // the outlet first -- the cells last reached by the fill. Gone entirely, the room floods.
-    private void drain(int area) {
+    // Lose a little of the room's air, `rate` blocks a second, farthest from the outlet first -- the cells
+    // last reached by the fill -- down to `keep` blocks. Gone entirely, the room floods.
+    private void drainTo(double rate, int keep) {
         LongOpenHashSet cells = space.cells();
-        drainCarry += Config.COMPRESSOR_DRAIN_RATE.get() / 20.0;
-        int lose = (int) drainCarry;
-        drainCarry -= lose;
+        if (cells.size() <= keep) {
+            drainCarry = 0.0;
+            return;
+        }
+        drainCarry += rate / 20.0;
+        int lose = Math.min((int) drainCarry, cells.size() - keep);
+        drainCarry -= (int) drainCarry;
         for (int i = roomOrder.size() - 1 - drainCursor; lose > 0 && i >= 0; i--) {
             drainCursor++;
             if (cells.remove(roomOrder.getLong(i))) {
@@ -974,6 +1069,7 @@ public final class AirCompressorCore {
 
     private void flood(State why) {
         draining = false;
+        shrinking = false;
         roomOrder = new LongArrayList();
         drainCursor = 0;
         if (space != null) {
@@ -1145,6 +1241,15 @@ public final class AirCompressorCore {
         tag.putDouble("Flow", h.groupFlow);
         tag.putInt("Need", Config.COMPRESSOR_FILL_RATE.getAsInt() * (h.group.size() + 1));
         tag.putInt("Count", h.group.size() + 1);
+        // This compressor's own part: what its intakes supply, and from where.
+        tag.putDouble("OwnFlow", supplyFlow);
+        boolean clean = false;
+        boolean filtered = false;
+        for (Live in : live) {
+            clean |= !in.filtered();
+            filtered |= in.filtered();
+        }
+        tag.putInt("OwnSource", (clean ? 1 : 0) | (filtered ? 2 : 0));
     }
 
     /** Read what {@link #writeClient} wrote. */
@@ -1157,6 +1262,8 @@ public final class AirCompressorCore {
         shownFlow = tag.getDouble("Flow");
         shownNeed = tag.getInt("Need");
         shownCount = Math.max(1, tag.getInt("Count"));
+        shownOwnFlow = tag.getDouble("OwnFlow");
+        shownOwnSource = tag.getInt("OwnSource");
     }
 
     /**
@@ -1202,6 +1309,20 @@ public final class AirCompressorCore {
                 amount(c.shownFlow), amount(c.shownNeed))
                 .withStyle(c.shownFlow + 0.5 >= c.shownNeed ? net.minecraft.ChatFormatting.AQUA
                         : net.minecraft.ChatFormatting.GOLD)));
+        // Working a room with others: this compressor's own part, and where its air comes from.
+        if (c.shownCount > 1) {
+            String source = switch (c.shownOwnSource) {
+                case 1 -> "clean";
+                case 2 -> "filtered";
+                case 3 -> "mixed";
+                default -> "none";
+            };
+            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.this_one")
+                    .withStyle(net.minecraft.ChatFormatting.GRAY)));
+            tooltip.add(line(net.minecraft.network.chat.Component.translatable("fogged.goggles.own_air",
+                    amount(c.shownOwnFlow), net.minecraft.network.chat.Component.translatable("fogged.goggles.source." + source))
+                    .withStyle(net.minecraft.ChatFormatting.AQUA)));
+        }
         // What the unit is spending, from whatever drives it -- the same from every block of it.
         for (net.minecraft.network.chat.Component spend : c.unitDrive(c.members()).readout()) {
             tooltip.add(line(spend));

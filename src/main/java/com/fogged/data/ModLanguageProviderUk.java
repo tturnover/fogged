@@ -54,6 +54,12 @@ public class ModLanguageProviderUk extends LanguageProvider {
         // Create goggles on an air compressor (AirCompressorCore#goggleLines).
         add("fogged.goggles.compressor", "Повітряний компресор:");
         add("fogged.goggles.compressors", "Компресорів у приміщенні:");
+        add("fogged.goggles.this_one", "Цей компресор:");
+        add("fogged.goggles.own_air", " %s блоків/с, %s");
+        add("fogged.goggles.source.clean", "чисте повітря");
+        add("fogged.goggles.source.filtered", "через фільтр");
+        add("fogged.goggles.source.mixed", "чисте й через фільтр");
+        add("fogged.goggles.source.none", "немає повітря");
         add("fogged.goggles.state.off", "Немає живлення");
         add("fogged.goggles.state.no_intake", "Немає забору повітря");
         add("fogged.goggles.state.unfiltered", "Забір тягне каламуть: потрібен фільтр");
@@ -206,6 +212,8 @@ public class ModLanguageProviderUk extends LanguageProvider {
                 "Звуки, коли фільтр забору забивається, як і звуки встановлення.");
         cfg("compressorDrainRate", "Втрата повітря без забору",
                 "Скільки блоків повітря герметичного приміщення втрачається за секунду, поки не надходить чисте повітря. Решта лишається, найдальше від виходу йде першим. 0 = не втрачається.");
+        cfg("compressorVentRate", "Скидання повітря при зупинці",
+                "Скільки блоків повітря герметичного приміщення скидається за секунду, поки редстоун зупиняє його компресори: швидко, щоб прогнати шлюз. 0 = не скидається.");
         cfg("intakeFlow", "Повітря на забір",
                 "Скільки блоків повітря за секунду дає один забір. Компресор наповнює не швидше, ніж його забори подають.");
         cfg("intakeDuctLossPercent", "Втрата на повітропровід",

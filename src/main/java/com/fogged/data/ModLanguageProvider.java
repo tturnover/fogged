@@ -50,6 +50,12 @@ public class ModLanguageProvider extends LanguageProvider {
         // Create goggles on an air compressor (AirCompressorCore#goggleLines).
         add("fogged.goggles.compressor", "Air Compressor:");
         add("fogged.goggles.compressors", "Compressors In The Room:");
+        add("fogged.goggles.this_one", "This Compressor:");
+        add("fogged.goggles.own_air", " %s blocks/s, %s");
+        add("fogged.goggles.source.clean", "clean air");
+        add("fogged.goggles.source.filtered", "filtered");
+        add("fogged.goggles.source.mixed", "clean and filtered");
+        add("fogged.goggles.source.none", "no air");
         add("fogged.goggles.state.off", "No power");
         add("fogged.goggles.state.no_intake", "No air intake");
         add("fogged.goggles.state.unfiltered", "Intake draws murk: fit a filter");
@@ -205,6 +211,8 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Sounds when an intake's filter clogs, as the fitted sounds.");
         cfg("compressorDrainRate", "Air Lost Without Intake",
                 "Blocks of a sealed room's air lost per second while no clean air comes in. The rest stays, farthest from the outlet going first. 0 = kept.");
+        cfg("compressorVentRate", "Air Vented When Stopped",
+                "Blocks of a sealed room's air vented per second while redstone stops its compressors: fast, to cycle an airlock. 0 = kept.");
         cfg("intakeFlow", "Air Per Intake",
                 "Blocks of air one intake supplies per second. A compressor fills only as fast as its intakes supply.");
         cfg("intakeDuctLossPercent", "Flow Lost Per Duct",

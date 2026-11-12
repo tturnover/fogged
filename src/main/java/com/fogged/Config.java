@@ -553,6 +553,12 @@ public class Config {
                     "0 = the room keeps its air for as long as the compressor runs.")
             .defineInRange("compressorDrainRate", 2.0, 0.0, 100_000.0);
 
+    public static final ModConfigSpec.DoubleValue COMPRESSOR_VENT_RATE = COMMON
+            .comment("Blocks of a sealed room's air vented per second while a redstone signal stops its",
+                    "compressors -- fast, so a lever or a button cycles an airlock. Farthest from the outlet",
+                    "first; the room refills when the signal goes off. 0 = stopping keeps the air in.")
+            .defineInRange("compressorVentRate", 20.0, 0.0, 100_000.0);
+
     public static final ModConfigSpec.IntValue INTAKE_FLOW = COMMON
             .comment("Blocks of air one air intake supplies per second. A compressor fills only as fast as",
                     "its intakes supply: at the default one compressor's worth each, so one intake to a",
