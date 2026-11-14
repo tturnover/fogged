@@ -37,6 +37,8 @@ public class ModBlockLoot extends BlockLootSubProvider {
             Block block = holder.get();
             if (block == ModBlocks.FOG_DETECTOR_EXTENSION.get()) {
                 add(block, createSingleItemTable(ModBlocks.FOG_DETECTOR.get()));
+            } else if (block == ModBlocks.MURK.get()) {
+                // noLootTable(): murk is fog, there is nothing to drop
             } else if (block == ModBlocks.AIR_COMPRESSOR_INTAKE.get()) {
                 add(block, noDrop()); // the compressor drops; its intake is part of it
             } else if (block == ModBlocks.NOZZLE_FILTER.get()) {

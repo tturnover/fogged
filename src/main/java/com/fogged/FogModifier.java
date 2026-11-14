@@ -22,6 +22,9 @@ import net.neoforged.neoforge.client.event.ViewportEvent;
 @EventBusSubscriber(modid = Fogged.MODID, value = Dist.CLIENT)
 public class FogModifier {
 
+    /** How far the camera sees from inside volumetric fog (VolumeFog), in blocks. */
+    private static final float VOLUME_FOG_DISTANCE = 5.0F;
+
     // LOW priority: run after any other mod's own RenderFog listener, so what we override is whatever
     // that mod already computed rather than a stale vanilla default.
     @SubscribeEvent(priority = EventPriority.LOW)
@@ -38,8 +41,15 @@ public class FogModifier {
         float far = Config.synced(Config.FOG_DISTANCE);
         // In a sealed room the murk starts past its walls rather than at the camera (AirtightView).
         float clear = AirtightView.clearRadius(event.getCamera().getPosition());
-        event.setNearPlaneDistance(far * 0.25F + clear);
-        event.setFarPlaneDistance(far + clear);
+        float near = far * 0.25F + clear;
+        far += clear;
+        if (VolumeFogClient.cameraInFog(event.getCamera())) {
+            // Inside a cloud of volumetric fog: a few blocks, or a small pool would look clear.
+            near = 0.0F;
+            far = Math.min(far, VOLUME_FOG_DISTANCE);
+        }
+        event.setNearPlaneDistance(near);
+        event.setFarPlaneDistance(far);
         // The shape too, and SPHERE on purpose. Vanilla hands the terrain fog CYLINDER
         // (FogRenderer.setupFog), whose distance is max(length(xz), abs(y)) -- so a line of sight
         // running down at 45 degrees only reaches fogDistance after 1.41 * fogDistance of actual
@@ -86,8 +96,13 @@ public class FogModifier {
         float murkEnd = Config.synced(Config.FOG_DISTANCE);
         float clear = AirtightView.clearRadius(mc.gameRenderer.getMainCamera().getPosition());
         float[] c = Config.planeColor();
-        RenderSystem.setShaderFogStart(murkEnd * 0.25F + clear);
-        RenderSystem.setShaderFogEnd(murkEnd + clear);
+        float start = murkEnd * 0.25F + clear, end = murkEnd + clear;
+        if (VolumeFogClient.cameraInFog(mc.gameRenderer.getMainCamera())) {
+            start = 0.0F;
+            end = Math.min(end, VOLUME_FOG_DISTANCE);
+        }
+        RenderSystem.setShaderFogStart(start);
+        RenderSystem.setShaderFogEnd(end);
         RenderSystem.setShaderFogShape(FogShape.SPHERE); // as the event sets it; see there for why
         RenderSystem.setShaderFogColor(c[0], c[1], c[2], 1.0F);
     }
@@ -120,6 +135,6 @@ public class FogModifier {
         if (level == null) {
             return false;
         }
-        return Config.fogged(level, cam.getPosition().y);
+        return Config.fogged(level, cam.getPosition().y) || VolumeFogClient.cameraInFog(cam);
     }
 }

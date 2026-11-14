@@ -39,6 +39,7 @@ public class FoggedClient {
         modEventBus.addListener(FoggedClient::modifyBakingResult);
         modEventBus.addListener(FoggedClient::registerRenderers);
         modEventBus.addListener(FoggedClient::registerReloadListeners);
+        modEventBus.addListener(FoggedClient::registerBlockColors);
         AirtightDebugRenderer.init(); // hooks the airtight payloads up to the client
         // The server's gameplay values (ConfigSync) belong to that connection only.
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut e) -> Config.acceptServerValues(null));
@@ -60,6 +61,20 @@ public class FoggedClient {
                 ctx -> new RiggedRenderer<>(ctx, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "trudger")));
         event.registerEntityRenderer(ModEntities.SNAP_DOG.get(),
                 ctx -> new RiggedRenderer<>(ctx, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "snap_dog")));
+    }
+
+    // Murk blocks take the murk's colour (their textures are grey), their foam the foam's. A colour changed in the config shows
+    // as chunks are next rebuilt.
+    private static void registerBlockColors(net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Block event) {
+        event.register((state, level, pos, tint) -> {
+            // 0: the body; 1: the spots and vapour, foam-coloured; 2: the rim and drips, the foam lifted
+            // toward white as the plane's own spray is, so the brink reads against the body.
+            float[] c = tint == 0 ? Config.planeColor() : Config.foamColor();
+            float lift = tint == 2 ? 0.7F : 0.0F;
+            int r = (int) ((c[0] + (1 - c[0]) * lift) * 255), g = (int) ((c[1] + (1 - c[1]) * lift) * 255),
+                    b = (int) ((c[2] + (1 - c[2]) * lift) * 255);
+            return r << 16 | g << 8 | b;
+        }, com.fogged.registry.ModBlocks.MURK.get());
     }
 
     // Rig models, animations and tuning load with the resources, so F3+T picks up a new export.
@@ -86,16 +101,21 @@ public class FoggedClient {
         event.registerSpriteSet(ModParticles.PUFF.get(), PuffParticle.Provider::new);
         event.registerSpriteSet(ModParticles.FOAM.get(), FoamParticle.Provider::new);
         event.registerSpriteSet(ModParticles.AIR.get(), AirParticle.Provider::new);
+        event.registerSpriteSet(ModParticles.FOG_SPILL.get(), FogSpillParticle.Provider::new);
     }
 
     // Wrap the fog-detector / extension models so their pole retextures to the column's chosen log.
     private static void modifyBakingResult(ModelEvent.ModifyBakingResult event) {
         ResourceLocation detector = ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "fog_detector");
         ResourceLocation extension = ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "fog_detector_extension");
+        ResourceLocation murk = ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "murk");
         for (var entry : event.getModels().entrySet()) {
             ModelResourceLocation loc = entry.getKey();
             if (loc.id().equals(detector) || loc.id().equals(extension)) {
                 entry.setValue(new FogDetectorLogModel(entry.getValue()));
+            }
+            if (loc.id().equals(murk)) {
+                entry.setValue(new MurkModel(entry.getValue())); // textures laid out in world space
             }
         }
     }

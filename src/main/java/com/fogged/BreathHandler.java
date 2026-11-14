@@ -44,7 +44,7 @@ public class BreathHandler {
                 || player.canBreatheUnderwater()
                 || MobEffectUtil.hasWaterBreathing(player)
                 || player.isEyeInFluid(FluidTags.WATER)
-                || !Config.eyesUnderSurface(player.level(), player.getEyeY())
+                || !inMurk(player)
                 || Shelter.breathes(player); // filter sphere or sealed room
         if (handledElsewhere) {
             return;
@@ -55,6 +55,12 @@ public class BreathHandler {
         // the loss this tick; otherwise we drain at the configured rate.
         event.setCanBreathe(false);
         event.setConsumeAirAmount(skipLossFromRespiration(player) ? 0 : airLoss(player));
+    }
+
+    // Under the boundary, or with the eyes in volumetric fog (VolumeFog), which suffocates the same.
+    private static boolean inMurk(Player player) {
+        return Config.eyesUnderSurface(player.level(), player.getEyeY())
+                || VolumeFog.inFog(player.level(), player.getEyePosition());
     }
 
     // Air is spent in whole units while the depth factor is continuous, so the leftover fraction is
@@ -85,7 +91,7 @@ public class BreathHandler {
             return; // not our doing: with player suffocation off we never induce drowning
         }
         Level level = player.level();
-        if (player.isEyeInFluid(FluidTags.WATER) || !Config.eyesUnderSurface(level, player.getEyeY())) {
+        if (player.isEyeInFluid(FluidTags.WATER) || !inMurk(player)) {
             return; // real water, or above the boundary -> leave vanilla drowning alone
         }
         event.setCanceled(true);

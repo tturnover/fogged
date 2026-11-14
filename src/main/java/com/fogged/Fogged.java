@@ -42,6 +42,7 @@ public class Fogged {
         FoggedDatapacks.register(modEventBus);
         modEventBus.addListener(AirtightDebug::registerPayloads);
         modEventBus.addListener(AirtightSync::registerPayloads);
+        VolumeFog.register(modEventBus); // its chunk attachment and sync payload
         ModFeatures.register(modEventBus);
         ModStructures.register(modEventBus);
         ModStructurePieces.register(modEventBus);

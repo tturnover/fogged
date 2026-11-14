@@ -31,6 +31,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code /fogged pillars} -- why the towers near you came out as they did.</li>
  *   <li>{@code /fogged locate pillars|ridge|isle} -- the nearest karst tower of that kind, as a
  *       clickable position.</li>
+ *   <li>{@code /fogged volumefog clear [radius]|count} -- wipe or count the volumetric fog.</li>
  *   <li>{@code /fogged airtight} -- show or hide the airtight rooms near you (see {@link AirtightDebug}).</li>
  *   <li>{@code /fogged animTest} -- pick the one mob that circles you, and steer it from clickable
  *       chat buttons (see {@link AnimTestControl}).</li>
@@ -58,6 +59,7 @@ public final class FoggedCommands {
                 .then(Commands.literal("pillars")
                         .executes(FoggedCommands::pillarReport))
                 .then(AirtightDebug.command())
+                .then(volumeFogCommand())
                 .then(Commands.literal("locate")
                         .then(Commands.literal("pillars")
                                 .executes(ctx -> locatePillars(ctx, KarstPillarsFeature.Layout.ANY)))
@@ -66,6 +68,31 @@ public final class FoggedCommands {
                         .then(Commands.literal("isle")
                                 .executes(ctx -> locatePillars(ctx, KarstPillarsFeature.Layout.ISLE))));
         event.getDispatcher().register(fogged);
+    }
+
+    // /fogged volumefog clear [radius] | count -- the volumetric fog test tools (see VolumeFog).
+    private static LiteralArgumentBuilder<CommandSourceStack> volumeFogCommand() {
+        return Commands.literal("volumefog")
+                .requires(src -> src.hasPermission(2))
+                .then(Commands.literal("clear")
+                        .executes(ctx -> clearVolumeFog(ctx, 32))
+                        .then(Commands.argument("radius", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 256))
+                                .executes(ctx -> clearVolumeFog(ctx,
+                                        com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "radius")))))
+                .then(Commands.literal("count")
+                        .executes(ctx -> {
+                            int[] c = VolumeFog.census(ctx.getSource().getLevel());
+                            ctx.getSource().sendSuccess(() -> Component.literal("Volumetric fog loaded here: "
+                                    + c[0] + " half-cells over " + c[1] + " cells (" + c[0] / 2.0 + " blocks)."), false);
+                            return c[1];
+                        }));
+    }
+
+    private static int clearVolumeFog(CommandContext<CommandSourceStack> ctx, int radius) {
+        CommandSourceStack src = ctx.getSource();
+        int removed = VolumeFog.clear(src.getLevel(), BlockPos.containing(src.getPosition()), radius);
+        src.sendSuccess(() -> Component.literal("Cleared " + removed / 2.0 + " blocks of volumetric fog."), true);
+        return removed;
     }
 
     private static int fogHeight(CommandContext<CommandSourceStack> ctx) {

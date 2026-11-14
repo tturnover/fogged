@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "level=1,surface=false": {
+      "model": "fogged:block/murk_half"
+    },
+    "level=1,surface=true": {
+      "model": "fogged:block/murk_half_top"
+    },
+    "level=2,surface=false": {
+      "model": "fogged:block/murk_full"
+    },
+    "level=2,surface=true": {
+      "model": "fogged:block/murk_full_top"
+    }
+  }
+}

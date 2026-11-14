@@ -9,6 +9,8 @@ import com.fogged.block.AirCompressorIntakeBlock;
 import com.fogged.block.AirDuctBlock;
 import com.fogged.block.FogDetectorBlock;
 import com.fogged.block.FogDetectorExtensionBlock;
+import com.fogged.block.FogEmitterBlock;
+import com.fogged.block.MurkBlock;
 import com.fogged.block.NozzleFilterBlock;
 
 import net.minecraft.world.item.BlockItem;
@@ -99,6 +101,30 @@ public final class ModBlocks {
                     .requiresCorrectToolForDrops()
                     .sound(SoundType.METAL)
                     .noOcclusion()); // a tube, not a cube: neighbours must still draw their faces
+
+    // Fog emitter: test block for the volumetric fog (VolumeFog). Breathes half a cell of fog out
+    // round itself every few ticks unless powered by redstone. See FogEmitterBlock.
+    public static final DeferredBlock<FogEmitterBlock> FOG_EMITTER =
+            register("fog_emitter", FogEmitterBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_GRAY)
+                    .strength(1.5F)
+                    .sound(SoundType.STONE));
+
+    // Murk: what the game draws of the volumetric fog (VolumeFog) in an air cell. Not obtainable,
+    // nothing to touch or target, replaced by anything placed into it. See MurkBlock.
+    public static final DeferredBlock<MurkBlock> MURK =
+            registerNoItem("murk", MurkBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.NONE)
+                    .replaceable()
+                    .noCollission()
+                    .noOcclusion()
+                    .noLootTable()
+                    .strength(-1.0F, 0.0F)
+                    .pushReaction(PushReaction.DESTROY)
+                    .isViewBlocking((s, l, p) -> false)
+                    .isSuffocating((s, l, p) -> false)
+                    .isRedstoneConductor((s, l, p) -> false)
+                    .sound(SoundType.WOOL));
 
     // ------------------------------------------------------------------------
 

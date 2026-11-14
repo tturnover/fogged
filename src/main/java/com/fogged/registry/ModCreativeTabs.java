@@ -28,6 +28,7 @@ public final class ModCreativeTabs {
             event.accept(ModBlocks.FOG_DETECTOR.get());
             event.accept(ModBlocks.AIR_COMPRESSOR.get());
             event.accept(ModBlocks.AIR_DUCT.get());
+            event.accept(ModBlocks.FOG_EMITTER.get());
         }
     }
 
