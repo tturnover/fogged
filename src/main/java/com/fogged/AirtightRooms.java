@@ -15,6 +15,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModList;
@@ -135,9 +136,17 @@ public final class AirtightRooms {
             this.leakPath = leakPath;
         }
 
-        boolean contains(BlockPos pos) {
-            return pos.getX() >= minX && pos.getX() <= maxX && pos.getY() >= minY && pos.getY() <= maxY
-                    && pos.getZ() >= minZ && pos.getZ() <= maxZ && cells.contains(pos.asLong());
+        /**
+         * Whether the room's air holds {@code p}, in the room's own coordinates. Floors the point here
+         * rather than through {@code BlockPos.containing}, which another mod in a big pack made return
+         * null and crashed the server tick (1.7.0-alpha).
+         */
+        boolean contains(Vec3 p) {
+            int x = Mth.floor(p.x);
+            int y = Mth.floor(p.y);
+            int z = Mth.floor(p.z);
+            return x >= minX && x <= maxX && y >= minY && y <= maxY && z >= minZ && z <= maxZ
+                    && cells.contains(BlockPos.asLong(x, y, z));
         }
     }
 
@@ -184,18 +193,16 @@ public final class AirtightRooms {
         if (dim == null || dim.isEmpty() || level.isClientSide) {
             return null;
         }
-        BlockPos world = BlockPos.containing(point);
         for (Space s : dim.values()) {
             if (s.cells.isEmpty()) {
                 continue;
             }
-            BlockPos at = world;
+            Vec3 at = point;
             if (s.plot) {
-                Vec3 local = SableCompatibility.toPlot(level, s.anchor, point);
-                if (local == null) {
+                at = SableCompatibility.toPlot(level, s.anchor, point);
+                if (at == null) {
                     continue;
                 }
-                at = BlockPos.containing(local);
             }
             if (s.contains(at)) {
                 return s;
@@ -224,18 +231,16 @@ public final class AirtightRooms {
         if (dim == null || dim.isEmpty()) {
             return false;
         }
-        BlockPos world = BlockPos.containing(point);
         for (Space s : dim.values()) {
             if (s.cells.isEmpty()) {
                 continue;
             }
-            BlockPos at = world;
+            Vec3 at = point;
             if (s.plot) {
-                Vec3 local = SableCompatibility.toPlot(level, s.anchor, point);
-                if (local == null) {
+                at = SableCompatibility.toPlot(level, s.anchor, point);
+                if (at == null) {
                     continue;
                 }
-                at = BlockPos.containing(local);
             }
             if (s.contains(at)) {
                 return true;
