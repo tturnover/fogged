@@ -288,7 +288,8 @@ public final class ScourRules {
      * one plant at a time. Transforms are left alone by it -- those name their target outright.
      */
     public static boolean immune(BlockState state) {
-        return state.is(ModTags.SCOUR_IMMUNE);
+        return state.is(ModTags.SCOUR_IMMUNE)
+                || (state.is(ModTags.PACK_MUSHROOM_SURVIVAL) && Config.packEnabled("mushroom_survival"));
     }
 
     private static boolean isScoured(BlockState state) {
@@ -298,8 +299,9 @@ public final class ScourRules {
         // The mod's own tag is asked whatever the config says. It is where the murk's own idea of what
         // it wilts lives (shipped in the Plant Scouring datapack, and open to any mod that wants its
         // plant taken), so it cannot depend on a line surviving in someone's config file; the list is
-        // for what one world adds on top.
-        if (state.is(ModTags.SCOURED)) {
+        // for what one world adds on top. The Plant Scouring pack's own plants answer to its switch.
+        if (state.is(ModTags.SCOURED)
+                || (state.is(ModTags.PACK_PLANT_SCOURING) && Config.packEnabled("plant_scouring"))) {
             return true;
         }
         if (scouredBlocks.contains(state.getBlock())) {

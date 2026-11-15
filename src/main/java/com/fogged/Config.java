@@ -352,6 +352,25 @@ public class Config {
                     "back to dirt. Shown in JEI.")
             .define("deadFarms", true);
 
+    // The tag packs: each fills a tag of its own, asked only while its switch here is on (ModTags).
+
+    public static final ModConfigSpec.BooleanValue PACK_PLANT_SCOURING = COMMON
+            .comment("Plant Scouring: what the murk wilts under the boundary -- leaves, flowers, saplings, the",
+                    "grasses, and the mosses and hanging growth of the biome mods. Off, only what",
+                    "scouredBlocks and #fogged:scoured name is taken.")
+            .define("plantScouring", true);
+
+    public static final ModConfigSpec.BooleanValue PACK_DEVICE_SNUFFING = COMMON
+            .comment("Device Snuffing: the fire-burning devices the murk puts out -- vanilla's furnaces and",
+                    "campfires, Create's blaze burner, Cold Sweat's hearth and boiler. Off, only what",
+                    "snuffedDevices and #fogged:snuffed_devices name is put out.")
+            .define("deviceSnuffing", true);
+
+    public static final ModConfigSpec.BooleanValue PACK_MUSHROOM_SURVIVAL = COMMON
+            .comment("Mushroom Survival: mushrooms and fungi grow on under the boundary rather than wilt --",
+                    "vanilla's, and Regions Unexplored's bioshrooms. Off, they are scoured like any plant.")
+            .define("mushroomSurvival", true);
+
     static { COMMON.pop(); }   // [datapacks]
 
     // Keyed by the pack's folder name, which is what its recipes name in their condition (see
@@ -362,7 +381,10 @@ public class Config {
             "copper_oxidation", PACK_COPPER_OXIDATION,
             "silverfish_suffocation", PACK_SILVERFISH_SUFFOCATION,
             "coal_remover", PACK_COAL_REMOVER,
-            "dead_farms", PACK_DEAD_FARMS);
+            "dead_farms", PACK_DEAD_FARMS,
+            "plant_scouring", PACK_PLANT_SCOURING,
+            "device_snuffing", PACK_DEVICE_SNUFFING,
+            "mushroom_survival", PACK_MUSHROOM_SURVIVAL);
 
     /**
      * Whether one of the mod's own conversion packs is switched on here. A pack this does not know is

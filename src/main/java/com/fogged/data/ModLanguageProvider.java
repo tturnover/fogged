@@ -150,6 +150,12 @@ public class ModLanguageProvider extends LanguageProvider {
                 "The murk eats coal. Ore goes back to the rock it sat in, any mod's coal ore through the common tag, and a block of coal is taken outright.");
         cfg("deadFarms", "Dead Farms",
                 "A farm the murk reaches dies as a reef would: tilled soil with a crop on it turns to dead coral, and the crop to a dead coral plant standing on it. Bare farmland still goes back to dirt.");
+        cfg("plantScouring", "Plant Scouring",
+                "What the murk wilts under the boundary: leaves, flowers, saplings, the grasses, and the mosses and hanging growth of the biome mods.");
+        cfg("deviceSnuffing", "Device Snuffing",
+                "The fire-burning devices the murk puts out: furnaces and campfires, Create's blaze burner, Cold Sweat's hearth and boiler.");
+        cfg("mushroomSurvival", "Mushroom Survival",
+                "Mushrooms and fungi grow on under the boundary rather than wilt. Off, they are scoured like any plant.");
         add("fogged.datapack.silverfish_suffocation", "Silverfish Suffocation");
         add("fogged.datapack.coal_remover", "Coal Remover");
         add("fogged.datapack.dead_farms", "Dead Farms");

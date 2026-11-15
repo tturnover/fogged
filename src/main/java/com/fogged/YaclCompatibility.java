@@ -149,6 +149,10 @@ final class YaclCompatibility {
                 .option(bool("copperOxidation", Config.PACK_COPPER_OXIDATION))
                 .option(bool("silverfishSuffocation", Config.PACK_SILVERFISH_SUFFOCATION))
                 .option(bool("coalRemover", Config.PACK_COAL_REMOVER))
+                .option(bool("deadFarms", Config.PACK_DEAD_FARMS))
+                .option(bool("plantScouring", Config.PACK_PLANT_SCOURING))
+                .option(bool("deviceSnuffing", Config.PACK_DEVICE_SNUFFING))
+                .option(bool("mushroomSurvival", Config.PACK_MUSHROOM_SURVIVAL))
                 .build();
     }
 

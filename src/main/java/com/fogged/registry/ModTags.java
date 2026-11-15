@@ -47,6 +47,19 @@ public final class ModTags {
     /** Fire-burning devices the murk puts out -- the default of {@code snuffedDevices}. */
     public static final TagKey<Block> SNUFFED_DEVICES = blockTag("snuffed_devices");
 
+    // The mod's own tag packs each fill a tag of their own, asked only while the pack's switch in
+    // [datapacks] is on (Config#packEnabled) -- a tag file cannot carry the condition the recipe packs
+    // use, so the switch is checked where the tag is. The general tags above stay open to anyone.
+
+    /** Plant Scouring's plants: scoured as {@link #SCOURED} is, while its switch is on. */
+    public static final TagKey<Block> PACK_PLANT_SCOURING = blockTag("packs/plant_scouring");
+
+    /** Device Snuffing's burners: snuffed as {@link #SNUFFED_DEVICES} are, while its switch is on. */
+    public static final TagKey<Block> PACK_DEVICE_SNUFFING = blockTag("packs/device_snuffing");
+
+    /** Mushroom Survival's fungi: immune as {@link #SCOUR_IMMUNE} is, while its switch is on. */
+    public static final TagKey<Block> PACK_MUSHROOM_SURVIVAL = blockTag("packs/mushroom_survival");
+
     /**
      * Blocks that never seal an airtight room, whatever their collision says: solid to walk into but
      * full of gaps -- leaves, fences and their gates, iron bars, scaffolding. Everything else seals by

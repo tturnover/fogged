@@ -105,7 +105,8 @@ public final class FogSnuff {
         // The mod's own tag is asked whatever the config says, as the scour asks #fogged:scoured: it is
         // where the burners the murk knows about live (shipped in the Device Snuffing datapack, and
         // open to any mod with a burner of its own), and the config list is for what one world adds.
-        if (state.is(ModTags.SNUFFED_DEVICES)) {
+        if (state.is(ModTags.SNUFFED_DEVICES)
+                || (state.is(ModTags.PACK_DEVICE_SNUFFING) && Config.packEnabled("device_snuffing"))) {
             return true;
         }
         if (devices.contains(state.getBlock())) {
