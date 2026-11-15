@@ -2,6 +2,7 @@ package com.fogged;
 
 import org.joml.Matrix4f;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -151,7 +152,13 @@ public final class MurkComposite {
         float far = Config.synced(Config.FOG_DISTANCE);
 
         RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        // Colour blended over the frame, its alpha left alone. The default func would write this pass's
+        // own alpha into the main target -- the dim, a third at most -- over every pixel under the
+        // surface, and the menu blur behind the pause screen weighs by that alpha: with the GUI hidden
+        // (F1) the whole world under the murk came out black there, only the sky (never drawn on here,
+        // still at 1) left standing.
+        RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+                GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.disableCull();
@@ -187,5 +194,6 @@ public final class MurkComposite {
         RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();
+        RenderSystem.defaultBlendFunc();
     }
 }
