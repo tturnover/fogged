@@ -52,8 +52,10 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.compressors", "Compressors:");
         add("fogged.goggles.running", " %s, %s running");
         add("fogged.goggles.losing_rate", ", losing %s/s");
-        add("fogged.goggles.room_value", " %s / %s blocks, holds %s");
-        add("fogged.goggles.room_none", " none yet, holds %3$s blocks");
+        add("fogged.goggles.room_value", " %s/%s blocks");
+        add("fogged.goggles.room_none", " 0/%2$s blocks");
+        add("fogged.goggles.air", "Air:");
+        add("fogged.goggles.air_value", " %s%% full");
         add("fogged.goggles.filters_value", " %s%% polluted, %s clogged");
         add("fogged.goggles.per_second_one", "%s blocks/s");
         add("fogged.goggles.filters", "Filters:");
@@ -87,7 +89,9 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.filter.clogged", "Clogged: change it");
         add("fogged.tooltip.filter_polluted", "Polluted: %s%%");
         add("fogged.goggles.air_in", "Air In:");
-        add("fogged.goggles.per_second", " %s / %s blocks/s");
+        add("fogged.goggles.air_in_ok", " %s blocks/s");
+        add("fogged.goggles.air_in_short", " %s/%s blocks/s");
+        add("fogged.goggles.air_in_none", " no intake");
         add("fogged.goggles.state.blocked", "Outlet walled off");
         add("fogged.goggles.state.oversize", "Room too big to hold");
         add("fogged.goggles.state.leak", "Leaking");

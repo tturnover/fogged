@@ -1347,12 +1347,28 @@ public final class AirCompressorCore {
                     amount(c.shownLoss)).withStyle(gold));
         }
         pair(tooltip, "fogged.goggles.status", status);
+        // The room's size against what the compressors can hold now; gold once it outgrows them.
         pair(tooltip, "fogged.goggles.room", net.minecraft.network.chat.Component.translatable(
                 c.shownVolume > 0 ? "fogged.goggles.room_value" : "fogged.goggles.room_none",
-                amount(c.shownHeld), amount(c.shownVolume), amount(c.shownCapacity)).withStyle(aqua));
-        pair(tooltip, "fogged.goggles.air_in", net.minecraft.network.chat.Component.translatable(
-                "fogged.goggles.per_second", amount(c.shownFlow), amount(c.shownNeed))
-                .withStyle(c.shownIntakes == 0 ? red : c.shownFlow + 0.5 >= c.shownNeed ? aqua : gold));
+                amount(c.shownVolume), amount(c.shownCapacity))
+                .withStyle(c.shownVolume > c.shownCapacity ? gold : aqua));
+        // How full it is, only while that is news: filling up, or losing air.
+        if (c.shownVolume > 0 && c.shownHeld < c.shownVolume) {
+            pair(tooltip, "fogged.goggles.air", net.minecraft.network.chat.Component.translatable(
+                    "fogged.goggles.air_value", Math.min(99, c.shownHeld * 100 / c.shownVolume))
+                    .withStyle(shown == State.PRESSURIZING ? aqua : gold));
+        }
+        // Air coming in: just the rate, with what is missing only when the intakes fall short.
+        boolean noIntake = c.shownIntakes == 0;
+        boolean short_ = !noIntake && c.shownFlow + 0.5 < c.shownNeed;
+        pair(tooltip, "fogged.goggles.air_in", (noIntake
+                ? net.minecraft.network.chat.Component.translatable("fogged.goggles.air_in_none")
+                : short_
+                        ? net.minecraft.network.chat.Component.translatable("fogged.goggles.air_in_short",
+                                amount(c.shownFlow), amount(c.shownNeed))
+                        : net.minecraft.network.chat.Component.translatable("fogged.goggles.air_in_ok",
+                                amount(c.shownFlow)))
+                .withStyle(noIntake ? red : short_ ? gold : aqua));
         if (c.shownFilters > 0) {
             pair(tooltip, "fogged.goggles.filters", net.minecraft.network.chat.Component.translatable(
                     "fogged.goggles.filters_value", c.shownPolluted, c.shownClogged)

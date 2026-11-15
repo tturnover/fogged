@@ -56,8 +56,10 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.compressors", "Компресори:");
         add("fogged.goggles.running", " %s, працюють %s");
         add("fogged.goggles.losing_rate", ", втрачає %s/с");
-        add("fogged.goggles.room_value", " %s / %s блоків, тримає %s");
-        add("fogged.goggles.room_none", " ще немає, тримає %3$s блоків");
+        add("fogged.goggles.room_value", " %s/%s блоків");
+        add("fogged.goggles.room_none", " 0/%2$s блоків");
+        add("fogged.goggles.air", "Повітря:");
+        add("fogged.goggles.air_value", " заповнено на %s%%");
         add("fogged.goggles.filters_value", " забруднені на %s%%, забито %s");
         add("fogged.goggles.per_second_one", "%s блоків/с");
         add("fogged.goggles.filters", "Фільтри:");
@@ -89,7 +91,9 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.filter.clogged", "Забитий: замініть");
         add("fogged.tooltip.filter_polluted", "Забруднення: %s%%");
         add("fogged.goggles.air_in", "Надходить повітря:");
-        add("fogged.goggles.per_second", " %s / %s блоків/с");
+        add("fogged.goggles.air_in_ok", " %s блоків/с");
+        add("fogged.goggles.air_in_short", " %s/%s блоків/с");
+        add("fogged.goggles.air_in_none", " немає забору");
         add("fogged.goggles.state.blocked", "Вихід замуровано");
         add("fogged.goggles.state.oversize", "Приміщення завелике");
         add("fogged.goggles.state.leak", "Витік");
