@@ -40,6 +40,19 @@ public class ModRecipeProvider extends RecipeProvider {
                 .unlockedBy("has_iron_bars", has(Items.IRON_BARS))
                 .save(recipeOutput);
 
+        // A copper suit, a glass visor in the helmet, leather to seal it at the chest, a block of copper for
+        // the canister.
+        ShapedRecipeBuilder.shaped(RecipeCategory.COMBAT, com.fogged.registry.ModItems.FOG_WALKER.get())
+                .pattern("CGC")
+                .pattern("CLC")
+                .pattern("CBC")
+                .define('C', Tags.Items.INGOTS_COPPER)
+                .define('B', Tags.Items.STORAGE_BLOCKS_COPPER)
+                .define('G', Tags.Items.GLASS_PANES)
+                .define('L', Items.LEATHER)
+                .unlockedBy("has_copper_ingot", has(Tags.Items.INGOTS_COPPER))
+                .save(recipeOutput);
+
         // A grille over an iron mouth.
         ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, ModBlocks.AIR_COMPRESSOR_INTAKE.get())
                 .pattern("IBI")

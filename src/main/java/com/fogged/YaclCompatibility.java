@@ -115,6 +115,7 @@ final class YaclCompatibility {
                 .option(integer("mobSuffocateDelaySeconds", Config.MOB_SUFFOCATE_DELAY, 0, 600, 1))
                 .option(dbl("mobSuffocateDamage", Config.MOB_SUFFOCATE_DAMAGE, 0.0, 40.0, 0.5))
                 .group(strings("allowedMobs", Config.ALLOWED_MOBS))
+                .group(strings("fogWalkerFilterBlacklist", Config.FOG_WALKER_FILTER_BLACKLIST))
                 .build();
     }
 

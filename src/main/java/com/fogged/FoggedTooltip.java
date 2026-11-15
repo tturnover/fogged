@@ -58,6 +58,51 @@ public final class FoggedTooltip {
         }
     }
 
+    /**
+     * As {@link #appendShiftSection}, laid out the way Create lays out its tools: the summary, a blank line,
+     * then each condition ("When worn") in grey with what happens then under it, indented a space.
+     *
+     * @param summaryKey  translation key of the summary paragraph, or null to add only sections under the
+     *                    item's own summary (a Create item's, say)
+     * @param sectionKeys translation keys in pairs: a condition, then its behaviour
+     */
+    public static void appendShiftSections(List<Component> tooltip, ResourceLocation itemId,
+            boolean hasExternalHint, String summaryKey, String... sectionKeys) {
+        List<Component> section = new ArrayList<>();
+        if (!hasExternalHint) {
+            section.add(holdShiftHint());
+        }
+        if (Screen.hasShiftDown()) {
+            if (summaryKey != null) {
+                section.add(Component.empty());
+                section.addAll(wrapped(Component.translatable(summaryKey).getString(), ""));
+                section.add(Component.empty());
+            }
+            for (int i = 0; i + 1 < sectionKeys.length; i += 2) {
+                section.add(Component.translatable(sectionKeys[i]).withStyle(ChatFormatting.GRAY));
+                section.addAll(wrapped(Component.translatable(sectionKeys[i + 1]).getString(), " "));
+            }
+        }
+        if (!section.isEmpty()) {
+            // Our own item: under its name and its own lines, above the attributes, as Create puts its
+            // prompt; on a Create item, under Create's own.
+            tooltip.addAll(hasExternalHint ? insertIndex(tooltip, itemId) : ownIndex(tooltip, itemId), section);
+        }
+    }
+
+    // Under the name and whatever lines the item itself adds: before the blank line that opens the
+    // attributes ("When on Body:"), else before the advanced registry-id line, else at the end.
+    private static int ownIndex(List<Component> tooltip, ResourceLocation itemId) {
+        String id = itemId.toString();
+        for (int i = 1; i < tooltip.size(); i++) {
+            String line = tooltip.get(i).getString();
+            if (line.isEmpty() || line.equals(id)) {
+                return i;
+            }
+        }
+        return tooltip.size();
+    }
+
     /** Widest a description line runs, in pixels: Create's own (TooltipHelper's per-line width). */
     private static final int MAX_WIDTH = 200;
 
@@ -66,6 +111,11 @@ public final class FoggedTooltip {
      * boundaries, as Create breaks its summaries -- each word keeping its body or highlight colour.
      */
     private static List<Component> wrapped(String raw) {
+        return wrapped(raw, "");
+    }
+
+    // The same, every line led by {@code indent} (a behaviour under its condition).
+    private static List<Component> wrapped(String raw, String indent) {
         net.minecraft.client.gui.Font font = Minecraft.getInstance().font;
         List<Component> lines = new ArrayList<>();
         MutableComponent line = Component.empty();
@@ -83,6 +133,9 @@ public final class FoggedTooltip {
                     lines.add(line);
                     line = Component.empty();
                     width = 0;
+                }
+                if (width == 0 && !indent.isEmpty()) {
+                    line.append(Component.literal(indent));
                 }
                 String shown = width == 0 ? word.stripLeading() : word;
                 if (shown.isEmpty()) {

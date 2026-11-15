@@ -34,20 +34,32 @@ public final class FoggedTooltips {
         ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
 
         if (CREATE_NOZZLE.equals(id)) {
-            FoggedTooltip.appendShiftSection(event.getToolTip(), id, true,
-                    "fogged.tooltip.nozzle.desc1", "fogged.tooltip.nozzle.desc2");
+            // Under Create's own summary and sections, as one more of them.
+            FoggedTooltip.appendShiftSections(event.getToolTip(), id, true, null,
+                    "fogged.tooltip.nozzle.condition1", "fogged.tooltip.nozzle.behaviour1");
         } else if (stack.is(ModBlocks.FOG_DETECTOR.get().asItem())) {
-            FoggedTooltip.appendShiftSection(event.getToolTip(), id, false,
-                    "fogged.tooltip.fog_detector.desc1", "fogged.tooltip.fog_detector.desc2");
+            FoggedTooltip.appendShiftSections(event.getToolTip(), id, false, "fogged.tooltip.fog_detector.summary",
+                    "fogged.tooltip.fog_detector.condition1", "fogged.tooltip.fog_detector.behaviour1",
+                    "fogged.tooltip.fog_detector.condition2", "fogged.tooltip.fog_detector.behaviour2");
         } else if (stack.is(ModBlocks.AIR_COMPRESSOR.get().asItem())) {
-            FoggedTooltip.appendShiftSection(event.getToolTip(), id, false,
-                    "fogged.tooltip.air_compressor.desc1", "fogged.tooltip.air_compressor.desc2");
+            FoggedTooltip.appendShiftSections(event.getToolTip(), id, false, "fogged.tooltip.air_compressor.summary",
+                    "fogged.tooltip.air_compressor.condition1", "fogged.tooltip.air_compressor.behaviour1",
+                    "fogged.tooltip.air_compressor.condition2", "fogged.tooltip.air_compressor.behaviour2",
+                    "fogged.tooltip.air_compressor.condition3", "fogged.tooltip.air_compressor.behaviour3");
         } else if (stack.is(ModBlocks.AIR_COMPRESSOR_INTAKE.get().asItem())) {
-            FoggedTooltip.appendShiftSection(event.getToolTip(), id, false,
-                    "fogged.tooltip.air_intake.desc1", "fogged.tooltip.air_intake.desc2");
+            FoggedTooltip.appendShiftSections(event.getToolTip(), id, false, "fogged.tooltip.air_intake.summary",
+                    "fogged.tooltip.air_intake.condition1", "fogged.tooltip.air_intake.behaviour1",
+                    "fogged.tooltip.air_intake.condition2", "fogged.tooltip.air_intake.behaviour2");
         } else if (stack.is(ModBlocks.AIR_DUCT.get().asItem())) {
-            FoggedTooltip.appendShiftSection(event.getToolTip(), id, false,
-                    "fogged.tooltip.air_duct.desc1", "fogged.tooltip.air_duct.desc2");
+            FoggedTooltip.appendShiftSections(event.getToolTip(), id, false, "fogged.tooltip.air_duct.summary",
+                    "fogged.tooltip.air_duct.condition1", "fogged.tooltip.air_duct.behaviour1",
+                    "fogged.tooltip.air_duct.condition2", "fogged.tooltip.air_duct.behaviour2");
+        } else if (stack.is(com.fogged.registry.ModItems.FOG_WALKER.get())) {
+            FoggedTooltip.appendShiftSections(event.getToolTip(), id, false, "fogged.tooltip.fog_walker.summary",
+                    "fogged.tooltip.fog_walker.condition1", "fogged.tooltip.fog_walker.behaviour1",
+                    "fogged.tooltip.fog_walker.condition2", "fogged.tooltip.fog_walker.behaviour2",
+                    "fogged.tooltip.fog_walker.condition3", "fogged.tooltip.fog_walker.behaviour3",
+                    "fogged.tooltip.fog_walker.condition4", "fogged.tooltip.fog_walker.behaviour4");
         }
     }
 

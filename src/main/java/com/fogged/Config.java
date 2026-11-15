@@ -553,6 +553,34 @@ public class Config {
                     "the delay. 2.0 = one heart per second.")
             .defineInRange("mobSuffocateDamage", 2.0, 0.0, 1000.0);
 
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> FOG_WALKER_FILTER_BLACKLIST = COMMON
+            .comment("Intake filters (intakeFilters) that will not fit into a fog walker: each entry an item",
+                    "id or, with a leading '#', an item tag. A fitted filter catches one block of murk per",
+                    "second its wearer breathes the murk through it -- faster deeper down, as the air loss",
+                    "goes (depthScaling) -- so its capacity is how many seconds it lasts at the boundary.",
+                    "Clogged, it lets no air through anywhere until it is changed.",
+                    "Example: fogWalkerFilterBlacklist = [\"minecraft:sponge\", \"#minecraft:wool\"]")
+            .defineListAllowEmpty("fogWalkerFilterBlacklist", () -> List.of(), () -> "minecraft:sponge",
+                    o -> o instanceof String str && ResourceLocation.tryParse(
+                            withNamespace(str.trim().startsWith("#") ? str.trim().substring(1) : str.trim())) != null);
+
+    /** True when {@code stack} is an intake filter the blacklist lets into a fog walker. */
+    public static boolean fitsFogWalker(net.minecraft.world.item.ItemStack stack) {
+        if (filterCapacity(stack) < 0) {
+            return false;
+        }
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        for (String raw : synced(FOG_WALKER_FILTER_BLACKLIST)) {
+            String s = raw.trim();
+            boolean tag = s.startsWith("#");
+            ResourceLocation entry = ResourceLocation.tryParse(withNamespace(tag ? s.substring(1) : s));
+            if (entry != null && (tag ? stack.is(TagKey.create(Registries.ITEM, entry)) : entry.equals(id))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     static { COMMON.pop(); }   // [suffocation]
 
     // ==== common [compressor] : air compressors and the sealed rooms they hold ====
@@ -1805,7 +1833,7 @@ public class Config {
             DIMENSIONS, PLANE_HEIGHT_SCHEDULE, PLANE_HEIGHT_CYCLE,
             OVERDAY_OFFSET_NOON, OVERDAY_OFFSET_MIDNIGHT,
             FOG_DISTANCE, FOG_START_RAISE, FLIP_FOG,
-            PLAYER_SUFFOCATION, AIR_LOSS_PER_TICK,
+            PLAYER_SUFFOCATION, AIR_LOSS_PER_TICK, FOG_WALKER_FILTER_BLACKLIST,
             DEPTH_SCALING, DEPTH_SCALING_BLOCKS, DEPTH_SCALING_PERCENT);
 
     private static volatile Map<ModConfigSpec.ConfigValue<?>, Object> serverValues;

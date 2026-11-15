@@ -29,6 +29,13 @@ public final class ModDataComponents {
                     .persistent(Codec.intRange(1, MAX_POLLUTION))
                     .networkSynchronized(ByteBufCodecs.VAR_INT));
 
+    /** The filter fitted into a fog walker, and how full of murk it is (FogWalker). */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<com.fogged.FogWalker.SuitFilter>> SUIT_FILTER =
+            COMPONENTS.registerComponentType("suit_filter", b -> b
+                    .persistent(com.fogged.FogWalker.SuitFilter.CODEC)
+                    .networkSynchronized(com.fogged.FogWalker.SuitFilter.STREAM_CODEC)
+                    .cacheEncoding());
+
     public static void register(IEventBus modEventBus) {
         COMPONENTS.register(modEventBus);
     }

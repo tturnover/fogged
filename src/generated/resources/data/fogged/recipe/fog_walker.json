@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "B": {
+      "tag": "c:storage_blocks/copper"
+    },
+    "C": {
+      "tag": "c:ingots/copper"
+    },
+    "G": {
+      "tag": "c:glass_panes"
+    },
+    "L": {
+      "item": "minecraft:leather"
+    }
+  },
+  "pattern": [
+    "CGC",
+    "CLC",
+    "CBC"
+  ],
+  "result": {
+    "count": 1,
+    "id": "fogged:fog_walker"
+  }
+}

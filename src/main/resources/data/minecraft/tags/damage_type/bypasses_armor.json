@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "fogged:fog_suffocation"
+    "fogged:fog_suffocation",
+    "fogged:clogged_filter"
   ]
 }

@@ -29,6 +29,8 @@ public final class ModCreativeTabs {
             event.accept(ModBlocks.AIR_COMPRESSOR.get());
             event.accept(ModBlocks.AIR_COMPRESSOR_INTAKE.get());
             event.accept(ModBlocks.AIR_DUCT.get());
+        } else if (event.getTabKey() == CreativeModeTabs.COMBAT) {
+            event.accept(ModItems.FOG_WALKER.get()); // armour, with the rest of it
         }
     }
 

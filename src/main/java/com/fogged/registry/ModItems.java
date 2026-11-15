@@ -22,7 +22,10 @@ public final class ModItems {
 
     // --- Items --------------------------------------------------------------
     // Add new items below. One line each; datagen produces the model + lang.
-    // (No standalone items at present; every registered item is a BlockItem from ModBlocks.)
+
+    /** The fog walker: a diving suit for the murk, chest slot, its helmet taking the head slot (FogWalker). */
+    public static final DeferredItem<com.fogged.item.FogWalkerItem> FOG_WALKER =
+            register("fog_walker", com.fogged.item.FogWalkerItem::new, new Item.Properties());
 
     // ------------------------------------------------------------------------
 

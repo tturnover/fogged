@@ -29,7 +29,8 @@ public class ModLanguageProviderUk extends LanguageProvider {
             "air_compressor_intake", "Забір повітря",
             "plodder", "Тупцюн",
             "snap_dog", "Клацопес",
-            "trudger", "Важкоступ");
+            "trudger", "Важкоступ",
+            "fog_walker", "Туманохід");
 
     public ModLanguageProviderUk(PackOutput output) {
         super(output, Fogged.MODID, "uk_ua");
@@ -39,16 +40,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
     protected void addTranslations() {
         addConfigTranslations();
 
-        add("fogged.tooltip.nozzle.desc1", "Застосуйте _вовняний блок_, щоб відфільтрувати _густий туман_.");
-        add("fogged.tooltip.nozzle.desc2", "Швидкість _вентилятора в корпусі_ задає _зону дихання_.");
-        add("fogged.tooltip.fog_detector.desc1",
-                "Видає _редстоуновий сигнал_ залежно від глибини під туманом.");
-        add("fogged.tooltip.fog_detector.desc2", "ПКМ _іншим таким же_, щоб зробити колону вищою.");
 
-        add("fogged.tooltip.air_compressor.desc1", "Вбудуйте в _стіну герметичного приміщення_ виходом усередину, і він викачає _каламуть_. Потрібен _забір повітря_ ззаду чи через повітропровід.");
-        add("fogged.tooltip.air_intake.desc1", "Живить _компресор_ чи _повітропровід_, до якого приставлений, і тягне повітря _відкритим кінцем_.");
-        add("fogged.tooltip.air_intake.desc2", "Поза _каламуттю_ бере чисте повітря; у ній вставте блок-_фільтр_, що з часом _забивається_ й потребує заміни. Більшим компресорам треба _більше заборів_.");
-        add("fogged.tooltip.air_compressor.desc2", "Працює від _FE_ у його _боки_; з Create _ключ_ на боці ставить _гніздо для вала_. Кілька в одному _приміщенні_ складаються.");
         // The kinetic compressor is only registered with Create, so it is outside ModBlocks: named here.
         add("block.fogged.kinetic_air_compressor", "Кінетичний повітряний компресор");
         // Create goggles on an air compressor (AirCompressorCore#goggleLines).
@@ -89,7 +81,40 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.filter.none", "Немає");
         add("fogged.goggles.filter.polluted", "Забруднено на %s%%");
         add("fogged.goggles.filter.clogged", "Забитий: замініть");
-        add("fogged.tooltip.filter_polluted", "Забруднення: %s%%");
+        add("fogged.tooltip.nozzle.condition1", "ПКМ вовняним блоком");
+        add("fogged.tooltip.nozzle.behaviour1", "Стає _фільтром туману_: швидкість _вентилятора в корпусі_ задає розмір _зони дихання_.");
+        add("fogged.tooltip.fog_detector.summary", "Вимірює, наскільки глибоко він стоїть _під туманом_.");
+        add("fogged.tooltip.fog_detector.condition1", "Коли під туманом");
+        add("fogged.tooltip.fog_detector.behaviour1", "Дає _сигнал редстоуну_, тим сильніший, що _глибше_ він стоїть.");
+        add("fogged.tooltip.fog_detector.condition2", "ПКМ іншим таким же");
+        add("fogged.tooltip.fog_detector.behaviour2", "_Нарощує_ колону вище.");
+        add("fogged.tooltip.air_compressor.summary", "Викачує _каламуть_ із _герметичного приміщення_ й тримає його придатним для дихання.");
+        add("fogged.tooltip.air_compressor.condition1", "Коли вбудований у стіну виходом усередину");
+        add("fogged.tooltip.air_compressor.behaviour1", "Наповнює приміщення _чистим повітрям_ від виходу далі. Потрібен _забір повітря_ ззаду чи через повітропровід.");
+        add("fogged.tooltip.air_compressor.condition2", "Коли живиться");
+        add("fogged.tooltip.air_compressor.behaviour2", "Працює від _FE_ у його _боки_. Кілька в одному _приміщенні_ складаються.");
+        add("fogged.tooltip.air_compressor.condition3", "Ключем по боці (Create)");
+        add("fogged.tooltip.air_compressor.behaviour3", "Ставить _гніздо для вала_, щоб працювати від _обертання_.");
+        add("fogged.tooltip.air_intake.summary", "Живить _компресор_ чи _повітропровід_, до якого приставлений, і тягне повітря _відкритим кінцем_. Більшим компресорам треба _більше заборів_.");
+        add("fogged.tooltip.air_intake.condition1", "Коли поза каламуттю");
+        add("fogged.tooltip.air_intake.behaviour1", "Бере _чисте повітря_.");
+        add("fogged.tooltip.air_intake.condition2", "Коли в каламуті");
+        add("fogged.tooltip.air_intake.behaviour2", "Потребує вставленого блока-_фільтра_, що з часом _забивається_ й потребує заміни.");
+        add("fogged.tooltip.air_duct.summary", "Сам з'єднується з _сусідами_ й тягнеться прямо, точнісінько як _труба для рідин_.");
+        add("fogged.tooltip.air_duct.condition1", "Коли прокладений від виходу компресора");
+        add("fogged.tooltip.air_duct.behaviour1", "Несе повітря до своїх _відкритих кінців_.");
+        add("fogged.tooltip.air_duct.condition2", "Коли прокладений від забору до спини компресора");
+        add("fogged.tooltip.air_duct.behaviour2", "Підводить до нього повітря із _забору_.");
+        add("fogged.tooltip.fog_walker.none", "Немає");
+        add("fogged.tooltip.fog_walker.summary", "Мідний _водолазний костюм_ для каламуті. Його _шолом_ займає ще й _слот голови_: лиште його порожнім, щоб одягти.");
+        add("fogged.tooltip.fog_walker.condition1", "Коли вдягнений, слот голови порожній");
+        add("fogged.tooltip.fog_walker.behaviour1", "Ви дихаєте каламуттю крізь _вставлений фільтр_, який _набирає каламуті_, поки ви дихаєте: блок за секунду, глибше — більше. _Забитий_, він _не пропускає повітря ніде_.");
+        add("fogged.tooltip.fog_walker.condition2", "Коли вдягнений під іншим шоломом");
+        add("fogged.tooltip.fog_walker.behaviour2", "Власний шолом _висить при боці_: _броня_, і нічого більше.");
+        add("fogged.tooltip.fog_walker.condition3", "ПКМ фільтром по ньому");
+        add("fogged.tooltip.fog_walker.behaviour3", "_Вставляє_ фільтр, виймаючи той, що всередині. Годиться будь-який _фільтр забору_, крім заборонених у налаштуваннях.");
+        add("fogged.tooltip.fog_walker.condition4", "ПКМ порожньою рукою по ньому");
+        add("fogged.tooltip.fog_walker.behaviour4", "_Виймає фільтр_ таким забрудненим, яким він є.");
         add("fogged.goggles.air_in", "Надходить повітря:");
         add("fogged.goggles.air_in_ok", " %s блоків/с");
         add("fogged.goggles.air_in_short", " %s/%s блоків/с");
@@ -103,8 +128,6 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.room", "Приміщення:");
         add("fogged.goggles.energy_usage", "Споживання енергії:");
         add("fogged.goggles.too_slow", "Вал надто повільний: потрібна середня швидкість");
-        add("fogged.tooltip.air_duct.desc1", "Прокладений від _виходу компресора_, несе повітря до своїх _відкритих кінців_; від його _спини_ підводить повітря із _забору_.");
-        add("fogged.tooltip.air_duct.desc2", "Сам з'єднується з _сусідами_ й тягнеться прямо, точнісінько як _труба для рідин_.");
 
         // Категорія JEI для перетворень блоків каламуттю (див. FoggedJeiPlugin).
         add("fogged.jei.murk_transform", "Перетворення каламуттю");
@@ -135,6 +158,8 @@ public class ModLanguageProviderUk extends LanguageProvider {
 
         add("death.attack.fog_suffocation", "Гравця %1$s поглинув туман");
         add("death.attack.fog_suffocation.player", "Гравця %1$s поглинув туман під час втечі від %2$s");
+        add("death.attack.clogged_filter", "Гравця %1$s задушив забитий фільтр");
+        add("death.attack.clogged_filter.player", "Гравця %1$s задушив забитий фільтр під час втечі від %2$s");
 
         ModBlocks.BLOCKS.getEntries()
                 .forEach(holder -> add(holder.get(), name(holder.getId().getPath())));
@@ -394,6 +419,11 @@ public class ModLanguageProviderUk extends LanguageProvider {
                         + "Рівне найнижчому — усі вежі рівно на цій висоті.");
         cfg("pillarTilt", "Нахил стовпів",
                 "Найбільший нахил від вертикалі, у градусах. Кожна вежа нахиляється випадково до цієї межі.");
+        cfg("fogWalkerFilterBlacklist", "Фільтри, заборонені для туманохода",
+                "Фільтри забору, які не вставляються в туманохід: ідентифікатор предмета на рядок або тег "
+                        + "предметів із '#' на початку. Вставлений фільтр уловлює один блок каламуті за кожну "
+                        + "секунду, що власник дихає нею крізь нього, глибше — швидше, тож його місткість — це "
+                        + "скільки секунд він витримає на межі.");
         cfg("allowedMobs", "Моби, дозволені під туманом",
                 "Кому можна жити в каламуті: ідентифікатор істоти на рядок або тег істот із '#' на "
                         + "початку. Простір імен 'minecraft:' можна не писати. Типово — вартовий, названий "

@@ -34,19 +34,18 @@ public class BreathHandler {
             return;
         }
 
+        if (player.isCreative() || player.isSpectator() || !Config.synced(Config.PLAYER_SUFFOCATION)) {
+            return;
+        }
+        // A fog walker's clogged filter lets no air through, in the murk, out of it, or under water.
+        if (FogWalker.choking(player)) {
+            event.setCanBreathe(false);
+            event.setConsumeAirAmount(skipLossFromRespiration(player) ? 0 : airLoss(player));
+            return;
+        }
         // Leave the event untouched whenever the player should be breathing normally or vanilla already
-        // handles it -- only force the underwater pipeline for a player standing in dry air below the
-        // boundary. Touching any of these would wrongly drown a creative/spectator player, cancel a
-        // water-breathing potion, or change how real-water drowning behaves.
-        boolean handledElsewhere = !Config.synced(Config.PLAYER_SUFFOCATION)
-                || player.isCreative()
-                || player.isSpectator()
-                || player.canBreatheUnderwater()
-                || MobEffectUtil.hasWaterBreathing(player)
-                || player.isEyeInFluid(FluidTags.WATER)
-                || !Config.eyesUnderSurface(player.level(), player.getEyeY())
-                || Shelter.breathes(player); // filter sphere or sealed room
-        if (handledElsewhere) {
+        // handles it, and when a fog walker's filter cleans the murk for them.
+        if (!breathingMurk(player) || FogWalker.filtering(player)) {
             return;
         }
 
@@ -55,6 +54,23 @@ public class BreathHandler {
         // the loss this tick; otherwise we drain at the configured rate.
         event.setCanBreathe(false);
         event.setConsumeAirAmount(skipLossFromRespiration(player) ? 0 : airLoss(player));
+    }
+
+    /**
+     * True when {@code player} is breathing the murk itself: dry, under the boundary, in no shelter, with
+     * suffocation on and nothing (creative, water breathing) sparing them. Leaving out only a fog walker's
+     * filter, which works exactly then ({@link FogWalker}). Touching any of the others would wrongly drown a
+     * creative/spectator player, cancel a water-breathing potion, or change how real-water drowning behaves.
+     */
+    public static boolean breathingMurk(Player player) {
+        return Config.synced(Config.PLAYER_SUFFOCATION)
+                && !player.isCreative()
+                && !player.isSpectator()
+                && !player.canBreatheUnderwater()
+                && !MobEffectUtil.hasWaterBreathing(player)
+                && !player.isEyeInFluid(FluidTags.WATER)
+                && Config.eyesUnderSurface(player.level(), player.getEyeY())
+                && !Shelter.breathes(player); // filter sphere or sealed room
     }
 
     // Air is spent in whole units while the depth factor is continuous, so the leftover fraction is
@@ -85,6 +101,11 @@ public class BreathHandler {
             return; // not our doing: with player suffocation off we never induce drowning
         }
         Level level = player.level();
+        if (FogWalker.choking(player)) { // the suit's clogged filter, wherever they stand
+            event.setCanceled(true);
+            player.hurt(ModDamageTypes.cloggedFilter(level), event.getAmount());
+            return;
+        }
         if (player.isEyeInFluid(FluidTags.WATER) || !Config.eyesUnderSurface(level, player.getEyeY())) {
             return; // real water, or above the boundary -> leave vanilla drowning alone
         }

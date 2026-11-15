@@ -2,7 +2,6 @@ package com.fogged;
 
 import com.fogged.registry.ModDataComponents;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
@@ -17,13 +16,12 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.IItemDecorator;
 import net.neoforged.neoforge.client.event.RegisterItemDecorationsEvent;
 import net.neoforged.neoforge.event.ItemStackedOnOtherEvent;
-import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 
 /**
  * A used intake filter's pollution ({@link ModDataComponents#POLLUTION}) out of the intake: it stacks
  * with filters as dirty, and dropped onto a stack of the same filter at another step the two merge at
  * the average of the two, rounded up; set down as a block it keeps its pollution there, sheds it out of
- * the murk, and breaks back out as dirty as it still is; it shows as a bar that fills in the slot, in the grime colour, and as a tooltip line.
+ * the murk, and breaks back out as dirty as it still is; it shows as a bar that fills in the slot, in the grime colour.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class FilterPollution {
@@ -228,37 +226,45 @@ public final class FilterPollution {
         }
     }
 
-    /** Client side: the tooltip line. */
-    @EventBusSubscriber(modid = Fogged.MODID, value = net.neoforged.api.distmarker.Dist.CLIENT)
+    /** Client side: the bar in the slot (FoggedClient registers it). No tooltip line: the bar already says it. */
     public static final class Client {
-        @SubscribeEvent
-        static void onTooltip(ItemTooltipEvent event) {
-            int step = step(event.getItemStack());
-            if (step > 0) {
-                int percent = Math.round(100.0F * step / ModDataComponents.MAX_POLLUTION);
-                event.getToolTip().add(Component.translatable("fogged.tooltip.filter_polluted", percent)
-                        .withStyle(step >= ModDataComponents.MAX_POLLUTION ? ChatFormatting.RED : ChatFormatting.GRAY));
-            }
-        }
-
         // Every item: what is a filter is the config's to say, and a stack only draws a bar with a step.
         static void registerDecorations(RegisterItemDecorationsEvent event) {
             IItemDecorator bar = FilterPollution.Client::drawBar;
             BuiltInRegistries.ITEM.forEach(item -> event.register(item, bar));
         }
 
-        // The vanilla durability bar's place and size, filling left to right with the pollution.
+        // The vanilla durability bar's place and size, filling left to right with the pollution, under the
+        // stack's count as the durability bar is. A fog walker's fitted filter gets a bar of its own: in the
+        // durability bar's place, or two pixels above it while that shows.
         private static boolean drawBar(GuiGraphics graphics, Font font, ItemStack stack, int x, int y) {
+            if (stack.getItem() instanceof com.fogged.item.FogWalkerItem) {
+                com.fogged.FogWalker.SuitFilter fitted = com.fogged.FogWalker.filter(stack);
+                if (fitted != null && fitted.worn() > 0.0F) {
+                    bar(graphics, x, stack.isBarVisible() ? y + 11 : y + 13, Math.max(1, Math.round(13.0F * fitted.worn())));
+                }
+                return false;
+            }
             int step = step(stack);
             if (step <= 0) {
                 return false;
             }
-            int width = Math.round(13.0F * step / ModDataComponents.MAX_POLLUTION);
-            int left = x + 2;
-            int top = y + 13;
-            graphics.fill(RenderType.guiOverlay(), left, top, left + 13, top + 2, 0xFF000000);
-            graphics.fill(RenderType.guiOverlay(), left, top, left + width, top + 1, 0xFF000000 | barColor());
+            bar(graphics, x, y + 13, Math.round(13.0F * step / ModDataComponents.MAX_POLLUTION));
+            // Decorators draw after the count; draw it again on top, where vanilla puts it, so the bar sits under it.
+            if (stack.getCount() != 1) {
+                String count = String.valueOf(stack.getCount());
+                graphics.pose().pushPose();
+                graphics.pose().translate(0.0F, 0.0F, 200.0F);
+                graphics.drawString(font, count, x + 19 - 2 - font.width(count), y + 6 + 3, 0xFFFFFF, true);
+                graphics.pose().popPose();
+            }
             return false;
+        }
+
+        private static void bar(GuiGraphics graphics, int x, int top, int width) {
+            int left = x + 2;
+            graphics.fill(RenderType.guiOverlay(), left, top, left + 13, top + 2, 200, 0xFF000000);
+            graphics.fill(RenderType.guiOverlay(), left, top, left + width, top + 1, 200, 0xFF000000 | barColor());
         }
 
         // The grime colour, lightened so it reads against the bar's black.

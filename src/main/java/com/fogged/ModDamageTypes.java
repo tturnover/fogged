@@ -20,6 +20,9 @@ public final class ModDamageTypes {
     /** Drowning/suffocating in the dry fog (no attacker) -- replaces vanilla drown under the plane. */
     public static final ResourceKey<DamageType> FOG_SUFFOCATION = key("fog_suffocation");
 
+    /** Choking on a fog walker's clogged filter: no air through it, in the murk or out of it. */
+    public static final ResourceKey<DamageType> CLOGGED_FILTER = key("clogged_filter");
+
     private static ResourceKey<DamageType> key(String name) {
         return ResourceKey.create(Registries.DAMAGE_TYPE, ResourceLocation.fromNamespaceAndPath(Fogged.MODID, name));
     }
@@ -28,6 +31,11 @@ public final class ModDamageTypes {
      *  variant when the victim was recently hurt by a mob. */
     public static DamageSource fogSuffocation(Level level) {
         return new DamageSource(holder(level, FOG_SUFFOCATION));
+    }
+
+    /** A fog walker's clogged filter: the wearer chokes wherever they are. */
+    public static DamageSource cloggedFilter(Level level) {
+        return new DamageSource(holder(level, CLOGGED_FILTER));
     }
 
     private static Holder<DamageType> holder(Level level, ResourceKey<DamageType> key) {

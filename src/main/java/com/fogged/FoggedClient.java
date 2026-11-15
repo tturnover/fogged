@@ -38,6 +38,8 @@ public class FoggedClient {
         modEventBus.addListener(FoggedClient::registerParticleProviders);
         modEventBus.addListener(FoggedClient::modifyBakingResult);
         modEventBus.addListener(FoggedClient::registerRenderers);
+        modEventBus.addListener((EntityRenderersEvent.AddLayers e) -> FogWalkerLayer.addLayers(e));
+        modEventBus.addListener(FogWalkerHud::registerLayer);
         modEventBus.addListener(FoggedClient::registerReloadListeners);
         modEventBus.addListener(FilterPollution.Client::registerDecorations);
         AirtightDebugRenderer.init(); // hooks the airtight payloads up to the client
@@ -71,6 +73,7 @@ public class FoggedClient {
     // Rig models, animations and tuning load with the resources, so F3+T picks up a new export.
     private static void registerReloadListeners(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener(RigAssets.INSTANCE);
+        event.registerReloadListener(FogWalkerModels.INSTANCE);
     }
 
     // YACL is optional: the ModList check stays here so YaclCompatibility (and every YACL class it

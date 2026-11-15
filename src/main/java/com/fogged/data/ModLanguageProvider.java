@@ -36,15 +36,7 @@ public class ModLanguageProvider extends LanguageProvider {
 
         // Create-style Fogged tooltips (see FoggedTooltip / FoggedTooltips). The "Hold [Shift]" prompt
         // reuses Create's own lang keys at runtime, so only the description bodies live here.
-        add("fogged.tooltip.nozzle.desc1", "Apply a _Wool Block_ to filter out _thick fog_.");
-        add("fogged.tooltip.nozzle.desc2", "An _Encased Fan's_ speed controls the _breathable area_.");
-        add("fogged.tooltip.fog_detector.desc1", "Emits a _redstone signal_ by how deep it sits under the fog.");
-        add("fogged.tooltip.fog_detector.desc2", "Right-click with _another_ to stack it taller.");
 
-        add("fogged.tooltip.air_compressor.desc1", "Set into a _sealed room's wall_, outlet in, it pumps the _murk_ out. Needs an _Air Intake_ on its back, or ducted to it.");
-        add("fogged.tooltip.air_intake.desc1", "Feeds the _compressor_ or _duct_ it is set against, drawing through its _open end_.");
-        add("fogged.tooltip.air_intake.desc2", "Out of the _murk_ it draws clean air; in it, fit a _filter_ block, which _clogs_ in time and must be changed. Bigger compressors want _more intakes_.");
-        add("fogged.tooltip.air_compressor.desc2", "Runs on _FE_ into its _sides_; with Create, a _Wrench_ on a side fits a _shaft socket_. Several in one _room_ add up.");
         // The kinetic compressor is only registered with Create, so it is outside ModBlocks: named here.
         add("block.fogged.kinetic_air_compressor", "Kinetic Air Compressor");
         // Create goggles on an air compressor (AirCompressorCore#goggleLines).
@@ -87,7 +79,40 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.filter.none", "None");
         add("fogged.goggles.filter.polluted", "%s%% polluted");
         add("fogged.goggles.filter.clogged", "Clogged: change it");
-        add("fogged.tooltip.filter_polluted", "Polluted: %s%%");
+        add("fogged.tooltip.nozzle.condition1", "When R-clicked with a Wool Block");
+        add("fogged.tooltip.nozzle.behaviour1", "Becomes a _fog filter_: the _Encased Fan's_ speed sets how big its _breathable area_ is.");
+        add("fogged.tooltip.fog_detector.summary", "Reads how deep it sits _under the fog_.");
+        add("fogged.tooltip.fog_detector.condition1", "When under the fog");
+        add("fogged.tooltip.fog_detector.behaviour1", "Emits a _redstone signal_, stronger the _deeper_ it sits.");
+        add("fogged.tooltip.fog_detector.condition2", "When R-clicked with another");
+        add("fogged.tooltip.fog_detector.behaviour2", "_Stacks_ it taller.");
+        add("fogged.tooltip.air_compressor.summary", "Pumps the _murk_ out of a _sealed room_ and keeps it breathable.");
+        add("fogged.tooltip.air_compressor.condition1", "When set into a room's wall, outlet in");
+        add("fogged.tooltip.air_compressor.behaviour1", "Fills the room with _clean air_ from the outlet outward. Needs an _Air Intake_ on its back, or ducted to it.");
+        add("fogged.tooltip.air_compressor.condition2", "When powered");
+        add("fogged.tooltip.air_compressor.behaviour2", "Runs on _FE_ into its _sides_. Several in one _room_ add up.");
+        add("fogged.tooltip.air_compressor.condition3", "When wrenched on a side (Create)");
+        add("fogged.tooltip.air_compressor.behaviour3", "Fits a _shaft socket_, to run off _rotation_ instead.");
+        add("fogged.tooltip.air_intake.summary", "Feeds the _compressor_ or _duct_ it is set against, drawing through its _open end_. Bigger compressors want _more intakes_.");
+        add("fogged.tooltip.air_intake.condition1", "When out of the murk");
+        add("fogged.tooltip.air_intake.behaviour1", "Draws _clean air_.");
+        add("fogged.tooltip.air_intake.condition2", "When in the murk");
+        add("fogged.tooltip.air_intake.behaviour2", "Needs a _filter_ block fitted, which _clogs_ in time and must be changed.");
+        add("fogged.tooltip.air_duct.summary", "Joins its _neighbours_ on its own and runs on straight, just like a _fluid pipe_.");
+        add("fogged.tooltip.air_duct.condition1", "When laid from a compressor's outlet");
+        add("fogged.tooltip.air_duct.behaviour1", "Carries the air out of its _open ends_.");
+        add("fogged.tooltip.air_duct.condition2", "When laid from an intake to a compressor's back");
+        add("fogged.tooltip.air_duct.behaviour2", "Brings the _intake's_ air to it.");
+        add("fogged.tooltip.fog_walker.none", "None");
+        add("fogged.tooltip.fog_walker.summary", "A copper _diving suit_ for the murk. Its _helmet_ takes the _head slot_ as well: leave that empty to wear it.");
+        add("fogged.tooltip.fog_walker.condition1", "When worn, head slot empty");
+        add("fogged.tooltip.fog_walker.behaviour1", "You breathe the murk through the _fitted filter_, which _fills with murk_ as you do: a block a second, more deeper down. _Clogged_, it lets _no air through anywhere_.");
+        add("fogged.tooltip.fog_walker.condition2", "When worn under another helmet");
+        add("fogged.tooltip.fog_walker.behaviour2", "Its own helmet _hangs at your side_: _armour_, and nothing more.");
+        add("fogged.tooltip.fog_walker.condition3", "When R-clicked with a filter");
+        add("fogged.tooltip.fog_walker.behaviour3", "_Fits_ one, swapping out the one in. Any _intake filter_ goes, but those the config forbids.");
+        add("fogged.tooltip.fog_walker.condition4", "When R-clicked with an empty hand");
+        add("fogged.tooltip.fog_walker.behaviour4", "_Takes the filter out_, as polluted as it is.");
         add("fogged.goggles.air_in", "Air In:");
         add("fogged.goggles.air_in_ok", " %s blocks/s");
         add("fogged.goggles.air_in_short", " %s/%s blocks/s");
@@ -101,8 +126,6 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.room", "Room:");
         add("fogged.goggles.energy_usage", "Energy Usage:");
         add("fogged.goggles.too_slow", "Shaft too slow: needs medium speed");
-        add("fogged.tooltip.air_duct.desc1", "Laid from a _compressor's outlet_, it carries the air out of its _open ends_; from its _back_, it brings air from an _intake_.");
-        add("fogged.tooltip.air_duct.desc2", "Joins its _neighbours_ on its own and runs on straight, just like a _fluid pipe_.");
 
         // Custom death messages (keyed by each damage type's message_id).
         // JEI category for the murk's block conversions (see FoggedJeiPlugin); only shown when JEI is in.
@@ -134,6 +157,8 @@ public class ModLanguageProvider extends LanguageProvider {
 
         add("death.attack.fog_suffocation", "%1$s was swallowed by the fog");
         add("death.attack.fog_suffocation.player", "%1$s drowned in the fog while fleeing %2$s");
+        add("death.attack.clogged_filter", "%1$s choked on a clogged filter");
+        add("death.attack.clogged_filter.player", "%1$s choked on a clogged filter while fleeing %2$s");
 
         ModBlocks.BLOCKS.getEntries()
                 .forEach(holder -> add(holder.get(), name(holder.getId().getPath())));
@@ -392,6 +417,11 @@ public class ModLanguageProvider extends LanguageProvider {
                         + "the lowest tops every tower off at exactly that height.");
         cfg("pillarTilt", "Pillar Lean",
                 "Greatest lean off vertical, in degrees. Each tower leans a random amount up to this.");
+        cfg("fogWalkerFilterBlacklist", "Fog Walker Filter Blacklist",
+                "Intake filters that will not fit into a fog walker: an item id per line, or an item tag with a "
+                        + "leading '#'. A fitted filter catches one block of murk per second its wearer breathes "
+                        + "the murk through it, faster deeper down, so its capacity is how many seconds it lasts "
+                        + "at the boundary.");
         cfg("allowedMobs", "Mobs Allowed Under The Fog",
                 "What may live in the murk: an entity-type id per line, or an entity-type tag with a "
                         + "leading '#'. The 'minecraft:' namespace may be omitted. The default is the "
