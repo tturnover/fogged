@@ -66,6 +66,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.state.stopped", "Зупинено редстоуном");
         add("fogged.goggles.state.shared", "Спільне приміщення");
         add("fogged.goggles.state.stalled", "Заглух");
+        add("fogged.tooltip.polluted_filter", "Йому б трохи свіжого повітря");
         add("fogged.display_source.air_compressor_status", "Стан компресора");
         add("fogged.display_source.air_room_fill", "Повітря в приміщенні");
         add("fogged.display_source.air_held", "Утримане повітря");

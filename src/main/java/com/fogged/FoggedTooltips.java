@@ -61,6 +61,12 @@ public final class FoggedTooltips {
                     "fogged.tooltip.fog_walker.condition3", "fogged.tooltip.fog_walker.behaviour3",
                     "fogged.tooltip.fog_walker.condition4", "fogged.tooltip.fog_walker.behaviour4");
         }
+
+        // A polluted filter, held or as a block: a hint, no more, that clean air is what it wants.
+        if (FilterPollution.step(stack) > 0 && !event.getToolTip().isEmpty()) {
+            event.getToolTip().add(1, net.minecraft.network.chat.Component.translatable("fogged.tooltip.polluted_filter")
+                    .withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC));
+        }
     }
 
     private FoggedTooltips() {}

@@ -358,6 +358,7 @@
   "fogged.tooltip.fog_walker.summary": "Мідний _водолазний костюм_ для каламуті. Його _шолом_ займає ще й _слот голови_: лиште його порожнім, щоб одягти.",
   "fogged.tooltip.nozzle.behaviour1": "Стає _фільтром туману_: швидкість _вентилятора в корпусі_ задає розмір _зони дихання_.",
   "fogged.tooltip.nozzle.condition1": "ПКМ вовняним блоком",
+  "fogged.tooltip.polluted_filter": "Йому б трохи свіжого повітря",
   "force_group.fogged.fog_buoyancy": "Плавучість у каламуті",
   "item.fogged.fog_walker": "Туманохід"
 }

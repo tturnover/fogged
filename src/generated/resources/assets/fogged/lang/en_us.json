@@ -358,6 +358,7 @@
   "fogged.tooltip.fog_walker.summary": "A copper _diving suit_ for the murk. Its _helmet_ takes the _head slot_ as well: leave that empty to wear it.",
   "fogged.tooltip.nozzle.behaviour1": "Becomes a _fog filter_: the _Encased Fan's_ speed sets how big its _breathable area_ is.",
   "fogged.tooltip.nozzle.condition1": "When R-clicked with a Wool Block",
+  "fogged.tooltip.polluted_filter": "It could do with some fresh air",
   "force_group.fogged.fog_buoyancy": "Fog Buoyancy",
   "item.fogged.fog_walker": "Fog Walker"
 }

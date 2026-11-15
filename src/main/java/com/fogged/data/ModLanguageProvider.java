@@ -61,6 +61,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.state.stopped", "Stopped by redstone");
         add("fogged.goggles.state.shared", "Sharing a room");
         add("fogged.goggles.state.stalled", "Stalled");
+        add("fogged.tooltip.polluted_filter", "It could do with some fresh air");
         // Create Display Link sources on a compressor or an intake (AirCompressorDisplaySources).
         add("fogged.display_source.air_compressor_status", "Compressor Status");
         add("fogged.display_source.air_room_fill", "Room Air");
