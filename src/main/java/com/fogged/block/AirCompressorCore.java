@@ -54,6 +54,14 @@ import net.minecraft.world.phys.Vec3;
  * drifting along the way the air flows. A leak floods the whole room at once, and the specks then
  * stream from the outlet to the hole and out of it -- Starship EVO's oxygen, which shows a leak by the
  * molecules escaping it. Any block change near the room re-checks it ({@link AirtightRooms}).
+ *
+ * <h2>A breach</h2>
+ * A room that held air and is breached all at once -- a door opened onto the murk, a wall broken, a
+ * ship lifted off the room it roofed -- blows out, and the blowout stalls its compressors
+ * ({@link State#STALLED}) for a while that grows with the air lost
+ * ({@link Config#COMPRESSOR_BREACH_STALL}): they pump nothing until they are spooled back up. Letting
+ * the air go slowly costs nothing: a room starved of air drains, and one stopped by redstone vents, the
+ * way an airlock is cycled.
  */
 public final class AirCompressorCore {
 
@@ -67,7 +75,9 @@ public final class AirCompressorCore {
         /** A redstone signal has it stopped. */
         STOPPED,
         /** Its outlets open into a room another unit holds: it works that room with it. */
-        SHARED;
+        SHARED,
+        /** Its room blew out: it is spooling back up, and pumps nothing until it has. */
+        STALLED;
 
         static State of(int ordinal) {
             return ordinal >= 0 && ordinal < values().length ? values()[ordinal] : OFF;
@@ -110,6 +120,10 @@ public final class AirCompressorCore {
     private static final float POWER_EASE = 0.05F;
     /** Below this the unit counts as off. */
     private static final float RUNNING = 0.02F;
+    /** The longest a blowout stalls a unit, however big the room was: ten minutes. */
+    private static final int MAX_STALL_TICKS = 10 * 60 * 20;
+    /** How fast a stalled unit's fan still turns, as a share of full speed. */
+    private static final float STALLED_SPIN = 0.15F;
 
     private final BlockEntity be;
     private final CompressorHost host;
@@ -152,6 +166,7 @@ public final class AirCompressorCore {
     // it keeps the air nearest the outlets, up to what it can hold, and loses the rest slowly.
     private boolean shrinking;
     private int filterSignal;    // the comparator reading, see updateSignal
+    private int stallTicks;     // ticks until a unit stalled by a blowout pumps again
 
     // --- Sharing a room: units whose outlets open into the same room work it as one (see elect). The
     // one lowest in the world leads: it holds the room, with the group's capacity together, fills it out
@@ -190,6 +205,7 @@ public final class AirCompressorCore {
     private int shownFilters;    // of them, how many have a filter
     private int shownPolluted;   // their filters' average pollution, percent
     private int shownClogged;    // and how many are clogged
+    private int shownStall;     // seconds until a stalled room's compressors pump again
     /** Ticks between keeping the client's readout current. */
     private static final int READOUT_INTERVAL = 10;
 
@@ -334,7 +350,14 @@ public final class AirCompressorCore {
                 supply = State.PRESSURIZING;
             }
         }
-        if (!runs) {
+        if (stallTicks > 0) {
+            // Blown out: spooling back up, and nothing pumped till then. Its room is looked at the
+            // moment it is ready again.
+            if (--stallTicks == 0) {
+                space.markDirty();
+            }
+            setState(State.STALLED);
+        } else if (!runs) {
             if (stopped) {
                 starve(level, members, facing, area, State.STOPPED, recheck);
             } else {
@@ -345,7 +368,8 @@ public final class AirCompressorCore {
         } else if (supply != State.PRESSURIZING) {
             starve(level, members, facing, area, supply, recheck);
         } else if (recheck || draining || state == State.OFF || state == State.NO_INTAKE
-                || state == State.UNFILTERED || state == State.CLOGGED || state == State.STOPPED) {
+                || state == State.UNFILTERED || state == State.CLOGGED || state == State.STOPPED
+                || state == State.STALLED) {
             check(level, members, facing); // keeps what a draining room still holds, fills the rest
             draining = false;
         }
@@ -998,7 +1022,9 @@ public final class AirCompressorCore {
             }
             case LEAK -> {
                 leakPath = result.leakPath();
+                int lost = space.cells().size(); // the air it held, all of it going at once
                 flood(State.LEAK);
+                stall(level, lost);
             }
             case OVERSIZE -> {
                 // Too big for what the group holds now. A room that was held keeps the air nearest the
@@ -1102,6 +1128,31 @@ public final class AirCompressorCore {
         }
     }
 
+    // A blowout of `lost` blocks of air: the specks burst out of the hole, and the unit stalls -- at
+    // least Config#COMPRESSOR_BREACH_STALL, doubling for every COMPRESSOR_BREACH_STALL_DOUBLING blocks
+    // lost, so a big room blown out costs far more than a small one.
+    private void stall(ServerLevel level, int lost) {
+        double seconds = Config.COMPRESSOR_BREACH_STALL.get()
+                * Math.pow(2.0, lost / (double) Config.COMPRESSOR_BREACH_STALL_DOUBLING.getAsInt());
+        int ticks = (int) Math.min(MAX_STALL_TICKS, Math.round(seconds * 20.0));
+        if (lost <= 0 || ticks <= 0) {
+            return;
+        }
+        stallTicks = Math.max(stallTicks, ticks);
+        if (leakPath.length >= 2) {
+            int last = leakPath.length - 1;
+            for (int k = Math.min(40, 8 + lost / 25); k > 0; k--) {
+                if (k % 3 == 0) {
+                    int i = level.random.nextInt(last);
+                    flowSpeck(level, leakPath[i], leakPath[i + 1], 0.3);
+                } else {
+                    flowSpeck(level, leakPath[last - 1], leakPath[last], 0.4 + level.random.nextDouble() * 0.3);
+                }
+            }
+        }
+        setState(State.STALLED);
+    }
+
     private void flood(State why) {
         draining = false;
         shrinking = false;
@@ -1201,6 +1252,12 @@ public final class AirCompressorCore {
                     seedSpeck(level, lastSeeds.get(rand.nextInt(lastSeeds.size())), 0.15, rand);
                 }
             }
+            case STALLED -> {
+                // Stalled after a blowout: a weak cough out of the outlet now and then.
+                if (!lastSeeds.isEmpty() && rand.nextInt(16) == 0) {
+                    seedSpeck(level, lastSeeds.get(rand.nextInt(lastSeeds.size())), 0.03, rand);
+                }
+            }
             default -> {
             }
         }
@@ -1244,7 +1301,8 @@ public final class AirCompressorCore {
     /** Run from the host's client tick. */
     public void clientTick() {
         lastFanAngle = fanAngle;
-        fanAngle = (fanAngle + 24.0F * power) % 360.0F;
+        float spin = State.of(shownState) == State.STALLED ? STALLED_SPIN : 1.0F;
+        fanAngle = (fanAngle + 24.0F * power * spin) % 360.0F;
         if (fanAngle < lastFanAngle) {
             lastFanAngle -= 360.0F;
         }
@@ -1302,6 +1360,7 @@ public final class AirCompressorCore {
             tag.putInt("Clogged", cloggedFilters());
         }
         tag.putInt("Running", running);
+        tag.putInt("Stall", (h.stallTicks + 19) / 20);
     }
 
     /** Read what {@link #writeClient} wrote. */
@@ -1320,6 +1379,7 @@ public final class AirCompressorCore {
         shownFilters = tag.getInt("Filters");
         shownPolluted = tag.getInt("Polluted");
         shownClogged = tag.getInt("Clogged");
+        shownStall = tag.getInt("Stall");
     }
 
     /**
@@ -1344,6 +1404,10 @@ public final class AirCompressorCore {
                         "fogged.goggles.state." + shown.name().toLowerCase(java.util.Locale.ROOT)))
                 .withStyle(shown == State.SEALED ? net.minecraft.ChatFormatting.GREEN
                         : shown == State.PRESSURIZING ? net.minecraft.ChatFormatting.YELLOW : red);
+        if (shown == State.STALLED && c.shownStall > 0) {
+            status.append(net.minecraft.network.chat.Component.translatable("fogged.goggles.stall_left",
+                    c.shownStall / 60 + ":" + String.format("%02d", c.shownStall % 60)).withStyle(gold));
+        }
         if (c.shownLoss > 0.0 && c.shownHeld > 0) {
             status.append(net.minecraft.network.chat.Component.translatable("fogged.goggles.losing_rate",
                     amount(c.shownLoss)).withStyle(gold));
@@ -1434,12 +1498,14 @@ public final class AirCompressorCore {
         tag.putInt("Air", state.ordinal());
         tag.putFloat("Power", power);
         tag.putBoolean("Draining", draining);
+        tag.putInt("Stall", stallTicks);
     }
 
     /** Read what {@link #save} wrote, as the block entity loads. */
     public void load(CompoundTag tag) {
         savedState = State.of(tag.getInt("Air"));
         draining = tag.getBoolean("Draining"); // the room comes back with the world, still draining
+        stallTicks = Mth.clamp(tag.getInt("Stall"), 0, MAX_STALL_TICKS); // and a stall goes on
         // The smoothed power picks up where it left off, so a loaded unit does not start from nothing
         // and call its room too big while it spins up.
         power = Mth.clamp(tag.getFloat("Power"), 0.0F, 1.0F);
@@ -1491,6 +1557,7 @@ public final class AirCompressorCore {
         next.roomVolume = roomVolume;
         next.draining = draining;
         next.shrinking = shrinking;
+        next.stallTicks = Math.max(next.stallTicks, stallTicks); // a stall goes across with the room
         if (next.space != null) {
             next.space.cells().addAll(space.cells());
             next.space.markDirty();

@@ -617,6 +617,20 @@ public class Config {
     /** How much faster a redstone stop vents a room than it drains starved of air. */
     public static final double VENT_FACTOR = 10.0;
 
+    public static final ModConfigSpec.DoubleValue COMPRESSOR_BREACH_STALL = COMMON
+            .comment("Seconds a breach stalls a room's compressors at the least: a door opened onto the murk, a",
+                    "wall broken, a ship lifted off the room it roofed. The stall doubles for every",
+                    "compressorBreachStallDoubling blocks of air the room held when it went, up to ten minutes.",
+                    "Stalled, they pump nothing, and the room cannot be filled again until they have spooled",
+                    "back up. Air let out slowly costs nothing -- a room starved of air, or vented by redstone",
+                    "like an airlock. 0 = a breach costs nothing.")
+            .defineInRange("compressorBreachStall", 10.0, 0.0, 600.0);
+
+    public static final ModConfigSpec.IntValue COMPRESSOR_BREACH_STALL_DOUBLING = COMMON
+            .comment("Blocks of air lost in a breach that double its stall. At the defaults a 100 block room",
+                    "stalls 20 seconds, 300 blocks 80 seconds, and 600 or more the full ten minutes.")
+            .defineInRange("compressorBreachStallDoubling", 100, 1, 1_000_000);
+
     public static final ModConfigSpec.DoubleValue INTAKE_DUCT_LOSS = COMMON
             .comment("Percent of an intake's flow lost for every air duct between it and its compressor.",
                     "Compounds: 20 ducts at 2 percent leave two thirds of it.")

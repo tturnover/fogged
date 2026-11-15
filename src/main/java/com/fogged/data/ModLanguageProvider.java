@@ -44,6 +44,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.compressors", "Compressors:");
         add("fogged.goggles.running", " %s, %s running");
         add("fogged.goggles.losing_rate", ", losing %s/s");
+        add("fogged.goggles.stall_left", ", %s to go");
         add("fogged.goggles.room_value", " %s/%s blocks");
         add("fogged.goggles.room_none", " 0/%2$s blocks");
         add("fogged.goggles.air", "Air:");
@@ -59,6 +60,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("fogged.goggles.state.clogged", "Intake filters clogged: change them");
         add("fogged.goggles.state.stopped", "Stopped by redstone");
         add("fogged.goggles.state.shared", "Sharing a room");
+        add("fogged.goggles.state.stalled", "Stalled");
         // Create Display Link sources on a compressor or an intake (AirCompressorDisplaySources).
         add("fogged.display_source.air_compressor_status", "Compressor Status");
         add("fogged.display_source.air_room_fill", "Room Air");
@@ -236,6 +238,10 @@ public class ModLanguageProvider extends LanguageProvider {
                 "Blocks of murk a filter sheds per second out of the murk, in an intake or set down as a block. A clogged filter clears again. 0 = never.");
         cfg("compressorDrainRate", "Air Loss",
                 "Blocks of a room's air lost per second with no clean air coming in, or too big for its compressors. Redstone vents ten times as fast. 0 = kept.");
+        cfg("compressorBreachStall", "Breach Stall",
+                "Seconds a breach stalls a room's compressors at the least. Doubles with the air lost, up to ten minutes. Stalled, they pump nothing. Slow venting costs nothing. 0 = none.");
+        cfg("compressorBreachStallDoubling", "Breach Stall Doubling",
+                "Blocks of air lost in a breach that double its stall. At the defaults: 100 blocks 20 s, 300 blocks 80 s, 600 or more ten minutes.");
         cfg("intakeDuctLossPercent", "Flow Lost Per Duct",
                 "Percent of an intake's flow lost for each duct between it and its compressor. Compounds.");
         cfg("compressorHoldFePerBlock", "FE To Hold, Per Block",

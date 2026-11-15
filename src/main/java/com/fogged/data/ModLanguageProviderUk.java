@@ -48,6 +48,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.compressors", "Компресори:");
         add("fogged.goggles.running", " %s, працюють %s");
         add("fogged.goggles.losing_rate", ", втрачає %s/с");
+        add("fogged.goggles.stall_left", ", ще %s");
         add("fogged.goggles.room_value", " %s/%s блоків");
         add("fogged.goggles.room_none", " 0/%2$s блоків");
         add("fogged.goggles.air", "Повітря:");
@@ -63,6 +64,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
         add("fogged.goggles.state.clogged", "Фільтри заборів забиті: замініть їх");
         add("fogged.goggles.state.stopped", "Зупинено редстоуном");
         add("fogged.goggles.state.shared", "Спільне приміщення");
+        add("fogged.goggles.state.stalled", "Заглух");
         add("fogged.display_source.air_compressor_status", "Стан компресора");
         add("fogged.display_source.air_room_fill", "Повітря в приміщенні");
         add("fogged.display_source.air_held", "Утримане повітря");
@@ -237,6 +239,10 @@ public class ModLanguageProviderUk extends LanguageProvider {
                 "Скільки блоків каламуті за секунду скидає фільтр поза каламуттю, у заборі чи поставлений блоком. Забитий фільтр знову звільняється. 0 = ніколи.");
         cfg("compressorDrainRate", "Втрата повітря",
                 "Скільки блоків повітря втрачає приміщення за секунду без чистого повітря чи завелике для своїх компресорів. Редстоун скидає вдесятеро швидше. 0 = не втрачається.");
+        cfg("compressorBreachStall", "Зупинка від прориву",
+                "Щонайменше скільки секунд прорив глушить компресори приміщення. Подвоюється з утраченим повітрям, до десяти хвилин. Заглухлі, вони нічого не нагнітають. Повільне скидання нічого не коштує. 0 — ніскільки.");
+        cfg("compressorBreachStallDoubling", "Подвоєння зупинки від прориву",
+                "Скільки блоків повітря, утрачених у прориві, подвоюють зупинку. Типово: 100 блоків — 20 с, 300 блоків — 80 с, 600 і більше — десять хвилин.");
         cfg("intakeDuctLossPercent", "Втрата на повітропровід",
                 "Відсоток потоку забору, втрачений на кожному повітропроводі між ним і компресором. Накопичується.");
         cfg("compressorHoldFePerBlock", "FE на утримання, на блок",
