@@ -45,6 +45,7 @@ public class Fogged {
         FoggedDatapacks.register(modEventBus);
         modEventBus.addListener(AirtightDebug::registerPayloads);
         modEventBus.addListener(AirtightSync::registerPayloads);
+        modEventBus.addListener(FilterPollution::registerPayloads);
         ModFeatures.register(modEventBus);
         ModStructures.register(modEventBus);
         ModStructurePieces.register(modEventBus);

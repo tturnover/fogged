@@ -22,6 +22,10 @@ import net.neoforged.neoforge.event.ItemStackedOnOtherEvent;
  * with filters as dirty, and dropped onto a stack of the same filter at another step the two merge at
  * the average of the two, rounded up; set down as a block it keeps its pollution there, sheds it out of
  * the murk, and breaks back out as dirty as it still is; it shows as a bar that fills in the slot, in the grime colour.
+ *
+ * <p>Set down, it is shaded toward the grime colour as it is in an intake: the server tells the players
+ * watching a chunk how worn each filter in it is ({@link PlacedTint}), and {@code PlacedFilterRenderer}
+ * draws it.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class FilterPollution {
@@ -131,8 +135,10 @@ public final class FilterPollution {
             if (event.getLevel() instanceof net.minecraft.world.level.Level level) {
                 track(level, new net.minecraft.world.level.ChunkPos(event.getPos()));
             }
+            sync(event.getLevel(), event.getPos());
         } else if (map.remove(key) != null) {
             changed(event.getLevel(), event.getPos());
+            sync(event.getLevel(), event.getPos());
         }
     }
 
@@ -145,6 +151,7 @@ public final class FilterPollution {
             return;
         }
         changed(event.getLevel(), event.getPos());
+        sync(event.getLevel(), event.getPos());
         net.minecraft.world.item.Item item = event.getState().getBlock().asItem();
         int step = Math.min(ModDataComponents.MAX_POLLUTION,
                 (int) Math.ceil((double) murk / capacityOf(item) * ModDataComponents.MAX_POLLUTION - 1.0E-6));
@@ -219,11 +226,91 @@ public final class FilterPollution {
             }
             if (dirty) {
                 chunk.setUnsaved(true);
+                sync(level, chunk);
             }
             if (map.isEmpty()) {
                 it.remove();
             }
         }
+    }
+
+    // --- Seen set down: how worn each placed filter of a chunk is, sent to the players watching it ---
+
+    /**
+     * Every polluted filter set down in one chunk, each with how worn it is (1..255 of clogged), for the
+     * client to shade it by. Sent whole: a chunk holds only a few. Empty when it holds none any more.
+     */
+    public record PlacedTint(long chunk, long[] cells, byte[] wear)
+            implements net.minecraft.network.protocol.common.custom.CustomPacketPayload {
+        public static final Type<PlacedTint> TYPE = new Type<>(
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "placed_filter_tint"));
+        public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.FriendlyByteBuf, PlacedTint> CODEC =
+                net.minecraft.network.codec.StreamCodec.of((buf, t) -> {
+                    buf.writeLong(t.chunk);
+                    buf.writeLongArray(t.cells);
+                    buf.writeByteArray(t.wear);
+                }, buf -> new PlacedTint(buf.readLong(), buf.readLongArray(), buf.readByteArray()));
+
+        @Override
+        public Type<? extends net.minecraft.network.protocol.common.custom.CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    private static PlacedTint tintOf(net.minecraft.world.level.Level level, net.minecraft.world.level.chunk.LevelChunk chunk) {
+        java.util.Map<Long, Integer> map = chunk.hasData(com.fogged.registry.ModAttachments.PLACED_POLLUTION)
+                ? chunk.getData(com.fogged.registry.ModAttachments.PLACED_POLLUTION) : java.util.Map.of();
+        it.unimi.dsi.fastutil.longs.LongArrayList cells = new it.unimi.dsi.fastutil.longs.LongArrayList(map.size());
+        it.unimi.dsi.fastutil.bytes.ByteArrayList wear = new it.unimi.dsi.fastutil.bytes.ByteArrayList(map.size());
+        for (java.util.Map.Entry<Long, Integer> e : map.entrySet()) {
+            net.minecraft.world.item.Item item = level.getBlockState(net.minecraft.core.BlockPos.of(e.getKey())).getBlock().asItem();
+            int w = (int) Math.ceil(Math.min(1.0, (double) e.getValue() / capacityOf(item)) * 255.0);
+            if (w > 0) {
+                cells.add(e.getKey().longValue());
+                wear.add((byte) w);
+            }
+        }
+        return new PlacedTint(chunk.getPos().toLong(), cells.toLongArray(), wear.toByteArray());
+    }
+
+    // The chunk holding pos changed its placed filters: tell whoever watches it.
+    private static void sync(net.minecraft.world.level.LevelAccessor level, net.minecraft.core.BlockPos pos) {
+        if (level instanceof net.minecraft.server.level.ServerLevel server
+                && server.getChunk(pos) instanceof net.minecraft.world.level.chunk.LevelChunk chunk) {
+            sync(server, chunk);
+        }
+    }
+
+    private static void sync(net.minecraft.server.level.ServerLevel level, net.minecraft.world.level.chunk.LevelChunk chunk) {
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingChunk(level, chunk.getPos(), tintOf(level, chunk));
+    }
+
+    // A player starts watching a chunk with polluted filters set down in it.
+    @SubscribeEvent
+    static void onChunkSent(net.neoforged.neoforge.event.level.ChunkWatchEvent.Sent event) {
+        net.minecraft.world.level.chunk.LevelChunk chunk = event.getChunk();
+        if (chunk.hasData(com.fogged.registry.ModAttachments.PLACED_POLLUTION)
+                && !chunk.getData(com.fogged.registry.ModAttachments.PLACED_POLLUTION).isEmpty()) {
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(event.getPlayer(), tintOf(event.getLevel(), chunk));
+        }
+    }
+
+    // Client side, per chunk: each placed filter's wear, 0..1. Main thread only.
+    static final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<it.unimi.dsi.fastutil.longs.Long2FloatOpenHashMap>
+            CLIENT_TINT = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
+
+    static void registerPayloads(net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent event) {
+        event.registrar("1").optional().playToClient(PlacedTint.TYPE, PlacedTint.CODEC, (t, ctx) -> ctx.enqueueWork(() -> {
+            if (t.cells().length == 0) {
+                CLIENT_TINT.remove(t.chunk());
+                return;
+            }
+            it.unimi.dsi.fastutil.longs.Long2FloatOpenHashMap m = new it.unimi.dsi.fastutil.longs.Long2FloatOpenHashMap(t.cells().length);
+            for (int i = 0; i < t.cells().length; i++) {
+                m.put(t.cells()[i], (t.wear()[i] & 0xFF) / 255.0F);
+            }
+            CLIENT_TINT.put(t.chunk(), m);
+        }));
     }
 
     /** Client side: the bar in the slot (FoggedClient registers it). No tooltip line: the bar already says it. */
