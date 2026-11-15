@@ -167,6 +167,241 @@ final class SableCompatibility {
         return new Vec3(dst.x, dst.y, dst.z);
     }
 
+    // Whether a and b lie in the same frame: both in the world, or both in one sub-level's plot.
+    static boolean sameFrame(Level level, BlockPos a, BlockPos b) {
+        return subLevelAt(level, a) == subLevelAt(level, b);
+    }
+
+    /**
+     * The other frames about an air fill whose seeds are {@code seeds}: everything but the frame the
+     * seeds are in (see {@link AirFill.Others}). Null when there is nothing else -- a fill in the world
+     * with no sub-level in its reach -- so the fill runs as it always did.
+     */
+    static AirFill.Others frames(Level level, java.util.Collection<AirFill.Seed> seeds, int capacity) {
+        SubLevelContainer container = SubLevelContainer.getContainer(level);
+        if (container == null) {
+            return null;
+        }
+        SubLevel own = subLevelAt(level, seeds.iterator().next().pos());
+        // The air can get no farther from its seeds than the cells it may hold.
+        double reach = capacity + 2.0;
+        java.util.List<Vec3> from = new java.util.ArrayList<>(seeds.size());
+        for (AirFill.Seed s : seeds) {
+            Vec3 c = Vec3.atCenterOf(s.pos());
+            from.add(own == null ? c : own.logicalPose().transformPosition(c));
+        }
+        java.util.List<SubLevel> others = new java.util.ArrayList<>();
+        for (SubLevel sub : container.getAllSubLevels()) {
+            if (sub == own || sub.isRemoved()) {
+                continue;
+            }
+            BoundingBox3dc bb = sub.boundingBox();
+            for (Vec3 c : from) {
+                double dx = Math.max(0.0, Math.max(bb.minX() - c.x, c.x - bb.maxX()));
+                double dy = Math.max(0.0, Math.max(bb.minY() - c.y, c.y - bb.maxY()));
+                double dz = Math.max(0.0, Math.max(bb.minZ() - c.z, c.z - bb.maxZ()));
+                if (dx * dx + dy * dy + dz * dz <= reach * reach) {
+                    others.add(sub);
+                    break;
+                }
+            }
+        }
+        if (own == null && others.isEmpty()) {
+            return null;
+        }
+        return new Frames(level, own, others);
+    }
+
+    /**
+     * The other frames about one fill. The world is one of them for a fill on a ship; every sub-level
+     * near the fill but its own is. Walls are found by testing the segment between two cell centres,
+     * in world space, against each frame's collision shapes along it.
+     */
+    private static final class Frames implements AirFill.Others {
+        private final Level level;
+        private final SubLevel own;      // null: the fill is in the world
+        private final LevelPlot ownPlot;
+        private final java.util.List<SubLevel> subs;
+        private final Vector3d src = new Vector3d();
+        private final Vector3d dst = new Vector3d();
+        private final BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos();
+        // For a fill in the world, per column: the height a ray up it was cast from, and where it first
+        // met a sub-level (infinite: it met none). Rays are cast only for cells open to the sky, and
+        // under a dome that is most of the room, so each column is asked once or twice, not per cell.
+        private final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<double[]> columns =
+                new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
+
+        Frames(Level level, SubLevel own, java.util.List<SubLevel> subs) {
+            this.level = level;
+            this.own = own;
+            this.ownPlot = own == null ? null : own.getPlot();
+            this.subs = subs;
+        }
+
+        private Vec3 world(BlockPos cell) {
+            Vec3 c = new Vec3(cell.getX() + 0.5, cell.getY() + 0.5, cell.getZ() + 0.5);
+            return own == null ? c : own.logicalPose().transformPosition(c);
+        }
+
+        private Vec3 toPlot(SubLevel sub, Vec3 world) {
+            src.set(world.x, world.y, world.z);
+            sub.logicalPose().transformPositionInverse(src, dst);
+            return new Vec3(dst.x, dst.y, dst.z);
+        }
+
+        @Override
+        public boolean ownHas(BlockPos pos) {
+            // A plot chunk that was never made holds nothing; asking the level for it would say it is
+            // not loaded and stall the fill for good.
+            return own == null || ownPlot != null && ownPlot.contains(new ChunkPos(pos)) && level.isLoaded(pos);
+        }
+
+        @Override
+        public boolean loaded(BlockPos pos) {
+            Vec3 w = world(pos);
+            return level.isLoaded(probe.set(Mth.floor(w.x), Mth.floor(w.y), Mth.floor(w.z)));
+        }
+
+        @Override
+        public boolean occupied(BlockPos pos) {
+            Vec3 w = world(pos);
+            if (own != null && solidAt(level, w)) {
+                return true;
+            }
+            for (SubLevel sub : subs) {
+                BoundingBox3dc bb = sub.boundingBox();
+                if (bb.contains(w.x, w.y, w.z) && solidAt(sub.getLevel(), toPlot(sub, w))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public boolean blocks(BlockPos from, BlockPos to) {
+            Vec3 a = world(from);
+            Vec3 b = world(to);
+            if (own != null && mayTouchGround(a, b) && hit(level, a, b) != null) {
+                return true;
+            }
+            double x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
+            double y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+            double z0 = Math.min(a.z, b.z), z1 = Math.max(a.z, b.z);
+            for (SubLevel sub : subs) {
+                if (sub.boundingBox().intersects(x0, y0, z0, x1, y1, z1)
+                        && hit(sub.getLevel(), toPlot(sub, a), toPlot(sub, b)) != null) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Whether the world's blocks could be anywhere along a to b: some column it crosses has a block
+        // that stops movement at its height or above. Most of a ship's room is up in the open air, where
+        // this saves walking the world's blocks at every step.
+        private boolean mayTouchGround(Vec3 a, Vec3 b) {
+            int x0 = Mth.floor(Math.min(a.x, b.x)), x1 = Mth.floor(Math.max(a.x, b.x));
+            int z0 = Mth.floor(Math.min(a.z, b.z)), z1 = Mth.floor(Math.max(a.z, b.z));
+            double low = Math.min(a.y, b.y);
+            for (int x = x0; x <= x1; x++) {
+                for (int z = z0; z <= z1; z++) {
+                    if (!level.isLoaded(probe.set(x, Mth.floor(low), z))
+                            || low < level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x, z)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public boolean covered(BlockPos pos) {
+            Vec3 w = world(pos);
+            if (own != null) {
+                int x = Mth.floor(w.x), z = Mth.floor(w.z);
+                if (level.isLoaded(probe.set(x, Mth.floor(w.y), z)) && w.y < level.getHeight(
+                        net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x, z)) {
+                    return true; // under the world's own roof: a ship in a hangar or a cave
+                }
+                return coverY(w) < Double.POSITIVE_INFINITY;
+            }
+            long column = ChunkPos.asLong(pos.getX(), pos.getZ());
+            double[] known = columns.get(column);
+            if (known != null) {
+                if (w.y < known[1]) {
+                    return true; // the same line up meets that block over this cell as well
+                }
+                if (known[1] == Double.POSITIVE_INFINITY && w.y >= known[0]) {
+                    return false; // nothing all the way up from lower down, so nothing from here
+                }
+            }
+            double hitY = coverY(w);
+            columns.put(column, new double[] {w.y, hitY});
+            return hitY < Double.POSITIVE_INFINITY;
+        }
+
+        // The world height at which a ray straight up from w first meets a sub-level's block, or
+        // infinity when it meets none.
+        private double coverY(Vec3 w) {
+            double best = Double.POSITIVE_INFINITY;
+            for (SubLevel sub : subs) {
+                BoundingBox3dc bb = sub.boundingBox();
+                if (w.x < bb.minX() || w.x > bb.maxX() || w.z < bb.minZ() || w.z > bb.maxZ() || bb.maxY() <= w.y) {
+                    continue;
+                }
+                Vec3 top = new Vec3(w.x, bb.maxY() + 1.0, w.z);
+                Vec3 la = toPlot(sub, w);
+                Vec3 lb = toPlot(sub, top);
+                Vec3 at = hit(sub.getLevel(), la, lb);
+                if (at != null) {
+                    double t = at.distanceTo(la) / Math.max(1.0E-9, lb.distanceTo(la));
+                    best = Math.min(best, w.y + t * (top.y - w.y));
+                }
+            }
+            return best;
+        }
+    }
+
+    // Whether a block that stops air fills the point p of `frame` (its own coordinates).
+    private static boolean solidAt(Level frame, Vec3 p) {
+        BlockPos pos = new BlockPos(Mth.floor(p.x), Mth.floor(p.y), Mth.floor(p.z));
+        if (!frame.isLoaded(pos)) {
+            return false;
+        }
+        net.minecraft.world.level.block.state.BlockState state = frame.getBlockState(pos);
+        if (lets(state)) {
+            return false;
+        }
+        double lx = p.x - pos.getX(), ly = p.y - pos.getY(), lz = p.z - pos.getZ();
+        for (net.minecraft.world.phys.AABB box : state.getCollisionShape(frame, pos).toAabbs()) {
+            if (lx >= box.minX && lx <= box.maxX && ly >= box.minY && ly <= box.maxY && lz >= box.minZ && lz <= box.maxZ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Where the segment a to b, in `frame`'s own coordinates, first runs into the collision shape of a
+    // block that stops air; null when it runs into none. A chunk not loaded holds nothing, so asking
+    // never loads one.
+    private static Vec3 hit(Level frame, Vec3 a, Vec3 b) {
+        return net.minecraft.world.level.BlockGetter.traverseBlocks(a, b, frame, (f, pos) -> {
+            if (!f.isLoaded(pos)) {
+                return null;
+            }
+            net.minecraft.world.level.block.state.BlockState state = f.getBlockState(pos);
+            if (lets(state)) {
+                return null;
+            }
+            net.minecraft.world.phys.BlockHitResult r = state.getCollisionShape(f, pos).clip(a, b, pos);
+            return r == null ? null : r.getLocation();
+        }, f -> null);
+    }
+
+    private static boolean lets(net.minecraft.world.level.block.state.BlockState state) {
+        return state.isAir() || state.is(com.fogged.registry.ModTags.LETS_AIR_THROUGH);
+    }
+
     private static SubLevel subLevelAt(Level level, BlockPos pos) {
         SubLevelContainer container = SubLevelContainer.getContainer(level);
         if (container == null || !container.inBounds(pos)) {

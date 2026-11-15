@@ -318,7 +318,8 @@ public final class AirCompressorCore {
         // A room that is not holding is looked at every second, so shutting the hole (a door swung to)
         // seals it quickly even where no block-change event says so -- as on a Sable ship, whose blocks
         // can change without one; a ship's room is checked that often throughout, for the same reason.
-        int every = state == State.SEALED && !space.onShip() ? RECHECK_INTERVAL : FAST_RECHECK;
+        // So is one that another frame walls in: a ship lifting off the room it roofs changes no block.
+        int every = state == State.SEALED && !space.onShip() && !space.foreign() ? RECHECK_INTERVAL : FAST_RECHECK;
         boolean recheck = dirty || capacityCrossed
                 || level.getGameTime() % every == Math.floorMod(pos().asLong(), every);
         if (retryIn > 0) {
@@ -955,6 +956,7 @@ public final class AirCompressorCore {
         watched.addAll(intakes.keySet());
         watched.addAll(liveMouths);
         space.watch(result, watched);
+        space.foreign(result.foreign());
         switch (result.result()) {
             case SEALED -> {
                 if (intakesInside(result.order(), mates)) {

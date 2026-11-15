@@ -37,6 +37,10 @@ import net.neoforged.neoforge.event.level.LevelEvent;
  * <p>A compressor riding a Sable sub-level fills the room in the sub-level's plot, where its walls
  * actually are, so the cells are plot coordinates. A world-space point (a rider's eye) is mapped into
  * the plot before it is looked up; a block position handed in by the scour is already in plot space.
+ *
+ * <p>A room can be walled in by another frame as well ({@link AirFill}): a ship's room parked in a world
+ * hangar, a world room under a ship's dome. Its cells stay in its own compressor's frame; a block of
+ * another frame is sheltered by mapping it into the room's frame through the ships' poses.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class AirtightRooms {
@@ -117,6 +121,18 @@ public final class AirtightRooms {
         /** Whether the room rides a Sable sub-level. */
         public boolean onShip() {
             return plot;
+        }
+
+        /** Another frame helps wall this room in, so it can change without a block change of its own. */
+        volatile boolean foreign;
+
+        /** Whether another frame walled in the room as last found (see {@link AirFill#foreign()}). */
+        public boolean foreign() {
+            return foreign;
+        }
+
+        public void foreign(boolean foreign) {
+            this.foreign = foreign;
         }
 
         // What the compressor last said about this room, for the debug view (AirtightDebug).
@@ -264,17 +280,47 @@ public final class AirtightRooms {
             return false;
         }
         BlockPos.MutableBlockPos n = new BlockPos.MutableBlockPos();
+        boolean foreign = false;
         for (Space s : dim.values()) {
+            foreign |= s.foreign && !s.cells.isEmpty();
             if (s.cells.isEmpty() || !s.watches(pos)) {
                 continue;
             }
-            if (s.cells.contains(pos.asLong())) {
+            if (touches(s, pos, n)) {
                 return true;
             }
-            for (Direction d : Direction.values()) {
-                if (s.cells.contains(n.setWithOffset(pos, d).asLong())) {
-                    return true;
-                }
+        }
+        if (!foreign || !SABLE) {
+            return false;
+        }
+        // Walled in by another frame: a ship's hull over a world room, the world's floor under a ship's
+        // room run out past its plot. The block is asked about where it really is, in the room's frame.
+        Vec3 world = PlaneSensor.worldCenter(level, pos);
+        BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+        for (Space s : dim.values()) {
+            if (!s.foreign || s.cells.isEmpty()) {
+                continue;
+            }
+            Vec3 p = s.plot ? SableCompatibility.toPlot(level, s.anchor, world) : world;
+            if (p == null) {
+                continue;
+            }
+            at.set(Mth.floor(p.x), Mth.floor(p.y), Mth.floor(p.z));
+            if (!at.equals(pos) && s.watches(at) && touches(s, at, n)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Whether the room's air is in the cell at pos or against one of its faces.
+    private static boolean touches(Space s, BlockPos pos, BlockPos.MutableBlockPos n) {
+        if (s.cells.contains(pos.asLong())) {
+            return true;
+        }
+        for (Direction d : Direction.values()) {
+            if (s.cells.contains(n.setWithOffset(pos, d).asLong())) {
+                return true;
             }
         }
         return false;
@@ -331,6 +377,7 @@ public final class AirtightRooms {
                 space.cells.addAll(it.unimi.dsi.fastutil.longs.LongArrayList.wrap(cells));
                 space.watch(cells);
                 space.sealed = true;
+                space.foreign = room.getBoolean("Foreign");
                 space.volume = cells.length;
                 dim.put(space.anchor, space);
             }
@@ -349,6 +396,7 @@ public final class AirtightRooms {
                     CompoundTag room = new CompoundTag();
                     room.putLong("Anchor", s.anchor.asLong());
                     room.putBoolean("Plot", s.plot);
+                    room.putBoolean("Foreign", s.foreign);
                     room.putLongArray("Cells", s.cells.toLongArray());
                     rooms.add(room);
                 }

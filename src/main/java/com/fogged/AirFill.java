@@ -46,6 +46,17 @@ import net.neoforged.neoforge.event.TagsUpdatedEvent;
  * what is in it yet), and fails as {@link Result#OVERSIZE} once it holds
  * more cells than the compressor can keep: a cave or an open valley is just a very big room. Either way
  * the room floods. Runs on the server thread only.
+ *
+ * <h2>Other frames</h2>
+ * With Sable loaded, the blocks around a room need not all be in one frame: a ship can be parked in a
+ * hangar built into the world, one ship can arch over another, or a ship can come down over a room in
+ * the world like a lid. The fill walks the cells of its own frame -- the world, or the plot of the ship
+ * its compressor rides -- and asks {@link Others} about everything else: each step from one cell's
+ * centre to the next is tested against the collision shapes of the other frames in world space, and a
+ * cell under the open sky of its own frame still counts as covered while another frame's block stands
+ * over it. A segment test cannot slip through a closed shell however the frames are turned against each
+ * other, so a dome of ship blocks over a world room seals it as a roof of world blocks would. Outside
+ * its own plot a ship's frame holds nothing: there its air is bounded by the other frames alone.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class AirFill {
@@ -75,7 +86,11 @@ public final class AirFill {
     private final long leakFrom;
     private final long leakTo;
 
-    private AirFill(Result result, LongArrayList order, Long2LongOpenHashMap parent, long leakFrom, long leakTo) {
+    private final boolean foreign;
+
+    private AirFill(Result result, LongArrayList order, Long2LongOpenHashMap parent, long leakFrom, long leakTo,
+            boolean foreign) {
+        this.foreign = foreign;
         this.result = result;
         this.order = order;
         this.parent = parent;
@@ -89,8 +104,33 @@ public final class AirFill {
      */
     public record Seed(BlockPos pos, Direction into) {}
 
+    /**
+     * What lies about a fill in frames other than its own: the world for a fill on a ship, and every
+     * Sable sub-level but the fill's own. All positions are cells of the fill's own frame.
+     */
+    interface Others {
+        /** Whether the fill's own frame has anything at {@code pos}; outside it, the cell is empty air. */
+        boolean ownHas(BlockPos pos);
+
+        /** For a cell outside its own frame: whether the world it lies in is loaded enough to be asked. */
+        boolean loaded(BlockPos pos);
+
+        /** Whether a block of another frame fills the centre of {@code pos}. */
+        boolean occupied(BlockPos pos);
+
+        /** Whether the step from the centre of {@code from} to that of {@code to} runs into another frame's wall. */
+        boolean blocks(BlockPos from, BlockPos to);
+
+        /** Whether a block of another frame stands anywhere over {@code pos}, straight up in the world. */
+        boolean covered(BlockPos pos);
+    }
+
+    private static final boolean SABLE = net.neoforged.fml.ModList.get().isLoaded("sable");
+
     /** Flood the air in from {@code seeds} up to {@code capacity} cells. */
     public static AirFill run(Level level, Collection<Seed> seeds, int capacity) {
+        Others others = SABLE && !seeds.isEmpty() ? SableCompatibility.frames(level, seeds, capacity) : null;
+        boolean foreign = false;
         LongArrayList order = new LongArrayList();
         Long2LongOpenHashMap parent = new Long2LongOpenHashMap();
         parent.defaultReturnValue(Long.MIN_VALUE);
@@ -104,28 +144,36 @@ public final class AirFill {
             if (parent.containsKey(key)) {
                 continue;
             }
-            if (!level.isLoaded(seed)) {
-                return new AirFill(Result.UNLOADED, order, parent, key, key);
+            if (!loaded(level, others, seed)) {
+                return new AirFill(Result.UNLOADED, order, parent, key, key, foreign);
             }
-            if (closes(level, seed, level.getBlockState(seed), s.into().getOpposite())) {
+            if (closes(level, seed, stateAt(level, others, seed), s.into().getOpposite())) {
                 continue; // a wall right against the outlet: this seed is no way in
+            }
+            if (others != null && others.occupied(seed)) {
+                foreign = true;
+                continue; // another frame's block right against it: no way in either
             }
             parent.put(key, key); // a seed is its own parent: the leak path stops here
             order.add(key);
             queue.enqueue(key);
         }
         if (order.isEmpty()) {
-            return new AirFill(Result.BLOCKED, order, parent, 0L, 0L);
+            return new AirFill(Result.BLOCKED, order, parent, 0L, 0L, foreign);
         }
 
         while (!queue.isEmpty()) {
             long cur = queue.dequeueLong();
             at.set(cur);
-            if (escapes(level, at)) {
-                // Out under the sky: the way out is straight up, so the leak sprays from here upward.
-                return new AirFill(Result.LEAK, order, parent, cur, BlockPos.offset(cur, Direction.UP));
+            if (escapes(level, others, at)) {
+                if (others != null && others.covered(at)) {
+                    foreign = true; // open in its own frame, but under another's roof
+                } else {
+                    // Out under the sky: the way out is straight up, so the leak sprays from here upward.
+                    return new AirFill(Result.LEAK, order, parent, cur, BlockPos.offset(cur, Direction.UP), foreign);
+                }
             }
-            BlockState here = level.getBlockState(at);
+            BlockState here = stateAt(level, others, at);
             for (Direction d : DIRECTIONS) {
                 if (closes(level, at, here, d)) {
                     continue;
@@ -136,33 +184,52 @@ public final class AirFill {
                     continue;
                 }
                 if (next.getY() < level.getMinBuildHeight() || next.getY() >= level.getMaxBuildHeight()) {
-                    return new AirFill(Result.LEAK, order, parent, cur, key);
+                    return new AirFill(Result.LEAK, order, parent, cur, key, foreign);
                 }
-                if (!level.isLoaded(next)) {
-                    return new AirFill(Result.UNLOADED, order, parent, cur, key);
+                if (!loaded(level, others, next)) {
+                    return new AirFill(Result.UNLOADED, order, parent, cur, key, foreign);
                 }
-                if (closes(level, next, level.getBlockState(next), d.getOpposite())) {
+                if (closes(level, next, stateAt(level, others, next), d.getOpposite())) {
+                    continue;
+                }
+                if (others != null && others.blocks(at, next)) {
+                    foreign = true;
                     continue;
                 }
                 parent.put(key, cur);
                 order.add(key);
                 if (order.size() > capacity) {
-                    return new AirFill(Result.OVERSIZE, order, parent, cur, key);
+                    return new AirFill(Result.OVERSIZE, order, parent, cur, key, foreign);
                 }
                 queue.enqueue(key);
             }
         }
-        return new AirFill(Result.SEALED, order, parent, 0L, 0L);
+        return new AirFill(Result.SEALED, order, parent, 0L, 0L, foreign);
+    }
+
+    // The fill's own block at pos: air where its own frame has nothing (a ship's frame past its plot).
+    private static BlockState stateAt(Level level, Others others, BlockPos pos) {
+        return others == null || others.ownHas(pos) ? level.getBlockState(pos)
+                : net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+    }
+
+    private static boolean loaded(Level level, Others others, BlockPos pos) {
+        return others == null || others.ownHas(pos) ? level.isLoaded(pos) : others.loaded(pos);
     }
 
     // Open air: a cell with nothing above it that stops movement is under the open sky, and outside
     // whatever else surrounds it. Asked of the MOTION_BLOCKING heightmap, not canSeeSky: that one
     // answers by sky light, which glass lets straight through, so every cell under a glass roof read
     // as open sky and no glass room could seal. A dimension without a sky (the Nether) never reports
-    // this, and leans on the capacity alone.
-    private static boolean escapes(Level level, BlockPos pos) {
-        return level.dimensionType().hasSkyLight()
-                && pos.getY() >= level.getHeight(Heightmap.Types.MOTION_BLOCKING, pos.getX(), pos.getZ());
+    // this, and leans on the capacity alone. Past a ship's plot its own frame has nothing overhead (and
+    // its heightmap is never asked there, which would load a chunk out in plot space): only the other
+    // frames can cover it, which the fill asks of them next.
+    private static boolean escapes(Level level, Others others, BlockPos pos) {
+        if (!level.dimensionType().hasSkyLight()) {
+            return false;
+        }
+        return others != null && !others.ownHas(pos)
+                || pos.getY() >= level.getHeight(Heightmap.Types.MOTION_BLOCKING, pos.getX(), pos.getZ());
     }
 
     /**
@@ -250,6 +317,15 @@ public final class AirFill {
 
     public Result result() {
         return result;
+    }
+
+    /**
+     * Whether another frame had a hand in this room: one of its blocks walled the air in, or stood over
+     * a cell open to its own frame's sky. Such a room changes without any block change of its own -- a
+     * ship moves -- so it is looked at often (see {@link AirtightRooms.Space#foreign()}).
+     */
+    public boolean foreign() {
+        return foreign;
     }
 
     /** Every cell reached, in the order the air reached them: seeds first, then outward. */
