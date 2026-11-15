@@ -6,6 +6,7 @@
   "block.fogged.fog_detector_extension": "Секція детектора туману",
   "block.fogged.kinetic_air_compressor": "Кінетичний повітряний компресор",
   "block.fogged.nozzle_filter": "Фільтр туману",
+  "block.fogged.used_filter": "Використаний фільтр",
   "death.attack.clogged_filter": "Гравця %1$s задушив забитий фільтр",
   "death.attack.clogged_filter.player": "Гравця %1$s задушив забитий фільтр під час втечі від %2$s",
   "death.attack.fog_suffocation": "Гравця %1$s поглинув туман",

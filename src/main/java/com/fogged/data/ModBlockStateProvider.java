@@ -39,7 +39,8 @@ public class ModBlockStateProvider extends BlockStateProvider {
             ModBlocks.NOZZLE_FILTER,
             ModBlocks.AIR_COMPRESSOR,
             ModBlocks.AIR_COMPRESSOR_INTAKE,
-            ModBlocks.AIR_DUCT);
+            ModBlocks.AIR_DUCT,
+            ModBlocks.USED_FILTER);
 
     @Override
     protected void registerStatesAndModels() {
@@ -62,6 +63,12 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // Air duct: a hand-made multipart (assets/fogged/blockstates/air_duct.json) -- a core, a collar
         // per joined side, a vent on a dead end -- which a generated blockstate cannot express. Item only.
         itemModels().withExistingParent("air_duct", modLoc("block/air_duct_item"));
+
+        // Used filter: drawn by its block entity renderer as the block it is, so its model is empty --
+        // just a particle texture for anything that asks. No item. The used filters made at startup
+        // share this model (UsedFilterPack gives them their blockstates).
+        simpleBlock(ModBlocks.USED_FILTER.get(),
+                models().getBuilder("used_filter").texture("particle", mcLoc("block/white_wool")));
 
         // Everything else: auto cube_all, blockstate + block model + item model.
         ModBlocks.BLOCKS.getEntries().forEach(holder -> {

@@ -20,12 +20,12 @@ import net.neoforged.neoforge.event.ItemStackedOnOtherEvent;
 /**
  * A used intake filter's pollution ({@link ModDataComponents#POLLUTION}) out of the intake: it stacks
  * with filters as dirty, and dropped onto a stack of the same filter at another step the two merge at
- * the average of the two, rounded up; set down as a block it keeps its pollution there, sheds it out of
- * the murk, and breaks back out as dirty as it still is; it shows as a bar that fills in the slot, in the grime colour.
+ * the average of the two, rounded up; set down as a block it keeps its pollution, sheds it out of the
+ * murk, and breaks back out as dirty as it still is; it shows as a bar that fills in the slot, in the
+ * grime colour.
  *
- * <p>Set down, it is shaded toward the grime colour as it is in an intake: the server tells the players
- * watching a chunk how worn each filter in it is ({@link PlacedTint}), and {@code PlacedFilterRenderer}
- * draws it.
+ * <p>Set down, it becomes a used filter ({@code UsedFilterBlock}) holding its pollution in its own NBT,
+ * shaded toward the grime colour as it is in an intake.
  */
 @EventBusSubscriber(modid = Fogged.MODID)
 public final class FilterPollution {
@@ -75,242 +75,136 @@ public final class FilterPollution {
         event.setCanceled(true);
     }
 
-    // --- Set down as a block, a polluted filter keeps its pollution in the chunk (ModAttachments), as
-    // blocks of murk, and sheds it out of the murk as one in an intake does (Config#FILTER_CLEAN_RATE).
+    // --- Set down as a block, a polluted filter becomes a used filter (UsedFilterBlock), which holds the
+    // block it is and its pollution in its own NBT and sheds it out of the murk.
 
-    private static java.util.Map<Long, Integer> placed(net.minecraft.world.level.LevelAccessor level,
-            net.minecraft.core.BlockPos pos) {
-        return level.getChunk(pos) instanceof net.minecraft.world.level.chunk.LevelChunk chunk
-                ? chunk.getData(com.fogged.registry.ModAttachments.PLACED_POLLUTION) : null;
-    }
-
-    private static void changed(net.minecraft.world.level.LevelAccessor level, net.minecraft.core.BlockPos pos) {
-        if (level.getChunk(pos) instanceof net.minecraft.world.level.chunk.LevelChunk chunk) {
-            chunk.setUnsaved(true);
-        }
-    }
-
-    // A filter's capacity in blocks of murk, to turn steps into blocks and back; one that never clogs is
-    // reckoned at a nominal size, so its steps still come back as they went down.
-    private static int capacityOf(net.minecraft.world.item.Item item) {
+    /**
+     * A filter's capacity in blocks of murk, to turn steps into blocks and back; one that never clogs is
+     * reckoned at a nominal size, so its steps still come back as they went down.
+     */
+    public static int capacityOf(net.minecraft.world.item.Item item) {
         int capacity = Config.filterCapacity(new ItemStack(item));
         return capacity > 0 ? capacity : 1000;
     }
 
-    // The loaded chunks, per level, holding polluted filters to clean.
-    private static final java.util.Map<net.minecraft.world.level.Level, it.unimi.dsi.fastutil.longs.LongOpenHashSet>
-            DIRTY_CHUNKS = new java.util.WeakHashMap<>();
-
-    private static void track(net.minecraft.world.level.Level level, net.minecraft.world.level.ChunkPos chunk) {
-        DIRTY_CHUNKS.computeIfAbsent(level, l -> new it.unimi.dsi.fastutil.longs.LongOpenHashSet()).add(chunk.toLong());
-    }
-
-    // Placed by a player (or a Deployer's): the hand still holds the stack as it was when the event fires,
-    // so its step is read off whichever hand holds this block's item. Anything else placed here clears
-    // whatever an earlier filter left.
+    // Set down some way other than through its item (BlockItemMixin covers that, on both sides): read the
+    // pollution off the placer's hand -- which still holds the stack as it was while the event fires --
+    // and swap the plain block for its used filter.
     @SubscribeEvent
     static void onPlace(net.neoforged.neoforge.event.level.BlockEvent.EntityPlaceEvent event) {
-        if (event.getLevel().isClientSide()) {
+        if (!(event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)) {
             return;
         }
-        java.util.Map<Long, Integer> map = placed(event.getLevel(), event.getPos());
-        if (map == null) {
+        net.minecraft.world.level.block.state.BlockState placed = event.getPlacedBlock();
+        if (placed.getBlock() instanceof com.fogged.block.UsedFilterBlock) {
+            return; // placed as one already, and told what it holds
+        }
+        net.minecraft.world.item.Item item = placed.getBlock().asItem();
+        if (Config.filterCapacity(new ItemStack(item)) < 0) {
             return;
         }
-        int step = 0;
-        net.minecraft.world.item.Item item = event.getPlacedBlock().getBlock().asItem();
         if (event.getEntity() instanceof net.minecraft.world.entity.LivingEntity living) {
             for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
                 ItemStack held = living.getItemInHand(hand);
                 if (held.is(item) && step(held) > 0) {
-                    step = step(held);
-                    break;
+                    becomeUsed(level, event.getPos(), placed, murkOf(held, item));
+                    return;
                 }
             }
         }
-        long key = event.getPos().asLong();
-        if (step > 0) {
-            map.put(key, (int) Math.round((double) step / ModDataComponents.MAX_POLLUTION * capacityOf(item)));
-            changed(event.getLevel(), event.getPos());
-            if (event.getLevel() instanceof net.minecraft.world.level.Level level) {
-                track(level, new net.minecraft.world.level.ChunkPos(event.getPos()));
-            }
-            sync(event.getLevel(), event.getPos());
-        } else if (map.remove(key) != null) {
-            changed(event.getLevel(), event.getPos());
-            sync(event.getLevel(), event.getPos());
+    }
+
+    // The murk a stack's step comes to, rounded down: the step it breaks back out at is rounded up
+    // (UsedFilterBlockEntity#step), so setting it down and picking it up again leaves it as it was.
+    private static int murkOf(ItemStack stack, net.minecraft.world.item.Item item) {
+        return (int) Math.floor((double) step(stack) / ModDataComponents.MAX_POLLUTION * capacityOf(item));
+    }
+
+    /**
+     * What a polluted filter is placed as, on both sides (BlockItemMixin): its used filter -- its block's
+     * own, or the generic one -- at its step. So the placer's client predicts the used filter itself,
+     * shaded, rather than the plain block the server then swaps out, which flickered. Null leaves it be.
+     */
+    public static net.minecraft.world.level.block.state.BlockState placementState(ItemStack stack,
+            net.minecraft.world.level.block.state.BlockState placing) {
+        int step = step(stack);
+        if (step <= 0 || placing == null || !(stack.getItem() instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock() == placing.getBlock())
+                || Config.filterCapacity(stack) < 0) {
+            return null;
+        }
+        return UsedFilters.usedFor(placing.getBlock()).defaultBlockState()
+                .setValue(com.fogged.block.UsedFilterBlock.POLLUTION, Math.min(step, ModDataComponents.MAX_POLLUTION));
+    }
+
+    /**
+     * A polluted filter has just been placed as its used filter at {@code pos}: tell it what it is and
+     * holds, from the stack still in hand. On both sides, so the placer's client draws it right before
+     * the server has said anything (BlockItemMixin).
+     */
+    public static void placed(net.minecraft.world.level.Level level, net.minecraft.core.BlockPos pos, ItemStack stack) {
+        if (step(stack) > 0 && stack.getItem() instanceof net.minecraft.world.item.BlockItem bi
+                && level.getBlockEntity(pos) instanceof com.fogged.block.UsedFilterBlockEntity be) {
+            be.init(bi.getBlock().defaultBlockState(), murkOf(stack, bi));
         }
     }
 
-    // Broken: what it drops of itself comes back as polluted as it still is, rounded up to a step.
-    @SubscribeEvent
-    static void onDrops(net.neoforged.neoforge.event.level.BlockDropsEvent event) {
-        java.util.Map<Long, Integer> map = placed(event.getLevel(), event.getPos());
-        Integer murk = map == null ? null : map.remove(event.getPos().asLong());
-        if (murk == null) {
-            return;
-        }
-        changed(event.getLevel(), event.getPos());
-        sync(event.getLevel(), event.getPos());
-        net.minecraft.world.item.Item item = event.getState().getBlock().asItem();
-        int step = Math.min(ModDataComponents.MAX_POLLUTION,
-                (int) Math.ceil((double) murk / capacityOf(item) * ModDataComponents.MAX_POLLUTION - 1.0E-6));
-        if (step <= 0) {
-            return;
-        }
-        for (net.minecraft.world.entity.item.ItemEntity drop : event.getDrops()) {
-            ItemStack stack = drop.getItem();
-            if (stack.is(item)) {
-                ItemStack dirty = stack.copy();
-                dirty.set(ModDataComponents.POLLUTION.get(), step);
-                drop.setItem(dirty);
-            }
+    private static void becomeUsed(net.minecraft.world.level.Level level, net.minecraft.core.BlockPos pos,
+            net.minecraft.world.level.block.state.BlockState original, int murk) {
+        // Its steps in the state, so it is shaded the moment it appears (UsedFilterBlock#POLLUTION).
+        level.setBlock(pos, UsedFilters.usedFor(original.getBlock()).defaultBlockState()
+                .setValue(com.fogged.block.UsedFilterBlock.POLLUTION,
+                        com.fogged.block.UsedFilterBlockEntity.stepOf(original, murk)), 3);
+        if (level.getBlockEntity(pos) instanceof com.fogged.block.UsedFilterBlockEntity be) {
+            be.init(original, murk);
         }
     }
 
-    // A chunk coming in with polluted filters in it: clean them while it is loaded.
+    // --- Worlds from before: placed pollution kept per chunk (ModAttachments#PLACED_POLLUTION). Each
+    // such filter becomes a used filter the first time its chunk is loaded, and the record goes.
+
+    private static final java.util.Map<net.minecraft.world.level.Level, it.unimi.dsi.fastutil.longs.LongOpenHashSet>
+            LEGACY_CHUNKS = new java.util.WeakHashMap<>();
+
     @SubscribeEvent
     static void onChunkLoad(net.neoforged.neoforge.event.level.ChunkEvent.Load event) {
         if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level
                 && event.getChunk() instanceof net.minecraft.world.level.chunk.LevelChunk chunk
                 && chunk.hasData(com.fogged.registry.ModAttachments.PLACED_POLLUTION)
                 && !chunk.getData(com.fogged.registry.ModAttachments.PLACED_POLLUTION).isEmpty()) {
-            track(level, chunk.getPos());
+            LEGACY_CHUNKS.computeIfAbsent(level, l -> new it.unimi.dsi.fastutil.longs.LongOpenHashSet())
+                    .add(chunk.getPos().toLong());
         }
     }
 
-    // Once a second: each polluted filter out of the murk sheds Config#FILTER_CLEAN_RATE blocks of it;
-    // clean, it is forgotten. A record whose block is no filter any more (changed without an event) goes.
+    // Not in the load event itself, which may come while the chunk is still being put in place.
     @SubscribeEvent
     static void onLevelTick(net.neoforged.neoforge.event.tick.LevelTickEvent.Post event) {
-        if (!(event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)
-                || level.getGameTime() % 20 != 0) {
+        if (!(event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)) {
             return;
         }
-        it.unimi.dsi.fastutil.longs.LongOpenHashSet chunks = DIRTY_CHUNKS.get(level);
+        it.unimi.dsi.fastutil.longs.LongOpenHashSet chunks = LEGACY_CHUNKS.get(level);
         if (chunks == null || chunks.isEmpty()) {
             return;
         }
-        int shed = (int) Math.round(Config.FILTER_CLEAN_RATE.get());
-        it.unimi.dsi.fastutil.longs.LongIterator it = chunks.iterator();
-        while (it.hasNext()) {
-            long packed = it.nextLong();
+        long[] all = chunks.toLongArray();
+        chunks.clear();
+        for (long packed : all) {
             net.minecraft.world.level.chunk.LevelChunk chunk = level.getChunkSource().getChunkNow(
                     net.minecraft.world.level.ChunkPos.getX(packed), net.minecraft.world.level.ChunkPos.getZ(packed));
             if (chunk == null) {
-                it.remove(); // unloaded: it comes back in with its chunk
-                continue;
+                continue; // gone again: it comes back in with its chunk
             }
             java.util.Map<Long, Integer> map = chunk.getData(com.fogged.registry.ModAttachments.PLACED_POLLUTION);
-            boolean dirty = false;
-            java.util.Iterator<java.util.Map.Entry<Long, Integer>> entries = map.entrySet().iterator();
-            while (entries.hasNext()) {
-                java.util.Map.Entry<Long, Integer> e = entries.next();
+            for (java.util.Map.Entry<Long, Integer> e : new java.util.ArrayList<>(map.entrySet())) {
                 net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.of(e.getKey());
-                net.minecraft.world.item.Item item = level.getBlockState(pos).getBlock().asItem();
-                if (Config.filterCapacity(new ItemStack(item)) < 0) {
-                    entries.remove();
-                    dirty = true;
-                    continue;
+                net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+                if (e.getValue() > 0 && Config.filterCapacity(new ItemStack(state.getBlock().asItem())) >= 0) {
+                    becomeUsed(level, pos, state, e.getValue());
                 }
-                if (shed <= 0 || Config.fogged(level, PlaneSensor.worldY(level, pos))) {
-                    continue;
-                }
-                int left = e.getValue() - shed;
-                if (left <= 0) {
-                    entries.remove();
-                } else {
-                    e.setValue(left);
-                }
-                dirty = true;
             }
-            if (dirty) {
-                chunk.setUnsaved(true);
-                sync(level, chunk);
-            }
-            if (map.isEmpty()) {
-                it.remove();
-            }
+            map.clear();
+            chunk.setUnsaved(true);
         }
-    }
-
-    // --- Seen set down: how worn each placed filter of a chunk is, sent to the players watching it ---
-
-    /**
-     * Every polluted filter set down in one chunk, each with how worn it is (1..255 of clogged), for the
-     * client to shade it by. Sent whole: a chunk holds only a few. Empty when it holds none any more.
-     */
-    public record PlacedTint(long chunk, long[] cells, byte[] wear)
-            implements net.minecraft.network.protocol.common.custom.CustomPacketPayload {
-        public static final Type<PlacedTint> TYPE = new Type<>(
-                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "placed_filter_tint"));
-        public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.FriendlyByteBuf, PlacedTint> CODEC =
-                net.minecraft.network.codec.StreamCodec.of((buf, t) -> {
-                    buf.writeLong(t.chunk);
-                    buf.writeLongArray(t.cells);
-                    buf.writeByteArray(t.wear);
-                }, buf -> new PlacedTint(buf.readLong(), buf.readLongArray(), buf.readByteArray()));
-
-        @Override
-        public Type<? extends net.minecraft.network.protocol.common.custom.CustomPacketPayload> type() {
-            return TYPE;
-        }
-    }
-
-    private static PlacedTint tintOf(net.minecraft.world.level.Level level, net.minecraft.world.level.chunk.LevelChunk chunk) {
-        java.util.Map<Long, Integer> map = chunk.hasData(com.fogged.registry.ModAttachments.PLACED_POLLUTION)
-                ? chunk.getData(com.fogged.registry.ModAttachments.PLACED_POLLUTION) : java.util.Map.of();
-        it.unimi.dsi.fastutil.longs.LongArrayList cells = new it.unimi.dsi.fastutil.longs.LongArrayList(map.size());
-        it.unimi.dsi.fastutil.bytes.ByteArrayList wear = new it.unimi.dsi.fastutil.bytes.ByteArrayList(map.size());
-        for (java.util.Map.Entry<Long, Integer> e : map.entrySet()) {
-            net.minecraft.world.item.Item item = level.getBlockState(net.minecraft.core.BlockPos.of(e.getKey())).getBlock().asItem();
-            int w = (int) Math.ceil(Math.min(1.0, (double) e.getValue() / capacityOf(item)) * 255.0);
-            if (w > 0) {
-                cells.add(e.getKey().longValue());
-                wear.add((byte) w);
-            }
-        }
-        return new PlacedTint(chunk.getPos().toLong(), cells.toLongArray(), wear.toByteArray());
-    }
-
-    // The chunk holding pos changed its placed filters: tell whoever watches it.
-    private static void sync(net.minecraft.world.level.LevelAccessor level, net.minecraft.core.BlockPos pos) {
-        if (level instanceof net.minecraft.server.level.ServerLevel server
-                && server.getChunk(pos) instanceof net.minecraft.world.level.chunk.LevelChunk chunk) {
-            sync(server, chunk);
-        }
-    }
-
-    private static void sync(net.minecraft.server.level.ServerLevel level, net.minecraft.world.level.chunk.LevelChunk chunk) {
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingChunk(level, chunk.getPos(), tintOf(level, chunk));
-    }
-
-    // A player starts watching a chunk with polluted filters set down in it.
-    @SubscribeEvent
-    static void onChunkSent(net.neoforged.neoforge.event.level.ChunkWatchEvent.Sent event) {
-        net.minecraft.world.level.chunk.LevelChunk chunk = event.getChunk();
-        if (chunk.hasData(com.fogged.registry.ModAttachments.PLACED_POLLUTION)
-                && !chunk.getData(com.fogged.registry.ModAttachments.PLACED_POLLUTION).isEmpty()) {
-            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(event.getPlayer(), tintOf(event.getLevel(), chunk));
-        }
-    }
-
-    // Client side, per chunk: each placed filter's wear, 0..1. Main thread only.
-    static final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<it.unimi.dsi.fastutil.longs.Long2FloatOpenHashMap>
-            CLIENT_TINT = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
-
-    static void registerPayloads(net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent event) {
-        event.registrar("1").optional().playToClient(PlacedTint.TYPE, PlacedTint.CODEC, (t, ctx) -> ctx.enqueueWork(() -> {
-            if (t.cells().length == 0) {
-                CLIENT_TINT.remove(t.chunk());
-                return;
-            }
-            it.unimi.dsi.fastutil.longs.Long2FloatOpenHashMap m = new it.unimi.dsi.fastutil.longs.Long2FloatOpenHashMap(t.cells().length);
-            for (int i = 0; i < t.cells().length; i++) {
-                m.put(t.cells()[i], (t.wear()[i] & 0xFF) / 255.0F);
-            }
-            CLIENT_TINT.put(t.chunk(), m);
-        }));
     }
 
     /** Client side: the bar in the slot (FoggedClient registers it). No tooltip line: the bar already says it. */

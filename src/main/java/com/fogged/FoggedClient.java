@@ -42,6 +42,7 @@ public class FoggedClient {
         modEventBus.addListener(FogWalkerHud::registerLayer);
         modEventBus.addListener(FoggedClient::registerReloadListeners);
         modEventBus.addListener(FilterPollution.Client::registerDecorations);
+        UsedFilterModels.register(modEventBus); // used filters baked as their own blocks, shaded by step
         AirtightDebugRenderer.init(); // hooks the airtight payloads up to the client
         // The server's gameplay values (ConfigSync) belong to that connection only.
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut e) -> {
@@ -59,6 +60,7 @@ public class FoggedClient {
     private static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.AIR_COMPRESSOR.get(), AirCompressorRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.AIR_COMPRESSOR_INTAKE.get(), AirIntakeRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.USED_FILTER.get(), UsedFilterRenderer::new);
         if (ModList.get().isLoaded("create")) {
             com.fogged.create.CreateClient.registerRenderers(event);
         }

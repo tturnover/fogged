@@ -100,6 +100,17 @@ public final class ModBlocks {
                     .sound(SoundType.METAL)
                     .noOcclusion()); // a tube, not a cube: neighbours must still draw their faces
 
+    // A polluted filter set down: stands in for the block it is (wool, ...), holding that block and its
+    // pollution in its block entity's NBT, and turns back into it once clean. No item -- it breaks back
+    // into the filter it was. See UsedFilterBlock / UsedFilterBlockEntity.
+    // This generic one is for filters without a used filter of their own (com.fogged.UsedFilters).
+    public static final DeferredBlock<com.fogged.block.UsedFilterBlock> USED_FILTER =
+            registerNoItem("used_filter", com.fogged.block.UsedFilterBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.WOOL)
+                    .strength(0.8F)
+                    .sound(SoundType.WOOL)
+                    .ignitedByLava());
+
     // ------------------------------------------------------------------------
 
     /**

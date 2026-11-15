@@ -45,7 +45,6 @@ public class Fogged {
         FoggedDatapacks.register(modEventBus);
         modEventBus.addListener(AirtightDebug::registerPayloads);
         modEventBus.addListener(AirtightSync::registerPayloads);
-        modEventBus.addListener(FilterPollution::registerPayloads);
         ModFeatures.register(modEventBus);
         ModStructures.register(modEventBus);
         ModStructurePieces.register(modEventBus);
@@ -53,6 +52,9 @@ public class Fogged {
         // Gameplay config only. Everything the client draws lives in a CLIENT spec registered from
         // FoggedClient, so a server never dictates someone's visuals.
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.COMMON_SPEC);
+        // The used filters made at startup from it and their blockstates (see UsedFilters).
+        UsedFilters.register(modEventBus, modContainer);
+        UsedFilterPack.register(modEventBus);
         // ...and the parts of it a client reads, sent over so it draws the server's murk (see ConfigSync).
         ConfigSync.register(modEventBus);
 

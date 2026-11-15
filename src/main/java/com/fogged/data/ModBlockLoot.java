@@ -41,6 +41,9 @@ public class ModBlockLoot extends BlockLootSubProvider {
                 // Breaking a filter returns the wool that made it (the nozzle itself is gone). The wool's
                 // colour is stored in the block's COLOR state, so one pool per colour drops the match.
                 add(block, nozzleFilterLoot(block));
+            } else if (block == ModBlocks.USED_FILTER.get()) {
+                // Drops what the block it stands in for drops, polluted (UsedFilterBlock#getDrops).
+                add(block, noDrop());
             } else {
                 dropSelf(block);
             }

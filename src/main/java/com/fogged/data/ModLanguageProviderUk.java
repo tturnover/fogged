@@ -20,17 +20,18 @@ import net.neoforged.neoforge.common.data.LanguageProvider;
  */
 public class ModLanguageProviderUk extends LanguageProvider {
 
-    private static final Map<String, String> NAMES = Map.of(
-            "fog_detector", "Детектор туману",
-            "fog_detector_extension", "Секція детектора туману",
-            "nozzle_filter", "Фільтр туману",
-            "air_compressor", "Повітряний компресор",
-            "air_duct", "Повітропровід",
-            "air_compressor_intake", "Забір повітря",
-            "plodder", "Тупцюн",
-            "snap_dog", "Клацопес",
-            "trudger", "Важкоступ",
-            "fog_walker", "Туманохід");
+    private static final Map<String, String> NAMES = Map.ofEntries(
+            Map.entry("fog_detector", "Детектор туману"),
+            Map.entry("fog_detector_extension", "Секція детектора туману"),
+            Map.entry("nozzle_filter", "Фільтр туману"),
+            Map.entry("air_compressor", "Повітряний компресор"),
+            Map.entry("air_duct", "Повітропровід"),
+            Map.entry("air_compressor_intake", "Забір повітря"),
+            Map.entry("used_filter", "Використаний фільтр"),
+            Map.entry("plodder", "Тупцюн"),
+            Map.entry("snap_dog", "Клацопес"),
+            Map.entry("trudger", "Важкоступ"),
+            Map.entry("fog_walker", "Туманохід"));
 
     public ModLanguageProviderUk(PackOutput output) {
         super(output, Fogged.MODID, "uk_ua");

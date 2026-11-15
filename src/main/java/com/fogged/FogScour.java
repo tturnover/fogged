@@ -232,7 +232,7 @@ public final class FogScour {
     }
 
     /** The murk's steam: the nozzle filter's puff in the foam colour (see NozzleFilterBlockEntity). */
-    static ParticleOptions steam() {
+    public static ParticleOptions steam() {
         float[] c = Config.foamColor();
         return ColorParticleOption.create(ModParticles.PUFF.get(), c[0], c[1], c[2]);
     }

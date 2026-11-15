@@ -44,6 +44,11 @@ public final class ModBlockEntities {
                     .of(AirCompressorIntakeBlockEntity::create, ModBlocks.AIR_COMPRESSOR_INTAKE.get())
                     .build(null));
 
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<com.fogged.block.UsedFilterBlockEntity>> USED_FILTER =
+            BLOCK_ENTITIES.register("used_filter", () -> BlockEntityType.Builder
+                    .of(com.fogged.block.UsedFilterBlockEntity::new, com.fogged.UsedFilters.blocks())
+                    .build(null));
+
     public static void register(IEventBus modEventBus) {
         BLOCK_ENTITIES.register(modEventBus);
         modEventBus.addListener(ModBlockEntities::registerCapabilities);

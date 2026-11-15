@@ -18,10 +18,9 @@ public final class ModAttachments {
             DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, Fogged.MODID);
 
     /**
-     * On a chunk: the polluted filters set down in it as blocks, packed position -> the murk in it, in
-     * blocks (out of its capacity; {@link ModDataComponents#POLLUTION} steps on the item), so one broken comes back
-     * as dirty as it still is; out of the murk it sheds it (FilterPollution). Saved with the chunk; not
-     * written while empty.
+     * On a chunk, from worlds before used filters: the polluted filters set down in it, packed position ->
+     * the murk in it, in blocks. Only read, to turn each into a used filter when its chunk loads
+     * (FilterPollution); a used filter keeps its pollution in its own NBT. Not written while empty.
      */
     public static final DeferredHolder<AttachmentType<?>, AttachmentType<Map<Long, Integer>>> PLACED_POLLUTION =
             ATTACHMENTS.register("placed_pollution", () -> AttachmentType.<Map<Long, Integer>>builder(() -> new HashMap<>())
