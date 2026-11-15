@@ -36,6 +36,7 @@ public class FoggedClient {
         container.registerExtensionPoint(IConfigScreenFactory.class, FoggedClient::configScreen);
 
         modEventBus.addListener(FoggedClient::registerParticleProviders);
+        modEventBus.addListener(FoggedClient::registerBlockColors);
         modEventBus.addListener(FoggedClient::modifyBakingResult);
         modEventBus.addListener(FoggedClient::registerRenderers);
         modEventBus.addListener(FoggedClient::registerReloadListeners);
@@ -92,16 +93,40 @@ public class FoggedClient {
         event.registerSpriteSet(ModParticles.PUFF.get(), PuffParticle.Provider::new);
         event.registerSpriteSet(ModParticles.FOAM.get(), FoamParticle.Provider::new);
         event.registerSpriteSet(ModParticles.AIR.get(), AirParticle.Provider::new);
+        event.registerSpriteSet(ModParticles.FOG_SPILL.get(), FogSpillParticle.Provider::new);
     }
 
-    // Wrap the fog-detector / extension models so their pole retextures to the column's chosen log.
+    // Murk blocks take the murk's colour (their textures are grey), their foam the foam's. A colour
+    // changed in the config shows as chunks are next rebuilt.
+    private static void registerBlockColors(net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Block event) {
+        event.register((state, level, pos, tint) -> {
+            // 0: the body; 1: the spots and vapour, foam-coloured; 2: the rim and drips, the foam lifted
+            // toward white, so the brink reads against the body.
+            float[] c = tint == 0 ? Config.planeColor() : Config.foamColor();
+            float lift = tint == 2 ? 0.7F : 0.0F;
+            int r = (int) ((c[0] + (1 - c[0]) * lift) * 255), g = (int) ((c[1] + (1 - c[1]) * lift) * 255),
+                    b = (int) ((c[2] + (1 - c[2]) * lift) * 255);
+            return r << 16 | g << 8 | b;
+        }, com.fogged.registry.ModBlocks.MURK.get());
+    }
+
+    // Wrap the fog-detector / extension models so their pole retextures to the column's chosen log, the
+    // murk's so its textures run on in world space, and every plain block model so murk can stand in it.
     private static void modifyBakingResult(ModelEvent.ModifyBakingResult event) {
         ResourceLocation detector = ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "fog_detector");
         ResourceLocation extension = ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "fog_detector_extension");
+        ResourceLocation murk = ResourceLocation.fromNamespaceAndPath(Fogged.MODID, "murk");
+        FogLoggedModel.clearCache();
         for (var entry : event.getModels().entrySet()) {
             ModelResourceLocation loc = entry.getKey();
             if (loc.id().equals(detector) || loc.id().equals(extension)) {
                 entry.setValue(new FogDetectorLogModel(entry.getValue()));
+            } else if (loc.id().equals(murk)) {
+                entry.setValue(new MurkModel(entry.getValue())); // textures laid out in world space
+            } else if (!ModelResourceLocation.INVENTORY_VARIANT.equals(loc.variant())
+                    && !ModelResourceLocation.STANDALONE_VARIANT.equals(loc.variant())
+                    && FogLoggedModel.wraps(entry.getValue())) {
+                entry.setValue(new FogLoggedModel(entry.getValue())); // the murk runs on through the cell
             }
         }
     }

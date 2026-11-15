@@ -18,6 +18,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
+import com.fogged.block.MurkBlock;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -67,6 +68,23 @@ public final class ModBlocks {
                     .strength(2.0F)
                     .sound(SoundType.NETHERITE_BLOCK)
                     .noOcclusion());
+
+    // Murk: the murk's visible surface, a layer of these at the boundary (MurkLayer places, waves and
+    // removes them). Not obtainable, nothing to touch or target, replaced by anything placed into it.
+    // See MurkBlock.
+    public static final DeferredBlock<MurkBlock> MURK =
+            registerNoItem("murk", MurkBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.NONE)
+                    .replaceable()
+                    .noCollission()
+                    .noOcclusion()
+                    .noLootTable()
+                    .strength(-1.0F, 0.0F)
+                    .pushReaction(PushReaction.DESTROY)
+                    .isViewBlocking((s, l, p) -> false)
+                    .isSuffocating((s, l, p) -> false)
+                    .isRedstoneConductor((s, l, p) -> false)
+                    .sound(SoundType.WOOL));
 
     // Air compressor: set into a room's wall, it pumps the murk out and holds the room airtight. Runs
     // on FE, or a Create shaft turned into its side; same-facing neighbours join into 2x2 / 3x3 units.

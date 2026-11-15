@@ -1,0 +1,78 @@
+{
+  "render_type": "minecraft:translucent",
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "fogged:block/murk_wall",
+    "wall": "fogged:block/murk_wall",
+    "top": "fogged:block/murk_top",
+    "spots": "fogged:block/murk_spots",
+    "vapor1": "fogged:block/murk_vapor_1",
+    "vapor2": "fogged:block/murk_vapor_2"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "shade": false,
+      "faces": {
+        "north": {
+          "texture": "#wall",
+          "tintindex": 0,
+          "cullface": "north",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#wall",
+          "tintindex": 0,
+          "cullface": "south",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#wall",
+          "tintindex": 0,
+          "cullface": "east",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "west": {
+          "texture": "#wall",
+          "tintindex": 0,
+          "cullface": "west",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "down": {
+          "texture": "#wall",
+          "tintindex": 0,
+          "cullface": "down"
+        }
+      }
+    }
+  ]
+}

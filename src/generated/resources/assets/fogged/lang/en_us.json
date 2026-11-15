@@ -5,6 +5,7 @@
   "block.fogged.fog_detector": "Fog Detector",
   "block.fogged.fog_detector_extension": "Fog Detector Extension",
   "block.fogged.kinetic_air_compressor": "Kinetic Air Compressor",
+  "block.fogged.murk": "Murk",
   "block.fogged.nozzle_filter": "Fog Filter",
   "death.attack.fog_suffocation": "%1$s was swallowed by the fog",
   "death.attack.fog_suffocation.player": "%1$s drowned in the fog while fleeing %2$s",

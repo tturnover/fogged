@@ -54,7 +54,7 @@ public final class FogVapor {
     // the depth snapshot the plane captures there), not be painted out by it.
     @SubscribeEvent(priority = EventPriority.LOW)
     static void onRenderLevelStage(RenderLevelStageEvent event) {
-        if (!Config.RENDER_PLANE.getAsBoolean() || Config.VAPOR_SHEETS.getAsInt() <= 0) {
+        if (FogPlaneRenderer.DRAWN_AS_BLOCKS || !Config.RENDER_PLANE.getAsBoolean() || Config.VAPOR_SHEETS.getAsInt() <= 0) {
             return;
         }
         // The mist is drawn at up to TWO stages, and the same sheets at that.

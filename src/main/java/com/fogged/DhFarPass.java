@@ -160,7 +160,7 @@ final class DhFarPass {
             Minecraft mc = Minecraft.getInstance();
             try {
                 if (running(mc) && !inMurk(mc, mc.gameRenderer.getMainCamera())
-                        && Config.RENDER_PLANE.getAsBoolean()
+                        && Config.RENDER_PLANE.getAsBoolean() && !FogPlaneRenderer.DRAWN_AS_BLOCKS
                         && DhApi.Delayed.renderProxy.getRenderingApi() == EDhApiRenderingApi.OPEN_GL) {
                     draw(mc, event.value.getRenderParam());
                 }

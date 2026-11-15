@@ -93,6 +93,8 @@ public class FogPlaneRenderer {
     // (a clearColor wrap and shadowed fogRed/Green/Blue) and they disagree, so a plane fogged with the
     // scene colour stood against the backdrop as a hard straight cut. Vanilla terrain at full fog has
     // the same seam; the plane's dead-straight edge just made it read.
+    /** The murk's surface is a layer of real blocks (MurkLayer), so the shader plane and its vapour are not drawn. */
+    public static final boolean DRAWN_AS_BLOCKS = true;
     public static final float[] frameClearColor = new float[4];
     public static boolean frameClearValid;
     static int lastHoles;
@@ -138,7 +140,8 @@ public class FogPlaneRenderer {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
             return;
         }
-        if (!Config.RENDER_PLANE.getAsBoolean() || !Config.dimensionEnabled(mc.level)) {
+        // The murk's surface is drawn as blocks now (MurkLayer); the shader plane stays off.
+        if (DRAWN_AS_BLOCKS || !Config.RENDER_PLANE.getAsBoolean() || !Config.dimensionEnabled(mc.level)) {
             lastDrawn = false;
             return;
         }

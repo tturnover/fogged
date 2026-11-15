@@ -35,6 +35,9 @@ public class ModBlockLoot extends BlockLootSubProvider {
     protected void generate() {
         ModBlocks.BLOCKS.getEntries().forEach(holder -> {
             Block block = holder.get();
+            if (block == ModBlocks.MURK.get()) {
+                return; // noLootTable: nothing to drop
+            }
             if (block == ModBlocks.FOG_DETECTOR_EXTENSION.get()) {
                 add(block, createSingleItemTable(ModBlocks.FOG_DETECTOR.get()));
             } else if (block == ModBlocks.NOZZLE_FILTER.get()) {

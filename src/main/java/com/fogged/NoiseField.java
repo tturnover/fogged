@@ -88,7 +88,7 @@ public final class NoiseField {
     @SubscribeEvent
     static void onRenderFrame(RenderFrameEvent.Pre event) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || !Config.RENDER_PLANE.getAsBoolean()) {
+        if (mc.level == null || FogPlaneRenderer.DRAWN_AS_BLOCKS || !Config.RENDER_PLANE.getAsBoolean()) {
             valid = false;
             return;
         }

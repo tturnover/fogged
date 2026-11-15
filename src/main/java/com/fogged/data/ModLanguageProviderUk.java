@@ -27,6 +27,7 @@ public class ModLanguageProviderUk extends LanguageProvider {
             "air_compressor", "Повітряний компресор",
             "air_duct", "Повітропровід",
             "air_compressor_intake", "Забір повітря",
+            "murk", "Імла",
             "plodder", "Тупцюн",
             "snap_dog", "Клацопес",
             "trudger", "Важкоступ");

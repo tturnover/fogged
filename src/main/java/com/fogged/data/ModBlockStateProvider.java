@@ -39,7 +39,8 @@ public class ModBlockStateProvider extends BlockStateProvider {
             ModBlocks.NOZZLE_FILTER,
             ModBlocks.AIR_COMPRESSOR,
             ModBlocks.AIR_COMPRESSOR_INTAKE,
-            ModBlocks.AIR_DUCT);
+            ModBlocks.AIR_DUCT,
+            ModBlocks.MURK); // hand-made: assets/fogged/blockstates/murk.json
 
     @Override
     protected void registerStatesAndModels() {

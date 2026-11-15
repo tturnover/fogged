@@ -38,6 +38,20 @@ public final class ModParticles {
                 }
             });
 
+    /** Heavy foam pouring off the edge of the murk layer; see {@code FogSpillParticle}. */
+    public static final DeferredHolder<ParticleType<?>, ParticleType<ColorParticleOption>> FOG_SPILL =
+            PARTICLE_TYPES.register("fog_spill", () -> new ParticleType<ColorParticleOption>(false) {
+                @Override
+                public MapCodec<ColorParticleOption> codec() {
+                    return ColorParticleOption.codec(this);
+                }
+
+                @Override
+                public StreamCodec<? super RegistryFriendlyByteBuf, ColorParticleOption> streamCodec() {
+                    return ColorParticleOption.streamCodec(this);
+                }
+            });
+
     /** Tinted campfire smoke for the waterline foam; see {@code FoamParticle}. */
     public static final DeferredHolder<ParticleType<?>, ParticleType<ColorParticleOption>> FOAM =
             PARTICLE_TYPES.register("foam", () -> new ParticleType<ColorParticleOption>(false) {
